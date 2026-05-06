@@ -1,4 +1,5 @@
-const STORAGE_KEY = "famiflora-flow-desk-v3";
+const STORAGE_KEY = "famiflora-flow-desk-v4";
+const RESET_MARKER_KEY = "__flowdesk_reset_done_v1";
 
 const STATUS_LABELS = {
   nouveau: "Nouveau",
@@ -59,11 +60,6 @@ const refs = {
   pageTitle: document.querySelector("#pageTitle"),
   pageSubtitle: document.querySelector("#pageSubtitle"),
   mainView: document.querySelector("#mainView"),
-  resetDemoButton: document.querySelector("#resetDemoButton"),
-  resetStep1: document.querySelector("#resetStep1"),
-  resetStep2: document.querySelector("#resetStep2"),
-  resetConfirmButton: document.querySelector("#resetConfirmButton"),
-  resetCancelButton: document.querySelector("#resetCancelButton"),
   ticketCardTemplate: document.querySelector("#ticketCardTemplate"),
   navLinks: document.querySelectorAll("[data-nav-page]"),
   profileForm: document.querySelector("#profileForm"),
@@ -74,12 +70,25 @@ const refs = {
 bootstrap();
 
 function bootstrap() {
+  hardResetDataOnce();
   loadState();
   enforcePageUserRole();
   bindGlobalEvents();
   configureProfileTeamField();
   renderUserSelector();
   render();
+}
+
+function hardResetDataOnce() {
+  if (localStorage.getItem(RESET_MARKER_KEY) === "1") {
+    return;
+  }
+
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("famiflora-"))
+    .forEach((key) => localStorage.removeItem(key));
+
+  localStorage.setItem(RESET_MARKER_KEY, "1");
 }
 
 function loadState() {
@@ -129,23 +138,6 @@ function bindGlobalEvents() {
     state.currentUserId = event.target.value;
     persistState();
     render();
-  });
-
-  refs.resetDemoButton.addEventListener("click", () => {
-    refs.resetStep1.style.display = "none";
-    refs.resetStep2.style.display = "";
-  });
-
-  refs.resetCancelButton.addEventListener("click", () => {
-    refs.resetStep2.style.display = "none";
-    refs.resetStep1.style.display = "";
-  });
-
-  refs.resetConfirmButton.addEventListener("click", () => {
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith("famiflora-"))
-      .forEach((k) => localStorage.removeItem(k));
-    location.reload();
   });
 
   if (refs.profileForm) {
