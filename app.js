@@ -60,6 +60,10 @@ const refs = {
   pageSubtitle: document.querySelector("#pageSubtitle"),
   mainView: document.querySelector("#mainView"),
   resetDemoButton: document.querySelector("#resetDemoButton"),
+  resetStep1: document.querySelector("#resetStep1"),
+  resetStep2: document.querySelector("#resetStep2"),
+  resetConfirmButton: document.querySelector("#resetConfirmButton"),
+  resetCancelButton: document.querySelector("#resetCancelButton"),
   ticketCardTemplate: document.querySelector("#ticketCardTemplate"),
   navLinks: document.querySelectorAll("[data-nav-page]"),
   profileForm: document.querySelector("#profileForm"),
@@ -128,10 +132,16 @@ function bindGlobalEvents() {
   });
 
   refs.resetDemoButton.addEventListener("click", () => {
-    if (!confirm("Effacer toutes les donnees ? Cette action est irreversible.")) {
-      return;
-    }
-    // Supprimer toutes les cles famiflora (toutes versions)
+    refs.resetStep1.style.display = "none";
+    refs.resetStep2.style.display = "";
+  });
+
+  refs.resetCancelButton.addEventListener("click", () => {
+    refs.resetStep2.style.display = "none";
+    refs.resetStep1.style.display = "";
+  });
+
+  refs.resetConfirmButton.addEventListener("click", () => {
     Object.keys(localStorage)
       .filter((k) => k.startsWith("famiflora-"))
       .forEach((k) => localStorage.removeItem(k));

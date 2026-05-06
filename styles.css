@@ -272,6 +272,19 @@ ul {
   background: linear-gradient(135deg, #d36d51, var(--warn));
 }
 
+.button.danger {
+  background: linear-gradient(135deg, #c65b3f, #a33a26);
+  color: #fff;
+  box-shadow: 0 8px 20px rgba(166,58,38,0.28);
+}
+
+.button.danger-ghost {
+  color: var(--warn);
+  background: rgba(198, 91, 63, 0.08);
+  border: 1px solid rgba(198, 91, 63, 0.25);
+  box-shadow: none;
+}
+
 label,
 .detail-label,
 .section-label {

@@ -68,15 +68,20 @@
           </section>
 
           <section class="card storage-card">
-            <div class="section-head compact">
-              <h2>Donnees</h2>
-              <button id="resetDemoButton" class="button ghost" type="button">
-                Tout effacer
-              </button>
-            </div>
+            <h2>Donnees</h2>
             <p class="hint">
               Supprime tous les profils et toutes les taches en local.
             </p>
+            <div id="resetStep1">
+              <button id="resetDemoButton" class="button ghost danger-ghost" type="button">Tout effacer</button>
+            </div>
+            <div id="resetStep2" style="display:none;">
+              <p class="hint" style="color:#c65b3f;margin:0 0 8px;">Confirmer la suppression ?</p>
+              <div style="display:flex;gap:8px;">
+                <button id="resetConfirmButton" class="button danger" type="button">Oui, effacer</button>
+                <button id="resetCancelButton" class="button ghost" type="button">Annuler</button>
+              </div>
+            </div>
           </section>
         </aside>
 
