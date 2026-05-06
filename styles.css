@@ -28,13 +28,6 @@ body {
     linear-gradient(180deg, #f8fff6 0%, var(--bg) 100%);
 }
 
-.portal-page {
-  background:
-    radial-gradient(circle at 12% 8%, rgba(243, 155, 61, 0.28), transparent 24%),
-    radial-gradient(circle at 90% 10%, rgba(47, 125, 59, 0.28), transparent 30%),
-    linear-gradient(180deg, #f8fff6 0%, #eef7ea 100%);
-}
-
 img {
   display: block;
   max-width: 100%;
@@ -51,10 +44,6 @@ textarea {
   width: min(1380px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 24px 0 40px;
-}
-
-.portal-shell {
-  width: min(1180px, calc(100vw - 32px));
 }
 
 .hero {
@@ -149,60 +138,6 @@ h1 {
   display: grid;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 20px;
-}
-
-.portal-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-}
-
-.portal-badges {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-
-.portal-card {
-  text-decoration: none;
-  color: var(--text);
-  display: grid;
-  gap: 12px;
-  align-content: start;
-  transition: transform 180ms ease, box-shadow 180ms ease;
-  min-height: 210px;
-  position: relative;
-  overflow: hidden;
-}
-
-.portal-card::before {
-  content: "";
-  position: absolute;
-  inset: -40px -30px auto auto;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(47, 125, 59, 0.2), rgba(243, 155, 61, 0.25));
-}
-
-.portal-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 22px 46px rgba(26, 78, 37, 0.2);
-}
-
-.portal-kicker {
-  margin: 0;
-  text-transform: uppercase;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  font-weight: 800;
-  color: var(--accent-strong);
-}
-
-.portal-link {
-  font-weight: 700;
-  color: var(--accent-strong);
 }
 
 .left-rail,
@@ -587,8 +522,7 @@ textarea {
 
 @media (max-width: 1080px) {
   .hero,
-  .layout,
-  .portal-grid {
+  .layout {
     grid-template-columns: 1fr;
   }
 

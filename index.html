@@ -3,62 +3,311 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow Desk - Portail</title>
+    <title>Flow Desk · Famiflora</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,600&family=Manrope:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+
+      :root {
+        --green:       #2a7a3b;
+        --green-dark:  #1a5228;
+        --gold:        #d4820a;
+        --gold-light:  #f5a623;
+        --text:        #1a2e1f;
+        --muted:       #4d6b55;
+        --bg:          #f3f8f1;
+        --card-bg:     #ffffff;
+        --radius:      20px;
+      }
+
+      html, body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Manrope", sans-serif;
+        color: var(--text);
+      }
+
+      body {
+        background:
+          radial-gradient(ellipse 60% 40% at 15% 0%, rgba(42,122,59,.13) 0%, transparent 60%),
+          radial-gradient(ellipse 50% 35% at 88% 5%, rgba(212,130,10,.15) 0%, transparent 55%),
+          #f3f8f1;
+      }
+
+      .portal {
+        width: min(1020px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 72px 0 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 56px;
+      }
+
+      .portal__header {
+        text-align: center;
+        max-width: 620px;
+      }
+
+      .portal__badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: #1a5228;
+        background: rgba(42,122,59,.1);
+        border: 1px solid rgba(42,122,59,.18);
+        border-radius: 999px;
+        padding: 5px 16px;
+        margin-bottom: 24px;
+      }
+
+      .portal__badge::before {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #2a7a3b;
+      }
+
+      .portal__title {
+        font-family: "Fraunces", serif;
+        font-size: clamp(3.4rem, 9vw, 6.2rem);
+        font-weight: 700;
+        line-height: 0.95;
+        margin: 0 0 20px;
+        color: #1a2e1f;
+        letter-spacing: -0.02em;
+      }
+
+      .portal__title em {
+        font-style: italic;
+        color: #2a7a3b;
+      }
+
+      .portal__sub {
+        font-size: 1.05rem;
+        color: #4d6b55;
+        margin: 0;
+        font-weight: 500;
+        line-height: 1.65;
+      }
+
+      .portal__roles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 22px;
+        width: 100%;
+      }
+
+      .role-card {
+        text-decoration: none;
+        color: #1a2e1f;
+        background: #ffffff;
+        border-radius: 20px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid rgba(0,0,0,.07);
+        box-shadow: 0 2px 16px rgba(0,0,0,.055);
+        transition: transform 220ms cubic-bezier(.22,1,.36,1),
+                    box-shadow 220ms cubic-bezier(.22,1,.36,1);
+      }
+
+      .role-card:hover {
+        transform: translateY(-6px);
+        box-shadow: 0 16px 40px rgba(0,0,0,.13);
+      }
+
+      .role-card__stripe {
+        height: 5px;
+        width: 100%;
+        flex-shrink: 0;
+      }
+      .role-card--employee  .role-card__stripe { background: #2a7a3b; }
+      .role-card--manager   .role-card__stripe { background: #1a5228; }
+      .role-card--collab    .role-card__stripe { background: #f5a623; }
+
+      .role-card__icon {
+        padding: 28px 28px 0;
+        font-size: 2.8rem;
+        line-height: 1;
+        filter: drop-shadow(0 2px 6px rgba(0,0,0,.12));
+      }
+
+      .role-card__body {
+        padding: 18px 28px 20px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .role-card__tag {
+        margin: 0;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+      .role-card--employee  .role-card__tag { color: #2a7a3b; }
+      .role-card--manager   .role-card__tag { color: #1a5228; }
+      .role-card--collab    .role-card__tag { color: #d4820a; }
+
+      .role-card__title {
+        font-family: "Fraunces", serif;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 0;
+        line-height: 1.15;
+        color: #1a2e1f;
+      }
+
+      .role-card__desc {
+        font-size: 0.88rem;
+        color: #4d6b55;
+        margin: 0;
+        line-height: 1.65;
+        flex: 1;
+      }
+
+      .role-card__footer {
+        margin: 0 28px 26px;
+        border-top: 1px solid rgba(0,0,0,.07);
+        padding-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .role-card__cta {
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .role-card--employee  .role-card__cta { color: #2a7a3b; }
+      .role-card--manager   .role-card__cta { color: #1a5228; }
+      .role-card--collab    .role-card__cta { color: #d4820a; }
+
+      .role-card__arrow {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        transition: transform 200ms ease;
+      }
+      .role-card--employee  .role-card__arrow { background: rgba(42,122,59,.1);  color: #2a7a3b; }
+      .role-card--manager   .role-card__arrow { background: rgba(26,82,40,.1);   color: #1a5228; }
+      .role-card--collab    .role-card__arrow { background: rgba(212,130,10,.12); color: #d4820a; }
+
+      .role-card:hover .role-card__arrow {
+        transform: translateX(4px);
+      }
+
+      .portal__footer {
+        font-size: 0.78rem;
+        color: #4d6b55;
+        opacity: 0.7;
+      }
+
+      @media (max-width: 780px) {
+        .portal {
+          padding: 48px 0 40px;
+          gap: 40px;
+        }
+        .portal__roles {
+          grid-template-columns: 1fr;
+          max-width: 440px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .portal__title { font-size: 3rem; }
+      }
+    </style>
   </head>
-  <body class="portal-page">
-    <div class="page-shell portal-shell">
-      <header class="hero portal-hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Famiflora</p>
-          <h1>Flow Desk</h1>
-          <p class="hero-text">
-            Portail ticketing et task manager pour les equipes magasin,
-            decoration et technique.
-          </p>
-          <div class="portal-badges">
-            <span class="badge badge-muted">Ticketing interne</span>
-            <span class="badge badge-muted">Planning d'equipe</span>
-            <span class="badge badge-muted">Suivi d'interventions</span>
-          </div>
-        </div>
-        <div class="hero-panel card">
-          <h2>Entree rapide</h2>
-          <p class="hint">
-            Trois interfaces separees selon le role.
-          </p>
-          <a class="button" href="employee.html">Commencer cote magasin</a>
-        </div>
+  <body>
+    <div class="portal">
+
+      <header class="portal__header">
+        <div class="portal__badge">Famiflora</div>
+        <h1 class="portal__title">Flow<em>Desk</em></h1>
+        <p class="portal__sub">
+          Portail interne de ticketing et de gestion des interventions.<br>
+          Choisissez votre espace pour commencer.
+        </p>
       </header>
 
-      <main class="portal-grid">
-        <a class="card portal-card" href="employee.html">
-          <p class="portal-kicker">Demande</p>
-          <h2>Espace employe magasin</h2>
-          <p>Creer une intervention, decrire le besoin, joindre une photo et proposer une date.</p>
-          <span class="portal-link">Ouvrir</span>
+      <main class="portal__roles">
+
+        <a class="role-card role-card--employee" href="employee.html">
+          <div class="role-card__stripe"></div>
+          <div class="role-card__icon">&#x1F6D2;</div>
+          <div class="role-card__body">
+            <p class="role-card__tag">Magasin</p>
+            <h2 class="role-card__title">Espace employ&#xe9;</h2>
+            <p class="role-card__desc">
+              Cr&#xe9;er une demande d&#x2019;intervention, d&#xe9;crire le besoin
+              et proposer une date de passage.
+            </p>
+          </div>
+          <div class="role-card__footer">
+            <span class="role-card__cta">Acc&#xe9;der &#xe0; mon espace</span>
+            <span class="role-card__arrow">&#x2192;</span>
+          </div>
         </a>
 
-        <a class="card portal-card" href="manager.html">
-          <p class="portal-kicker">Validation</p>
-          <h2>Espace responsable</h2>
-          <p>Valider les demandes, affecter les taches et ajuster les delais de realisation.</p>
-          <span class="portal-link">Ouvrir</span>
+        <a class="role-card role-card--manager" href="manager.html">
+          <div class="role-card__stripe"></div>
+          <div class="role-card__icon">&#x1F4CB;</div>
+          <div class="role-card__body">
+            <p class="role-card__tag">Responsable</p>
+            <h2 class="role-card__title">Espace manager</h2>
+            <p class="role-card__desc">
+              Valider les demandes, affecter les t&#xe2;ches aux &#xe9;quipes
+              et ajuster les plannings d&#x2019;intervention.
+            </p>
+          </div>
+          <div class="role-card__footer">
+            <span class="role-card__cta">Acc&#xe9;der &#xe0; mon espace</span>
+            <span class="role-card__arrow">&#x2192;</span>
+          </div>
         </a>
 
-        <a class="card portal-card" href="collaborator.html">
-          <p class="portal-kicker">Execution</p>
-          <h2>Espace collaborateur</h2>
-          <p>Consulter son planning, suivre les taches attribuees et cloturer les interventions.</p>
-          <span class="portal-link">Ouvrir</span>
+        <a class="role-card role-card--collab" href="collaborator.html">
+          <div class="role-card__stripe"></div>
+          <div class="role-card__icon">&#x1F527;</div>
+          <div class="role-card__body">
+            <p class="role-card__tag">Technique &middot; D&#xe9;coration</p>
+            <h2 class="role-card__title">Espace collaborateur</h2>
+            <p class="role-card__desc">
+              Consulter son planning, suivre les t&#xe2;ches assign&#xe9;es
+              et cl&#xf4;turer les interventions termin&#xe9;es.
+            </p>
+          </div>
+          <div class="role-card__footer">
+            <span class="role-card__cta">Acc&#xe9;der &#xe0; mon espace</span>
+            <span class="role-card__arrow">&#x2192;</span>
+          </div>
         </a>
+
       </main>
+
+      <footer class="portal__footer">
+        Flow Desk &mdash; Usage interne Famiflora &nbsp;&middot;&nbsp; <span id="yr"></span>
+      </footer>
     </div>
+    <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
   </body>
 </html>
