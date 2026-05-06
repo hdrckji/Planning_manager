@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flow Desk - Espace Employe</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-page="employee">
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Famiflora</p>
+          <h1>Flow Desk</h1>
+          <p class="hero-text">
+            Demandes d'intervention et d'amenagement pour les services Technique
+            et Decoration.
+          </p>
+        </div>
+
+        <div class="hero-panel card">
+          <label for="currentUser">Profil connecte</label>
+          <select id="currentUser"></select>
+          <div class="current-user-meta">
+            <span id="currentRoleBadge" class="badge"></span>
+            <span id="currentTeamBadge" class="badge badge-muted"></span>
+          </div>
+          <p class="hint">
+            Version MVP autonome: donnees stockees localement dans le navigateur.
+          </p>
+        </div>
+      </header>
+
+      <main class="layout">
+        <aside class="left-rail">
+          <section class="card summary-card">
+            <h2>Vue rapide</h2>
+            <div class="stats-grid" id="statsGrid"></div>
+          </section>
+
+          <section class="card section-nav">
+            <h2>Espaces</h2>
+            <a class="nav-link" href="index.html">Portail</a>
+            <a class="nav-link" data-nav-page="employee" href="employee.html">Espace employe</a>
+            <a class="nav-link" data-nav-page="manager" href="manager.html">Espace responsable</a>
+            <a class="nav-link" data-nav-page="collaborator" href="collaborator.html">Espace collaborateur</a>
+          </section>
+
+          <section class="card" id="profileAdminCard">
+            <h2>Profils employes</h2>
+            <form id="profileForm" class="field">
+              <label for="profileName">Nom du profil</label>
+              <input id="profileName" name="profileName" type="text" placeholder="Ex: Lea - Vente" required />
+              <input id="profileTeam" name="profileTeam" type="hidden" value="magasin" />
+              <button class="button" type="submit">Ajouter</button>
+            </form>
+            <div id="profileList" class="profile-list"></div>
+          </section>
+
+          <section class="card storage-card">
+            <div class="section-head compact">
+              <h2>Donnees</h2>
+              <button id="resetDemoButton" class="button ghost" type="button">
+                Tout effacer
+              </button>
+            </div>
+            <p class="hint">
+              Supprime tous les profils et toutes les taches en local.
+            </p>
+          </section>
+        </aside>
+
+        <section class="main-column">
+          <section class="card">
+            <div class="section-head">
+              <div>
+                <h2 id="pageTitle"></h2>
+                <p id="pageSubtitle" class="subtle"></p>
+              </div>
+            </div>
+            <section id="mainView" class="view-panel"></section>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <template id="ticketCardTemplate">
+      <article class="ticket-card card">
+        <div class="ticket-head">
+          <div>
+            <div class="ticket-meta-row">
+              <span class="badge badge-team"></span>
+              <span class="badge badge-priority"></span>
+              <span class="badge badge-status"></span>
+            </div>
+            <h3 class="ticket-title"></h3>
+          </div>
+          <span class="ticket-code"></span>
+        </div>
+
+        <p class="ticket-description"></p>
+
+        <dl class="ticket-details"></dl>
+
+        <div class="ticket-photo-wrap hidden">
+          <p class="detail-label">Photo</p>
+          <img class="ticket-photo" alt="Illustration de la demande" />
+        </div>
+
+        <div class="ticket-actions"></div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>

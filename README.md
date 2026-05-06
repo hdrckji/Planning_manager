@@ -11,15 +11,16 @@ Prototype de site de ticketing et planning management pour Famiflora.
 - routage vers le responsable du bon service
 - gestion par responsable: affectation, date validée, priorité, statut
 - vue planning par collaborateur
+- séparation en 3 pages dédiées par usage métier
 
 ## Choix de conception
 
 Cette version est volontairement simple:
 
-- une seule page HTML
+- un portail d'accueil + 3 pages metier
 - stockage local dans le navigateur via localStorage
 - aucun backend ni installation nécessaire
-- profils de démonstration déjà présents dans le sélecteur en haut à droite
+- aucun profil ni ticket précharge (demarrage vide)
 
 Ce choix permet de valider le besoin métier et l'ergonomie très vite. Pour une mise en production réelle, il faudra ensuite brancher:
 
@@ -30,15 +31,12 @@ Ce choix permet de valider le besoin métier et l'ergonomie très vite. Pour une
 
 ## Lancement
 
-Ouvrir simplement le fichier index.html dans un navigateur moderne.
+Ouvrir simplement les pages HTML dans un navigateur moderne:
 
-## Profils de démonstration
-
-- employés magasin
-- responsable technique
-- collaborateurs technique
-- responsable déco
-- collaborateurs déco
+- `index.html`: portail d'accueil
+- `employee.html`: espace employés magasin
+- `manager.html`: espace responsables
+- `collaborator.html`: espace collaborateurs
 
 ## Références étudiées
 

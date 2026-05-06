@@ -1,26 +1,16 @@
-const STORAGE_KEY = "famiflora-flow-desk-v1";
-
-const USERS = [
-  { id: "u-emp-1", name: "Camille - Vente", role: "employee", team: "magasin" },
-  { id: "u-emp-2", name: "Noah - Caisse", role: "employee", team: "magasin" },
-  { id: "u-man-tech", name: "Julien - Responsable technique", role: "manager", team: "technique" },
-  { id: "u-col-tech-1", name: "Sophie - Technicienne", role: "collaborator", team: "technique" },
-  { id: "u-col-tech-2", name: "Milan - Technicien", role: "collaborator", team: "technique" },
-  { id: "u-man-deco", name: "Claire - Responsable déco", role: "manager", team: "decoration" },
-  { id: "u-col-deco-1", name: "Emma - Décoratrice", role: "collaborator", team: "decoration" },
-  { id: "u-col-deco-2", name: "Lucas - Décorateur", role: "collaborator", team: "decoration" },
-];
+const STORAGE_KEY = "famiflora-flow-desk-v2";
 
 const STATUS_LABELS = {
   nouveau: "Nouveau",
-  planifie: "Planifié",
+  planifie: "Planifie",
   en_cours: "En cours",
-  termine: "Terminé",
+  termine: "Termine",
 };
 
 const TEAM_LABELS = {
+  magasin: "Magasin",
   technique: "Technique",
-  decoration: "Décoration",
+  decoration: "Decoration",
 };
 
 const PRIORITY_LABELS = {
@@ -29,71 +19,61 @@ const PRIORITY_LABELS = {
   haute: "Haute",
 };
 
-const VIEW_BY_ROLE = {
-  employee: ["employee"],
-  manager: ["manager"],
-  collaborator: ["collaborator"],
+const PAGE_CONFIG = {
+  employee: {
+    title: "Espace employe magasin",
+    subtitle: "Creation et suivi des demandes d'intervention.",
+    role: "employee",
+  },
+  manager: {
+    title: "Espace responsable",
+    subtitle: "Validation, attribution et planification des demandes.",
+    role: "manager",
+  },
+  collaborator: {
+    title: "Espace collaborateur",
+    subtitle: "Planning personnel des taches attribuees.",
+    role: "collaborator",
+  },
 };
-
-const INITIAL_TICKETS = [
-  {
-    id: "T-1001",
-    title: "Éclairage panne rayon extérieur",
-    description: "Les spots du rayon extérieur clignotent depuis ce matin. Vérifier l'alimentation et remplacer si besoin.",
-    department: "technique",
-    createdBy: "u-emp-1",
-    desiredDate: addDays(2),
-    plannedDate: addDays(2),
-    assignedTo: "u-col-tech-1",
-    managerId: "u-man-tech",
-    priority: "haute",
-    status: "planifie",
-    photoDataUrl: "",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: "T-1002",
-    title: "Inspiration coin printemps entrée",
-    description: "Créer une mise en avant plus fleurie et colorée à l'entrée principale avec un rendu photo-friendly.",
-    department: "decoration",
-    createdBy: "u-emp-2",
-    desiredDate: addDays(4),
-    plannedDate: addDays(5),
-    assignedTo: "u-col-deco-1",
-    managerId: "u-man-deco",
-    priority: "moyenne",
-    status: "en_cours",
-    photoDataUrl: "",
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 const state = {
+  users: [],
   tickets: [],
-  currentUserId: USERS[0].id,
-  currentView: "employee",
+  currentUserByRole: {
+    employee: "",
+    manager: "",
+    collaborator: "",
+  },
+  currentUserId: "",
 };
+
+const page = document.body.dataset.page || "employee";
+const pageConfig = PAGE_CONFIG[page] || PAGE_CONFIG.employee;
 
 const refs = {
   currentUser: document.querySelector("#currentUser"),
   currentRoleBadge: document.querySelector("#currentRoleBadge"),
   currentTeamBadge: document.querySelector("#currentTeamBadge"),
   statsGrid: document.querySelector("#statsGrid"),
-  viewTabs: document.querySelector("#viewTabs"),
-  employeeView: document.querySelector("#employeeView"),
-  managerView: document.querySelector("#managerView"),
-  collaboratorView: document.querySelector("#collaboratorView"),
+  pageTitle: document.querySelector("#pageTitle"),
+  pageSubtitle: document.querySelector("#pageSubtitle"),
+  mainView: document.querySelector("#mainView"),
   resetDemoButton: document.querySelector("#resetDemoButton"),
   ticketCardTemplate: document.querySelector("#ticketCardTemplate"),
+  navLinks: document.querySelectorAll("[data-nav-page]"),
+  profileForm: document.querySelector("#profileForm"),
+  profileTeam: document.querySelector("#profileTeam"),
+  profileList: document.querySelector("#profileList"),
 };
 
 bootstrap();
 
 function bootstrap() {
   loadState();
+  enforcePageUserRole();
   bindGlobalEvents();
+  configureProfileTeamField();
   renderUserSelector();
   render();
 }
@@ -101,25 +81,41 @@ function bootstrap() {
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    state.tickets = structuredClone(INITIAL_TICKETS);
     return;
   }
 
   try {
     const saved = JSON.parse(raw);
-    state.tickets = Array.isArray(saved.tickets) ? saved.tickets : structuredClone(INITIAL_TICKETS);
-    state.currentUserId = saved.currentUserId || USERS[0].id;
+    state.users = Array.isArray(saved.users) ? saved.users : [];
+    state.tickets = Array.isArray(saved.tickets) ? saved.tickets : [];
+
+    const savedByRole = saved.currentUserByRole || {};
+    state.currentUserByRole = {
+      employee: typeof savedByRole.employee === "string" ? savedByRole.employee : "",
+      manager: typeof savedByRole.manager === "string" ? savedByRole.manager : "",
+      collaborator: typeof savedByRole.collaborator === "string" ? savedByRole.collaborator : "",
+    };
   } catch {
-    state.tickets = structuredClone(INITIAL_TICKETS);
+    state.users = [];
+    state.tickets = [];
   }
 }
 
+function enforcePageUserRole() {
+  const users = usersForCurrentPage();
+  const preferredId = state.currentUserByRole[pageConfig.role];
+  const preferred = users.find((user) => user.id === preferredId);
+  state.currentUserId = preferred ? preferred.id : users[0]?.id || "";
+}
+
 function persistState() {
+  state.currentUserByRole[pageConfig.role] = state.currentUserId || "";
   localStorage.setItem(
     STORAGE_KEY,
     JSON.stringify({
+      users: state.users,
       tickets: state.tickets,
-      currentUserId: state.currentUserId,
+      currentUserByRole: state.currentUserByRole,
     }),
   );
 }
@@ -127,42 +123,205 @@ function persistState() {
 function bindGlobalEvents() {
   refs.currentUser.addEventListener("change", (event) => {
     state.currentUserId = event.target.value;
-    state.currentView = VIEW_BY_ROLE[getCurrentUser().role][0];
     persistState();
     render();
   });
 
   refs.resetDemoButton.addEventListener("click", () => {
-    state.tickets = structuredClone(INITIAL_TICKETS);
+    state.users = [];
+    state.tickets = [];
+    state.currentUserId = "";
+    state.currentUserByRole = {
+      employee: "",
+      manager: "",
+      collaborator: "",
+    };
     persistState();
+    renderUserSelector();
     render();
-    toast("Démo réinitialisée.");
+    toast("Toutes les donnees locales ont ete effacees.");
   });
+
+  if (refs.profileForm) {
+    refs.profileForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const formData = new FormData(refs.profileForm);
+      const name = String(formData.get("profileName") || "").trim();
+      const team = normalizeTeam(String(formData.get("profileTeam") || ""));
+      if (!name) {
+        return;
+      }
+
+      const user = {
+        id: nextUserId(),
+        name,
+        role: pageConfig.role,
+        team,
+      };
+
+      state.users.push(user);
+      state.currentUserId = user.id;
+      refs.profileForm.reset();
+      if (pageConfig.role === "employee" && refs.profileTeam) {
+        refs.profileTeam.value = "magasin";
+      }
+
+      persistState();
+      renderUserSelector();
+      render();
+      toast("Profil ajoute.");
+    });
+  }
+}
+
+function configureProfileTeamField() {
+  if (!refs.profileTeam) {
+    return;
+  }
+
+  if (pageConfig.role === "employee") {
+    refs.profileTeam.value = "magasin";
+  }
 }
 
 function render() {
   const user = getCurrentUser();
-  refs.currentUser.value = user.id;
-  refs.currentRoleBadge.textContent = roleLabel(user.role);
-  refs.currentTeamBadge.textContent = teamLabel(user.team);
+
+  if (refs.pageTitle) {
+    refs.pageTitle.textContent = pageConfig.title;
+  }
+  if (refs.pageSubtitle) {
+    refs.pageSubtitle.textContent = pageConfig.subtitle;
+  }
+
+  if (!user) {
+    refs.currentRoleBadge.textContent = "Aucun profil";
+    refs.currentTeamBadge.textContent = "Aucune equipe";
+  } else {
+    refs.currentUser.value = user.id;
+    refs.currentRoleBadge.textContent = roleLabel(user.role);
+    refs.currentTeamBadge.textContent = teamLabel(user.team);
+  }
 
   renderStats();
-  renderTabs();
-  renderEmployeeView();
-  renderManagerView();
-  renderCollaboratorView();
-  toggleViews();
+  renderActiveNavigation();
+  renderProfileList();
+  renderCurrentPage();
   persistState();
 }
 
 function renderUserSelector() {
-  refs.currentUser.innerHTML = USERS.map(
+  const users = usersForCurrentPage();
+
+  if (users.length === 0) {
+    refs.currentUser.innerHTML = '<option value="">Aucun profil cree</option>';
+    refs.currentUser.disabled = true;
+    state.currentUserId = "";
+    return;
+  }
+
+  refs.currentUser.disabled = false;
+  refs.currentUser.innerHTML = users.map(
     (user) => `<option value="${user.id}">${user.name}</option>`,
   ).join("");
+
+  if (!users.some((user) => user.id === state.currentUserId)) {
+    state.currentUserId = users[0].id;
+  }
+  refs.currentUser.value = state.currentUserId;
+}
+
+function usersForCurrentPage() {
+  return state.users.filter((user) => user.role === pageConfig.role);
+}
+
+function renderProfileList() {
+  if (!refs.profileList) {
+    return;
+  }
+
+  const users = usersForCurrentPage();
+  if (users.length === 0) {
+    refs.profileList.innerHTML = '<div class="empty-state">Aucun profil pour ce role.</div>';
+    return;
+  }
+
+  refs.profileList.innerHTML = users
+    .map((user) => `
+      <div class="profile-item">
+        <div>
+          <strong>${user.name}</strong>
+          <p class="subtle">${teamLabel(user.team)}</p>
+        </div>
+        <button class="button ghost" type="button" data-action="delete-profile" data-user-id="${user.id}">Supprimer</button>
+      </div>
+    `)
+    .join("");
+
+  refs.profileList.querySelectorAll("[data-action='delete-profile']").forEach((button) => {
+    button.addEventListener("click", () => {
+      removeUser(button.dataset.userId);
+    });
+  });
+}
+
+function removeUser(userId) {
+  const user = findUser(userId);
+  if (!user) {
+    return;
+  }
+
+  state.users = state.users.filter((item) => item.id !== userId);
+
+  state.tickets = state.tickets.map((ticket) => {
+    const nextTicket = { ...ticket };
+    if (nextTicket.assignedTo === userId) {
+      nextTicket.assignedTo = "";
+    }
+    if (nextTicket.managerId === userId) {
+      nextTicket.managerId = managerIdForDepartment(nextTicket.department);
+    }
+    if (nextTicket.createdBy === userId) {
+      nextTicket.createdBy = "";
+    }
+    return nextTicket;
+  });
+
+  const pageUsers = usersForCurrentPage();
+  if (state.currentUserId === userId) {
+    state.currentUserId = pageUsers[0]?.id || "";
+  }
+
+  persistState();
+  renderUserSelector();
+  render();
+  toast("Profil supprime.");
 }
 
 function renderStats() {
   const currentUser = getCurrentUser();
+
+  if (!currentUser) {
+    const zeroStats = [
+      { label: "Demandes totales", value: 0 },
+      { label: "A traiter", value: 0 },
+      { label: "Haute priorite", value: 0 },
+      { label: "Mon planning", value: 0 },
+    ];
+
+    refs.statsGrid.innerHTML = zeroStats
+      .map(
+        (stat) => `
+          <article class="stat-card">
+            <span class="stat-value">${stat.value}</span>
+            <span class="stat-label">${stat.label}</span>
+          </article>
+        `,
+      )
+      .join("");
+    return;
+  }
+
   const ticketsForTeam = currentUser.team === "magasin"
     ? state.tickets
     : state.tickets.filter((ticket) => ticket.department === currentUser.team);
@@ -171,8 +330,8 @@ function renderStats() {
 
   const stats = [
     { label: "Demandes totales", value: ticketsForTeam.length },
-    { label: "À traiter", value: pending.length },
-    { label: "Haute priorité", value: ticketsForTeam.filter((ticket) => ticket.priority === "haute").length },
+    { label: "A traiter", value: pending.length },
+    { label: "Haute priorite", value: ticketsForTeam.filter((ticket) => ticket.priority === "haute").length },
     { label: "Mon planning", value: assignedTickets.length },
   ];
 
@@ -188,57 +347,56 @@ function renderStats() {
     .join("");
 }
 
-function renderTabs() {
-  const views = VIEW_BY_ROLE[getCurrentUser().role];
-  refs.viewTabs.innerHTML = views
-    .map((view) => {
-      const labels = {
-        employee: "Nouvelle demande",
-        manager: "Pilotage d'équipe",
-        collaborator: "Mon planning",
-      };
-      return `<button class="tab ${state.currentView === view ? "active" : ""}" type="button" data-view="${view}">${labels[view]}</button>`;
-    })
-    .join("");
-
-  refs.viewTabs.querySelectorAll(".tab").forEach((button) => {
-    button.addEventListener("click", () => {
-      state.currentView = button.dataset.view;
-      render();
-    });
+function renderActiveNavigation() {
+  refs.navLinks.forEach((link) => {
+    link.classList.toggle("active", link.dataset.navPage === page);
   });
 }
 
-function toggleViews() {
-  refs.employeeView.classList.toggle("hidden", state.currentView !== "employee");
-  refs.managerView.classList.toggle("hidden", state.currentView !== "manager");
-  refs.collaboratorView.classList.toggle("hidden", state.currentView !== "collaborator");
+function renderCurrentPage() {
+  const user = getCurrentUser();
+  if (!user) {
+    refs.mainView.innerHTML = '<div class="empty-state">Ajoute d\'abord un profil dans le panneau de gauche.</div>';
+    return;
+  }
+
+  if (page === "manager") {
+    renderManagerPage();
+    return;
+  }
+
+  if (page === "collaborator") {
+    renderCollaboratorPage();
+    return;
+  }
+
+  renderEmployeePage();
 }
 
-function renderEmployeeView() {
+function renderEmployeePage() {
   const currentUser = getCurrentUser();
   const tickets = state.tickets
     .filter((ticket) => ticket.createdBy === currentUser.id)
     .sort(sortByUpdatedDesc);
 
-  refs.employeeView.innerHTML = `
+  refs.mainView.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Créer une demande</h2>
-          <p class="subtle">Technique pour une panne, Décoration pour une inspiration ou une mise en scène.</p>
+          <h2>Creer une demande</h2>
+          <p class="subtle">Technique pour une panne, Decoration pour une inspiration ou une mise en scene.</p>
         </div>
       </div>
       <form id="ticketForm" class="form-grid">
         <div class="field">
-          <label for="department">Service concerné</label>
+          <label for="department">Service concerne</label>
           <select id="department" name="department" required>
             <option value="technique">Technique</option>
-            <option value="decoration">Décoration</option>
+            <option value="decoration">Decoration</option>
           </select>
         </div>
         <div class="field">
-          <label for="desiredDate">Date souhaitée</label>
+          <label for="desiredDate">Date souhaitee</label>
           <input id="desiredDate" name="desiredDate" type="date" required />
         </div>
         <div class="field full">
@@ -247,7 +405,7 @@ function renderEmployeeView() {
         </div>
         <div class="field full">
           <label for="description">Description</label>
-          <textarea id="description" name="description" placeholder="Décrivez le besoin, l'emplacement, l'impact et le rendu attendu." required></textarea>
+          <textarea id="description" name="description" placeholder="Decris le besoin, l'emplacement, l'impact et le rendu attendu." required></textarea>
         </div>
         <div class="field full">
           <label for="photo">Photo optionnelle</label>
@@ -263,14 +421,14 @@ function renderEmployeeView() {
       <div class="section-head">
         <div>
           <h2>Mes demandes</h2>
-          <p class="subtle">Suivi des demandes créées depuis ce profil.</p>
+          <p class="subtle">Suivi des demandes creees depuis ce profil.</p>
         </div>
       </div>
       <div class="ticket-list" id="employeeTicketList"></div>
     </section>
   `;
 
-  const form = refs.employeeView.querySelector("#ticketForm");
+  const form = refs.mainView.querySelector("#ticketForm");
   form.desiredDate.value = today();
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -298,25 +456,25 @@ function renderEmployeeView() {
     form.reset();
     form.desiredDate.value = today();
     render();
-    toast("Demande envoyée.");
+    toast("Demande envoyee.");
   });
 
-  renderTicketCards(refs.employeeView.querySelector("#employeeTicketList"), tickets, { mode: "read" });
+  renderTicketCards(refs.mainView.querySelector("#employeeTicketList"), tickets, { mode: "read" });
 }
 
-function renderManagerView() {
+function renderManagerPage() {
   const currentUser = getCurrentUser();
   const tickets = state.tickets
     .filter((ticket) => ticket.department === currentUser.team)
     .sort(sortByPlannedDate);
-  const collaborators = USERS.filter((user) => user.role === "collaborator" && user.team === currentUser.team);
+  const collaborators = state.users.filter((user) => user.role === "collaborator" && user.team === currentUser.team);
 
-  refs.managerView.innerHTML = `
+  refs.mainView.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
           <h2>Pilotage ${teamLabel(currentUser.team)}</h2>
-          <p class="subtle">Affectez, priorisez et confirmez les dates de réalisation.</p>
+          <p class="subtle">Affecte, priorise et confirme les dates de realisation.</p>
         </div>
       </div>
       <div class="lane-list" id="managerLanes"></div>
@@ -324,43 +482,43 @@ function renderManagerView() {
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>File détaillée</h2>
-          <p class="subtle">Chaque fiche reste éditable rapidement.</p>
+          <h2>File detaillee</h2>
+          <p class="subtle">Chaque fiche reste editable rapidement.</p>
         </div>
       </div>
       <div class="ticket-list" id="managerTicketList"></div>
     </section>
   `;
 
-  renderManagerLanes(refs.managerView.querySelector("#managerLanes"), tickets);
-  renderTicketCards(refs.managerView.querySelector("#managerTicketList"), tickets, {
+  renderManagerLanes(refs.mainView.querySelector("#managerLanes"), tickets);
+  renderTicketCards(refs.mainView.querySelector("#managerTicketList"), tickets, {
     mode: "manage",
     collaborators,
   });
 }
 
-function renderCollaboratorView() {
+function renderCollaboratorPage() {
   const currentUser = getCurrentUser();
   const tickets = state.tickets
     .filter((ticket) => ticket.assignedTo === currentUser.id)
     .sort(sortByPlannedDate);
   const grouped = groupBy(tickets, (ticket) => ticket.plannedDate || "Sans date");
 
-  refs.collaboratorView.innerHTML = `
+  refs.mainView.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
           <h2>Mon planning</h2>
-          <p class="subtle">Vue chronologique des tâches affectées à ce collaborateur.</p>
+          <p class="subtle">Vue chronologique des taches affectees a ce collaborateur.</p>
         </div>
       </div>
       <div class="planning-list" id="planningList"></div>
     </section>
   `;
 
-  const planningList = refs.collaboratorView.querySelector("#planningList");
+  const planningList = refs.mainView.querySelector("#planningList");
   if (tickets.length === 0) {
-    planningList.innerHTML = `<div class="empty-state">Aucune tâche affectée pour le moment.</div>`;
+    planningList.innerHTML = '<div class="empty-state">Aucune tache affectee pour le moment.</div>';
     return;
   }
 
@@ -370,7 +528,7 @@ function renderCollaboratorView() {
         <section class="planning-day">
           <div class="timeline-meta">
             <h3>${formatDate(date)}</h3>
-            <span class="badge badge-muted">${dayTickets.length} tâche(s)</span>
+            <span class="badge badge-muted">${dayTickets.length} tache(s)</span>
           </div>
           ${dayTickets
             .map(
@@ -383,7 +541,7 @@ function renderCollaboratorView() {
                   </div>
                   <p class="subtle">${ticket.description}</p>
                   <div class="ticket-actions">
-                    ${ticket.status !== "termine" ? `<button class="button" type="button" data-action="mark-done" data-ticket-id="${ticket.id}">Marquer terminé</button>` : ""}
+                    ${ticket.status !== "termine" ? `<button class="button" type="button" data-action="mark-done" data-ticket-id="${ticket.id}">Marquer termine</button>` : ""}
                   </div>
                 </article>
               `,
@@ -397,7 +555,7 @@ function renderCollaboratorView() {
   planningList.querySelectorAll("[data-action='mark-done']").forEach((button) => {
     button.addEventListener("click", () => {
       updateTicket(button.dataset.ticketId, { status: "termine" });
-      toast("Tâche marquée comme terminée.");
+      toast("Tache marquee comme terminee.");
     });
   });
 }
@@ -405,9 +563,9 @@ function renderCollaboratorView() {
 function renderManagerLanes(container, tickets) {
   const laneMap = [
     { key: "nouveau", label: "Nouveau" },
-    { key: "planifie", label: "Planifié" },
+    { key: "planifie", label: "Planifie" },
     { key: "en_cours", label: "En cours" },
-    { key: "termine", label: "Terminé" },
+    { key: "termine", label: "Termine" },
   ];
 
   container.innerHTML = laneMap
@@ -416,12 +574,12 @@ function renderManagerLanes(container, tickets) {
       return `
         <section class="lane-card">
           <h3>${lane.label}</h3>
-          ${items.length === 0 ? `<div class="empty-state">Aucune demande.</div>` : items
+          ${items.length === 0 ? '<div class="empty-state">Aucune demande.</div>' : items
             .map(
               (ticket) => `
                 <article class="ticket-mini">
                   <strong>${ticket.title}</strong>
-                  <p class="subtle">${ticket.plannedDate ? formatDate(ticket.plannedDate) : "Date à confirmer"}</p>
+                  <p class="subtle">${ticket.plannedDate ? formatDate(ticket.plannedDate) : "Date a confirmer"}</p>
                 </article>
               `,
             )
@@ -434,7 +592,7 @@ function renderManagerLanes(container, tickets) {
 
 function renderTicketCards(container, tickets, options) {
   if (tickets.length === 0) {
-    container.innerHTML = `<div class="empty-state">Aucune demande à afficher.</div>`;
+    container.innerHTML = '<div class="empty-state">Aucune demande a afficher.</div>';
     return;
   }
 
@@ -482,9 +640,9 @@ function renderManagerForm(ticket, collaborators) {
   wrapper.className = "manager-grid";
   wrapper.innerHTML = `
     <div class="field">
-      <label>Affecter à</label>
+      <label>Affecter a</label>
       <select name="assignedTo">
-        <option value="">Non attribué</option>
+        <option value="">Non attribue</option>
         ${collaborators
           .map(
             (user) => `<option value="${user.id}" ${ticket.assignedTo === user.id ? "selected" : ""}>${user.name}</option>`,
@@ -493,7 +651,7 @@ function renderManagerForm(ticket, collaborators) {
       </select>
     </div>
     <div class="field">
-      <label>Priorité</label>
+      <label>Priorite</label>
       <select name="priority">
         ${Object.entries(PRIORITY_LABELS)
           .map(
@@ -503,7 +661,7 @@ function renderManagerForm(ticket, collaborators) {
       </select>
     </div>
     <div class="field">
-      <label>Date validée</label>
+      <label>Date validee</label>
       <input name="plannedDate" type="date" value="${ticket.plannedDate || ticket.desiredDate || today()}" />
     </div>
     <div class="field">
@@ -530,7 +688,7 @@ function renderManagerForm(ticket, collaborators) {
       plannedDate: String(formData.get("plannedDate")),
       status: String(formData.get("status")),
     });
-    toast("Demande mise à jour.");
+    toast("Demande mise a jour.");
   });
 
   return wrapper;
@@ -538,16 +696,16 @@ function renderManagerForm(ticket, collaborators) {
 
 function renderDetails(ticket) {
   const createdBy = findUser(ticket.createdBy)?.name || "Inconnu";
-  const assignedTo = findUser(ticket.assignedTo)?.name || "Non attribué";
-  const manager = findUser(ticket.managerId)?.name || "Responsable non défini";
+  const assignedTo = findUser(ticket.assignedTo)?.name || "Non attribue";
+  const manager = findUser(ticket.managerId)?.name || "Responsable non defini";
 
   return [
-    detailItem("Demandé par", createdBy),
-    detailItem("Date souhaitée", formatDate(ticket.desiredDate)),
-    detailItem("Date validée", formatDate(ticket.plannedDate)),
-    detailItem("Attribué à", assignedTo),
+    detailItem("Demande par", createdBy),
+    detailItem("Date souhaitee", formatDate(ticket.desiredDate)),
+    detailItem("Date validee", formatDate(ticket.plannedDate)),
+    detailItem("Attribue a", assignedTo),
     detailItem("Responsable", manager),
-    detailItem("Mis à jour", formatDateTime(ticket.updatedAt)),
+    detailItem("Mis a jour", formatDateTime(ticket.updatedAt)),
   ].join("");
 }
 
@@ -573,16 +731,35 @@ function nextTicketId() {
   return `T-${lastId + 1}`;
 }
 
+function nextUserId() {
+  const lastId = state.users
+    .map((user) => Number(user.id.replace("u-", "")))
+    .filter((value) => !Number.isNaN(value))
+    .sort((left, right) => right - left)[0] || 0;
+  return `u-${lastId + 1}`;
+}
+
 function getCurrentUser() {
-  return USERS.find((user) => user.id === state.currentUserId) || USERS[0];
+  if (!state.currentUserId) {
+    return null;
+  }
+  return state.users.find((user) => user.id === state.currentUserId) || null;
 }
 
 function findUser(userId) {
-  return USERS.find((user) => user.id === userId);
+  return state.users.find((user) => user.id === userId);
 }
 
 function managerIdForDepartment(department) {
-  return department === "technique" ? "u-man-tech" : "u-man-deco";
+  const manager = state.users.find((user) => user.role === "manager" && user.team === department);
+  return manager ? manager.id : "";
+}
+
+function normalizeTeam(team) {
+  if (pageConfig.role === "employee") {
+    return "magasin";
+  }
+  return team === "technique" || team === "decoration" ? team : "technique";
 }
 
 function teamLabel(team) {
@@ -591,7 +768,7 @@ function teamLabel(team) {
 
 function roleLabel(role) {
   const labels = {
-    employee: "Employé magasin",
+    employee: "Employe magasin",
     manager: "Responsable",
     collaborator: "Collaborateur",
   };
@@ -629,7 +806,7 @@ function sortByPlannedDate(left, right) {
 
 function formatDate(value) {
   if (!value) {
-    return "À définir";
+    return "A definir";
   }
   return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium" }).format(new Date(value));
 }
@@ -640,12 +817,6 @@ function formatDateTime(value) {
 
 function today() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function addDays(days) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 function toDataUrl(file) {

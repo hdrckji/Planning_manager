@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Famiflora Flow Desk</title>
+    <title>Flow Desk - Portail</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,96 +13,42 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="hero">
+    <div class="page-shell portal-shell">
+      <header class="hero portal-hero">
         <div class="hero-copy">
           <p class="eyebrow">Famiflora</p>
           <h1>Flow Desk</h1>
           <p class="hero-text">
-            Un point d'entrée simple pour les demandes Technique et Décoration,
-            avec affectation, priorités et planning d'équipe.
+            Portail d'acces au ticketing et au task manager par metier.
           </p>
         </div>
-
         <div class="hero-panel card">
-          <label for="currentUser">Connexion rapide</label>
-          <select id="currentUser"></select>
-          <div class="current-user-meta">
-            <span id="currentRoleBadge" class="badge"></span>
-            <span id="currentTeamBadge" class="badge badge-muted"></span>
-          </div>
+          <h2>Choisis ton espace</h2>
           <p class="hint">
-            Version MVP autonome: les données sont stockées dans ce navigateur.
+            Trois interfaces separees: employes, responsables et collaborateurs.
           </p>
         </div>
       </header>
 
-      <main class="layout">
-        <aside class="left-rail">
-          <section class="card summary-card">
-            <h2>Vue rapide</h2>
-            <div class="stats-grid" id="statsGrid"></div>
-          </section>
+      <main class="portal-grid">
+        <a class="card portal-card" href="employee.html">
+          <h2>Espace employe magasin</h2>
+          <p>Creer une demande, decrire la problematique, ajouter une photo et proposer une date.</p>
+          <span class="portal-link">Ouvrir</span>
+        </a>
 
-          <section class="card guide-card">
-            <h2>Principe</h2>
-            <ul>
-              <li>Les employés créent une demande en moins d'une minute.</li>
-              <li>Les responsables valident la date, la priorité et l'attribution.</li>
-              <li>Les collaborateurs consultent leur planning par date.</li>
-            </ul>
-          </section>
+        <a class="card portal-card" href="manager.html">
+          <h2>Espace responsable</h2>
+          <p>Valider les demandes, les attribuer a l'equipe et ajuster le delai d'intervention.</p>
+          <span class="portal-link">Ouvrir</span>
+        </a>
 
-          <section class="card storage-card">
-            <div class="section-head compact">
-              <h2>Données</h2>
-              <button id="resetDemoButton" class="button ghost" type="button">
-                Réinitialiser la démo
-              </button>
-            </div>
-            <p class="hint">
-              Idéal pour valider les flux métier avant branchement à une vraie base.
-            </p>
-          </section>
-        </aside>
-
-        <section class="main-column">
-          <div class="tabs" id="viewTabs"></div>
-
-          <section id="employeeView" class="view-panel"></section>
-          <section id="managerView" class="view-panel hidden"></section>
-          <section id="collaboratorView" class="view-panel hidden"></section>
-        </section>
+        <a class="card portal-card" href="collaborator.html">
+          <h2>Espace collaborateur</h2>
+          <p>Consulter son planning et visualiser les taches qui ont ete attribuees.</p>
+          <span class="portal-link">Ouvrir</span>
+        </a>
       </main>
     </div>
-
-    <template id="ticketCardTemplate">
-      <article class="ticket-card card">
-        <div class="ticket-head">
-          <div>
-            <div class="ticket-meta-row">
-              <span class="badge badge-team"></span>
-              <span class="badge badge-priority"></span>
-              <span class="badge badge-status"></span>
-            </div>
-            <h3 class="ticket-title"></h3>
-          </div>
-          <span class="ticket-code"></span>
-        </div>
-
-        <p class="ticket-description"></p>
-
-        <dl class="ticket-details"></dl>
-
-        <div class="ticket-photo-wrap hidden">
-          <p class="detail-label">Photo</p>
-          <img class="ticket-photo" alt="Illustration de la demande" />
-        </div>
-
-        <div class="ticket-actions"></div>
-      </article>
-    </template>
-
-    <script src="app.js"></script>
   </body>
 </html>
