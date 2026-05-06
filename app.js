@@ -128,18 +128,14 @@ function bindGlobalEvents() {
   });
 
   refs.resetDemoButton.addEventListener("click", () => {
-    state.users = [];
-    state.tickets = [];
-    state.currentUserId = "";
-    state.currentUserByRole = {
-      employee: "",
-      manager: "",
-      collaborator: "",
-    };
-    persistState();
-    renderUserSelector();
-    render();
-    toast("Toutes les donnees locales ont ete effacees.");
+    if (!confirm("Effacer toutes les donnees ? Cette action est irreversible.")) {
+      return;
+    }
+    // Supprimer toutes les cles famiflora (toutes versions)
+    Object.keys(localStorage)
+      .filter((k) => k.startsWith("famiflora-"))
+      .forEach((k) => localStorage.removeItem(k));
+    location.reload();
   });
 
   if (refs.profileForm) {
