@@ -1,15 +1,15 @@
 :root {
-  --bg: #f7f2e8;
-  --panel: rgba(255, 251, 244, 0.92);
-  --panel-strong: #fffaf1;
-  --line: rgba(68, 53, 36, 0.12);
-  --text: #2d241c;
-  --muted: #6d5d4d;
-  --accent: #1f6f5f;
-  --accent-strong: #125447;
-  --gold: #db9d31;
+  --bg: #f2f8f0;
+  --panel: rgba(250, 255, 247, 0.92);
+  --panel-strong: #f8fff5;
+  --line: rgba(43, 90, 52, 0.14);
+  --text: #1d2f23;
+  --muted: #5a7362;
+  --accent: #2f7d3b;
+  --accent-strong: #215e2c;
+  --gold: #f39b3d;
   --warn: #c65b3f;
-  --shadow: 0 18px 40px rgba(53, 38, 20, 0.1);
+  --shadow: 0 18px 40px rgba(24, 63, 33, 0.12);
   --radius: 22px;
 }
 
@@ -23,9 +23,16 @@ body {
   font-family: "Manrope", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(219, 157, 49, 0.28), transparent 28%),
-    radial-gradient(circle at top right, rgba(31, 111, 95, 0.16), transparent 30%),
-    linear-gradient(180deg, #fcf7ef 0%, var(--bg) 100%);
+    radial-gradient(circle at top left, rgba(243, 155, 61, 0.22), transparent 30%),
+    radial-gradient(circle at top right, rgba(47, 125, 59, 0.2), transparent 35%),
+    linear-gradient(180deg, #f8fff6 0%, var(--bg) 100%);
+}
+
+.portal-page {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(243, 155, 61, 0.28), transparent 24%),
+    radial-gradient(circle at 90% 10%, rgba(47, 125, 59, 0.28), transparent 30%),
+    linear-gradient(180deg, #f8fff6 0%, #eef7ea 100%);
 }
 
 img {
@@ -150,6 +157,13 @@ h1 {
   gap: 18px;
 }
 
+.portal-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
 .portal-card {
   text-decoration: none;
   color: var(--text);
@@ -157,11 +171,33 @@ h1 {
   gap: 12px;
   align-content: start;
   transition: transform 180ms ease, box-shadow 180ms ease;
+  min-height: 210px;
+  position: relative;
+  overflow: hidden;
+}
+
+.portal-card::before {
+  content: "";
+  position: absolute;
+  inset: -40px -30px auto auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(47, 125, 59, 0.2), rgba(243, 155, 61, 0.25));
 }
 
 .portal-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 22px 46px rgba(53, 38, 20, 0.16);
+  box-shadow: 0 22px 46px rgba(26, 78, 37, 0.2);
+}
+
+.portal-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  font-weight: 800;
+  color: var(--accent-strong);
 }
 
 .portal-link {

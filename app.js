@@ -1,4 +1,4 @@
-const STORAGE_KEY = "famiflora-flow-desk-v2";
+const STORAGE_KEY = "famiflora-flow-desk-v3";
 
 const STATUS_LABELS = {
   nouveau: "Nouveau",

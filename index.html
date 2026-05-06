@@ -12,40 +12,50 @@
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="portal-page">
     <div class="page-shell portal-shell">
       <header class="hero portal-hero">
         <div class="hero-copy">
           <p class="eyebrow">Famiflora</p>
           <h1>Flow Desk</h1>
           <p class="hero-text">
-            Portail d'acces au ticketing et au task manager par metier.
+            Portail ticketing et task manager pour les equipes magasin,
+            decoration et technique.
           </p>
+          <div class="portal-badges">
+            <span class="badge badge-muted">Ticketing interne</span>
+            <span class="badge badge-muted">Planning d'equipe</span>
+            <span class="badge badge-muted">Suivi d'interventions</span>
+          </div>
         </div>
         <div class="hero-panel card">
-          <h2>Choisis ton espace</h2>
+          <h2>Entree rapide</h2>
           <p class="hint">
-            Trois interfaces separees: employes, responsables et collaborateurs.
+            Trois interfaces separees selon le role.
           </p>
+          <a class="button" href="employee.html">Commencer cote magasin</a>
         </div>
       </header>
 
       <main class="portal-grid">
         <a class="card portal-card" href="employee.html">
+          <p class="portal-kicker">Demande</p>
           <h2>Espace employe magasin</h2>
-          <p>Creer une demande, decrire la problematique, ajouter une photo et proposer une date.</p>
+          <p>Creer une intervention, decrire le besoin, joindre une photo et proposer une date.</p>
           <span class="portal-link">Ouvrir</span>
         </a>
 
         <a class="card portal-card" href="manager.html">
+          <p class="portal-kicker">Validation</p>
           <h2>Espace responsable</h2>
-          <p>Valider les demandes, les attribuer a l'equipe et ajuster le delai d'intervention.</p>
+          <p>Valider les demandes, affecter les taches et ajuster les delais de realisation.</p>
           <span class="portal-link">Ouvrir</span>
         </a>
 
         <a class="card portal-card" href="collaborator.html">
+          <p class="portal-kicker">Execution</p>
           <h2>Espace collaborateur</h2>
-          <p>Consulter son planning et visualiser les taches qui ont ete attribuees.</p>
+          <p>Consulter son planning, suivre les taches attribuees et cloturer les interventions.</p>
           <span class="portal-link">Ouvrir</span>
         </a>
       </main>
