@@ -148,6 +148,10 @@ h1 {
   gap: 20px;
 }
 
+.layout-single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .left-rail,
 .main-column,
 .view-panel,

@@ -24,35 +24,25 @@
           </p>
         </div>
 
-        <div class="hero-panel card">
+        <div class="hero-panel card" style="display:none" aria-hidden="true">
           <label for="currentUser">Profil connecte</label>
           <select id="currentUser"></select>
           <div class="current-user-meta">
             <span id="currentRoleBadge" class="badge"></span>
             <span id="currentTeamBadge" class="badge badge-muted"></span>
           </div>
-          <p class="hint">
-            Version MVP autonome: donnees stockees localement dans le navigateur.
-          </p>
         </div>
       </header>
 
-      <main class="layout">
-        <aside class="left-rail">
-          <section class="card summary-card">
-            <h2>Vue rapide</h2>
-            <div class="stats-grid" id="statsGrid"></div>
-          </section>
+      <!-- Hidden DOM hooks for JS compatibility -->
+      <div style="display:none" aria-hidden="true">
+        <div id="statsGrid"></div>
+        <a data-nav-page="employee" href="employee.html"></a>
+        <a data-nav-page="manager" href="manager.html"></a>
+        <a data-nav-page="collaborator" href="collaborator.html"></a>
+      </div>
 
-          <section class="card section-nav">
-            <h2>Espaces</h2>
-            <a class="nav-link" href="index.html">Portail</a>
-            <a class="nav-link" data-nav-page="employee" href="employee.html">Espace employé</a>
-            <a class="nav-link" data-nav-page="manager" href="manager.html">Espace responsable</a>
-            <a class="nav-link" data-nav-page="collaborator" href="collaborator.html">Espace collaborateur</a>
-          </section>
-        </aside>
-
+      <main class="layout layout-single">
         <section class="main-column">
           <section class="card">
             <div class="section-head">
