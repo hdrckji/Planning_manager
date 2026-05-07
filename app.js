@@ -6,32 +6,38 @@ const DEFAULT_TREE = [
   {
     label: "Technique",
     value: "technique",
+    team: "technique",
+    suggestedSpecialty: "general",
+    estimatedHours: 2,
     children: [
-      { label: "Electricite", value: "electricite", children: [
-        { label: "Eclairage defaillant", value: "eclairage_defaillant" },
-        { label: "Prise ou disjoncteur", value: "prise_disjoncteur" },
+      { label: "Electricite", value: "electricite", team: "technique", suggestedSpecialty: "electricite", estimatedHours: 2, children: [
+        { label: "Eclairage defaillant", value: "eclairage_defaillant", team: "technique", suggestedSpecialty: "electricite", estimatedHours: 1.5 },
+        { label: "Prise ou disjoncteur", value: "prise_disjoncteur", team: "technique", suggestedSpecialty: "electricite", estimatedHours: 2 },
       ]},
-      { label: "Plomberie", value: "plomberie", children: [
-        { label: "Fuite", value: "fuite" },
-        { label: "Bouchon / evacuation", value: "bouchon" },
+      { label: "Plomberie", value: "plomberie", team: "technique", suggestedSpecialty: "plomberie", estimatedHours: 2.5, children: [
+        { label: "Fuite", value: "fuite", team: "technique", suggestedSpecialty: "plomberie", estimatedHours: 2 },
+        { label: "Bouchon / evacuation", value: "bouchon", team: "technique", suggestedSpecialty: "plomberie", estimatedHours: 2.5 },
       ]},
-      { label: "Materiel / equipement", value: "materiel", children: [
-        { label: "Panne machine", value: "panne_machine" },
-        { label: "Remplacement piece", value: "remplacement_piece" },
+      { label: "Materiel / equipement", value: "materiel", team: "technique", suggestedSpecialty: "equipement", estimatedHours: 2, children: [
+        { label: "Panne machine", value: "panne_machine", team: "technique", suggestedSpecialty: "equipement", estimatedHours: 3 },
+        { label: "Remplacement piece", value: "remplacement_piece", team: "technique", suggestedSpecialty: "equipement", estimatedHours: 1.5 },
       ]},
     ],
   },
   {
     label: "Decoration",
     value: "decoration",
+    team: "decoration",
+    suggestedSpecialty: "mise_en_scene",
+    estimatedHours: 2.5,
     children: [
-      { label: "Mise en scene", value: "mise_en_scene", children: [
-        { label: "Nouvelle vitrine", value: "vitrine" },
-        { label: "Reamenagement rayon", value: "rayon" },
+      { label: "Mise en scene", value: "mise_en_scene", team: "decoration", suggestedSpecialty: "mise_en_scene", estimatedHours: 3, children: [
+        { label: "Nouvelle vitrine", value: "vitrine", team: "decoration", suggestedSpecialty: "mise_en_scene", estimatedHours: 4 },
+        { label: "Reamenagement rayon", value: "rayon", team: "decoration", suggestedSpecialty: "mise_en_scene", estimatedHours: 3 },
       ]},
-      { label: "Signalisation", value: "signalisation", children: [
-        { label: "Affiche / panneau", value: "affiche" },
-        { label: "Etiquetage", value: "etiquetage" },
+      { label: "Signalisation", value: "signalisation", team: "decoration", suggestedSpecialty: "signalisation", estimatedHours: 1.5, children: [
+        { label: "Affiche / panneau", value: "affiche", team: "decoration", suggestedSpecialty: "signalisation", estimatedHours: 1 },
+        { label: "Etiquetage", value: "etiquetage", team: "decoration", suggestedSpecialty: "signalisation", estimatedHours: 1 },
       ]},
     ],
   },
@@ -40,10 +46,12 @@ const DEFAULT_TREE = [
 const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
 const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
 const TEAM_KEYS     = ["magasin", "technique", "decoration"];
+const SPECIALTY_KEYS = ["general", "electricite", "plomberie", "equipement", "mise_en_scene", "signalisation"];
 
 function STATUS_LABELS() { return { nouveau: t("status.nouveau"), en_attente: t("status.en_attente"), planifie: t("status.planifie"), en_cours: t("status.en_cours"), termine: t("status.termine") }; }
 function PRIORITY_LABELS() { return { basse: t("priority.basse"), moyenne: t("priority.moyenne"), haute: t("priority.haute") }; }
 function TEAM_LABELS_MAP() { return { magasin: t("team.magasin"), technique: t("team.technique"), decoration: t("team.decoration") }; }
+function SPECIALTY_LABELS() { return { general: t("skill.general"), electricite: t("skill.electricite"), plomberie: t("skill.plomberie"), equipement: t("skill.equipement"), mise_en_scene: t("skill.mise_en_scene"), signalisation: t("skill.signalisation") }; }
 
 const PAGE_CONFIG = {
   employee: {
@@ -80,6 +88,151 @@ let planningFilterCollab = "";
 
 function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
+function normalizeTeamKey(team) {
+  return TEAM_KEYS.includes(team) ? team : "technique";
+}
+
+function normalizeHours(value, fallback = 2) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return fallback;
+  }
+  return Math.round(num * 2) / 2;
+}
+
+function defaultHoursForSpecialty(specialty) {
+  const defaults = {
+    general: 2,
+    electricite: 2,
+    plomberie: 2.5,
+    equipement: 2,
+    mise_en_scene: 3,
+    signalisation: 1.5,
+  };
+  return defaults[specialty] || 2;
+}
+
+function inferSpecialtyFromValue(value) {
+  const source = String(value || "").toLowerCase();
+  if (source.includes("electric")) return "electricite";
+  if (source.includes("plomb") || source.includes("fuite") || source.includes("bouchon")) return "plomberie";
+  if (source.includes("materiel") || source.includes("machine") || source.includes("piece") || source.includes("equip")) return "equipement";
+  if (source.includes("signal") || source.includes("affiche") || source.includes("etiquet")) return "signalisation";
+  if (source.includes("decor") || source.includes("scene") || source.includes("vitrine") || source.includes("rayon")) return "mise_en_scene";
+  return "general";
+}
+
+function specialtyOptionsForTeam(team) {
+  if (team === "decoration") {
+    return ["general", "mise_en_scene", "signalisation"];
+  }
+  return ["general", "electricite", "plomberie", "equipement"];
+}
+
+function normalizeSpecialties(specialties, team) {
+  const allowed = specialtyOptionsForTeam(team);
+  const input = Array.isArray(specialties)
+    ? specialties
+    : String(specialties || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  const normalized = [...new Set(input.filter((item) => allowed.includes(item)))];
+  return normalized.length > 0 ? normalized : ["general"];
+}
+
+function specialtyLabel(specialty) {
+  return SPECIALTY_LABELS()[specialty] || SPECIALTY_LABELS().general;
+}
+
+function specialtiesSummary(user) {
+  const specialties = normalizeSpecialties(user.specialties, user.team);
+  return specialties.map((item) => specialtyLabel(item)).join(" · ");
+}
+
+function formatHours(value) {
+  const hours = normalizeHours(value, 0);
+  return hours % 1 === 0 ? `${hours}h` : `${String(hours).replace(".", ",")}h`;
+}
+
+function buildNodeValue(label, fallbackPrefix = "item") {
+  const normalized = String(label || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return normalized || `${fallbackPrefix}_${Date.now()}`;
+}
+
+function createTreeNode(seed = {}) {
+  const team = normalizeTeamKey(seed.team || "technique");
+  const specialty = seed.suggestedSpecialty && SPECIALTY_KEYS.includes(seed.suggestedSpecialty)
+    ? seed.suggestedSpecialty
+    : specialtyOptionsForTeam(team).find((item) => item !== "general") || "general";
+  return {
+    label: seed.label || t("tree.new.node"),
+    value: seed.value || buildNodeValue(seed.label || t("tree.new.node"), "cat"),
+    team,
+    suggestedSpecialty: specialty,
+    estimatedHours: normalizeHours(seed.estimatedHours, defaultHoursForSpecialty(specialty)),
+    children: Array.isArray(seed.children) ? seed.children : [],
+  };
+}
+
+function normalizeTreeNode(node, inherited = {}) {
+  const team = normalizeTeamKey(node.team || inherited.team || (node.value === "decoration" ? "decoration" : "technique"));
+  const inferredSpecialty = inferSpecialtyFromValue(node.value || node.label);
+  const specialty = SPECIALTY_KEYS.includes(node.suggestedSpecialty)
+    ? node.suggestedSpecialty
+    : (inferredSpecialty !== "general" ? inferredSpecialty : (inherited.suggestedSpecialty || "general"));
+  const children = Array.isArray(node.children)
+    ? node.children.map((child) => normalizeTreeNode(child, { team, suggestedSpecialty: specialty, estimatedHours: node.estimatedHours }))
+    : [];
+
+  return {
+    label: String(node.label || t("tree.new.node")).trim() || t("tree.new.node"),
+    value: String(node.value || buildNodeValue(node.label || t("tree.new.node"), "cat")).trim() || buildNodeValue(node.label || t("tree.new.node"), "cat"),
+    team,
+    suggestedSpecialty: specialty,
+    estimatedHours: normalizeHours(node.estimatedHours, inherited.estimatedHours || defaultHoursForSpecialty(specialty)),
+    children,
+  };
+}
+
+function normalizeTree(tree) {
+  if (!Array.isArray(tree) || tree.length === 0) {
+    return DEFAULT_TREE.map((node) => normalizeTreeNode(node));
+  }
+  return tree.map((node) => normalizeTreeNode(node));
+}
+
+function normalizeUser(user) {
+  const role = ["employee", "manager", "collaborator"].includes(user.role) ? user.role : "employee";
+  const team = role === "employee" ? "magasin" : normalizeTeamKey(user.team);
+  return {
+    ...user,
+    name: String(user.name || "").trim() || t("users.name.ph"),
+    role,
+    team,
+    specialties: role === "collaborator" ? normalizeSpecialties(user.specialties, team) : [],
+  };
+}
+
+function normalizeTicket(ticket) {
+  const suggestedSpecialty = SPECIALTY_KEYS.includes(ticket.suggestedSpecialty)
+    ? ticket.suggestedSpecialty
+    : inferSpecialtyFromValue(ticket.categoryValue || ticket.title);
+  return {
+    ...ticket,
+    estimatedHours: normalizeHours(ticket.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty)),
+    suggestedSpecialty,
+    suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
+    categoryValue: String(ticket.categoryValue || ""),
+    categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
+  };
 }
 
 const page = document.body.dataset.page || "employee";
@@ -132,8 +285,8 @@ function loadState() {
 
   try {
     const saved = JSON.parse(raw);
-    state.users = Array.isArray(saved.users) ? saved.users : [];
-    state.tickets = Array.isArray(saved.tickets) ? saved.tickets : [];
+    state.users = Array.isArray(saved.users) ? saved.users.map((user) => normalizeUser(user)) : [];
+    state.tickets = Array.isArray(saved.tickets) ? saved.tickets.map((ticket) => normalizeTicket(ticket)) : [];
 
     const savedByRole = saved.currentUserByRole || {};
     state.currentUserByRole = {
@@ -156,13 +309,13 @@ function enforcePageUserRole() {
   // Auto-créer un profil générique si aucun n'existe pour ce rôle
   if (!state.currentUserId) {
     const defaults = {
-      employee:     { name: "Employé",        role: "employee",     team: "magasin" },
-      manager:      { name: "Responsable Tech", role: "manager",    team: "technique" },
-      collaborator: { name: "Collaborateur",   role: "collaborator", team: "technique" },
+      employee:     { name: "Employé", role: "employee", team: "magasin", specialties: [] },
+      manager:      { name: "Responsable Tech", role: "manager", team: "technique", specialties: [] },
+      collaborator: { name: "Collaborateur", role: "collaborator", team: "technique", specialties: ["general"] },
     };
     const def = defaults[pageConfig.role];
     if (def) {
-      const autoUser = { id: nextUserId(), ...def };
+      const autoUser = normalizeUser({ id: nextUserId(), ...def });
       state.users.push(autoUser);
       state.currentUserId = autoUser.id;
     }
@@ -203,9 +356,10 @@ function bindGlobalEvents() {
         name,
         role: pageConfig.role,
         team,
+        specialties: pageConfig.role === "collaborator" ? ["general"] : [],
       };
 
-      state.users.push(user);
+      state.users.push(normalizeUser(user));
       state.currentUserId = user.id;
       refs.profileForm.reset();
       if (pageConfig.role === "employee" && refs.profileTeam) {
@@ -427,15 +581,15 @@ function loadTree() {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return normalizeTree(parsed);
       }
     }
   } catch {}
-  return DEFAULT_TREE;
+  return normalizeTree(DEFAULT_TREE);
 }
 
 function saveTree(tree) {
-  localStorage.setItem(TREE_CONFIG_KEY, JSON.stringify(tree));
+  localStorage.setItem(TREE_CONFIG_KEY, JSON.stringify(normalizeTree(tree)));
 }
 
 function renderEmployeePage() {
@@ -581,6 +735,19 @@ function renderEmployeePage() {
     return root?.value || "technique";
   }
 
+  function findSelectedNode() {
+    let nodes = tree;
+    let current = null;
+    for (const sel of selections) {
+      current = nodes.find((node) => node.value === sel) || null;
+      if (!current) {
+        break;
+      }
+      nodes = current.children || [];
+    }
+    return current;
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (selections.length === 0) {
@@ -592,18 +759,26 @@ function renderEmployeePage() {
     const comment = String(formData.get("comment") || "").trim();
     const title = buildTitle();
     const department = buildDepartment();
+    const selectedNode = findSelectedNode();
+    const suggestedSpecialty = selectedNode?.suggestedSpecialty || inferSpecialtyFromValue(title);
+    const estimatedHours = normalizeHours(selectedNode?.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty));
 
     state.tickets.unshift({
       id: nextTicketId(),
       title,
       description: comment,
       department,
+      categoryValue: selectedNode?.value || "",
+      categoryPath: [...selections],
       createdBy: currentUser?.id || "",
       desiredDate: today(),
       plannedDate: today(),
       assignedTo: "",
+      suggestedAssigneeId: "",
       managerId: managerIdForDepartment(department),
       priority: "moyenne",
+      suggestedSpecialty,
+      estimatedHours,
       status: "nouveau",
       photoDataUrl,
       createdAt: new Date().toISOString(),
@@ -747,6 +922,7 @@ function renderManagerUtilisateurs(container) {
           <div class="user-item-info">
             <strong>${escHtml(u.name)}</strong>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
+            ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
           </div>
           <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
         </div>
@@ -784,6 +960,10 @@ function renderManagerUtilisateurs(container) {
                 <option value="decoration">${t("dept.decoration")}</option>
               </select>
             </div>
+            <div class="field full" id="nuSkillsField">
+              <label>${t("users.skills")}</label>
+              <div id="nuSkills" class="specialty-checks"></div>
+            </div>
             <div class="field full">
               <button class="button" type="submit">${t("users.create")}</button>
             </div>
@@ -808,6 +988,26 @@ function renderManagerUtilisateurs(container) {
 
     const roleSelect = container.querySelector("#nuRole");
     const teamSelect = container.querySelector("#nuTeam");
+    const skillsWrap = container.querySelector("#nuSkills");
+    const skillsField = container.querySelector("#nuSkillsField");
+
+    function renderSpecialtyChecks() {
+      const role = roleSelect.value;
+      const team = teamSelect.value;
+      if (role !== "collaborator") {
+        skillsField.classList.add("hidden");
+        skillsWrap.innerHTML = "";
+        return;
+      }
+      skillsField.classList.remove("hidden");
+      const options = specialtyOptionsForTeam(team);
+      skillsWrap.innerHTML = options.map((opt, index) => `
+        <label class="skill-chip">
+          <input type="checkbox" name="nuSkill" value="${opt}" ${index === 0 ? "checked" : ""} />
+          <span>${specialtyLabel(opt)}</span>
+        </label>
+      `).join("");
+    }
 
     function syncTeamOptions() {
       const r = roleSelect.value;
@@ -819,9 +1019,11 @@ function renderManagerUtilisateurs(container) {
           <option value="decoration">${t("dept.decoration")}</option>
         `;
       }
+      renderSpecialtyChecks();
     }
 
     roleSelect.addEventListener("change", syncTeamOptions);
+    teamSelect.addEventListener("change", renderSpecialtyChecks);
     syncTeamOptions();
 
     container.querySelector("#addUserForm").addEventListener("submit", (e) => {
@@ -830,8 +1032,9 @@ function renderManagerUtilisateurs(container) {
       const name = String(fd.get("name") || "").trim();
       const role = String(fd.get("role"));
       const team = String(fd.get("team"));
+      const pickedSkills = Array.from(container.querySelectorAll("input[name='nuSkill']:checked")).map((input) => input.value);
       if (!name) return;
-      state.users.push({ id: nextUserId(), name, role, team });
+      state.users.push(normalizeUser({ id: nextUserId(), name, role, team, specialties: pickedSkills }));
       persistState();
       renderUserSelector();
       renderContent();
@@ -912,6 +1115,7 @@ function renderManagerPlanning(container, collaborators) {
                           <div class="cal-ticket" data-status="${t.status}" data-priority="${t.priority}">
                             <span class="cal-ticket-title">${escHtml(t.title)}</span>
                             ${assignee ? `<span class="cal-ticket-who">${escHtml(assignee.name)}</span>` : ""}
+                            <span class="cal-ticket-hours">${formatHours(t.estimatedHours || 0)}</span>
                             <span class="badge badge-status" data-status="${t.status}">${statusLabel(t.status)}</span>
                           </div>
                         `;
@@ -935,105 +1139,217 @@ function renderManagerPlanning(container, collaborators) {
 
 function renderTreeEditor(container) {
   const tree = loadTree();
+  let selectedPath = [0];
 
-  function nodeToHtml(node, path) {
-    const pathKey = path.join(".");
-    const hasChildren = node.children && node.children.length > 0;
-    return `
-      <div class="tree-node" data-path="${pathKey}">
-        <div class="tree-node-row">
-          <input class="tree-node-label" type="text" value="${escHtml(node.label)}" data-path="${pathKey}" data-field="label" placeholder="${t("tree.label.ph")}" />
-          <input class="tree-node-value" type="text" value="${escHtml(node.value)}" data-path="${pathKey}" data-field="value" placeholder="${t("tree.value.ph")}" />
-          <button class="button ghost tree-btn" type="button" data-action="add-child" data-path="${pathKey}">${t("tree.add.child")}</button>
-          <button class="button danger-ghost tree-btn" type="button" data-action="delete-node" data-path="${pathKey}">${t("tree.delete")}</button>
-        </div>
-        ${hasChildren ? `<div class="tree-children">${node.children.map((child, i) => nodeToHtml(child, [...path, "children", i])).join("")}</div>` : ""}
-      </div>
-    `;
+  function parsePath(path) {
+    return String(path || "").split(".").filter(Boolean).map((value) => Number(value));
   }
 
-  function getNodeAtPath(treeData, pathParts) {
-    let current = treeData;
-    for (let i = 0; i < pathParts.length; i++) {
-      const part = pathParts[i];
-      if (typeof part === "number") {
-        current = current[part];
-      } else {
-        current = current[part];
+  function pathToKey(path) {
+    return path.join(".");
+  }
+
+  function getNodeAtPath(path) {
+    let nodes = tree;
+    let current = null;
+    for (const index of path) {
+      current = nodes[index];
+      if (!current) {
+        return null;
       }
+      nodes = current.children || [];
     }
     return current;
   }
 
+  function getParentArray(path) {
+    if (path.length <= 1) {
+      return tree;
+    }
+    const parent = getNodeAtPath(path.slice(0, -1));
+    return parent?.children || [];
+  }
+
+  function ensureSelectionExists() {
+    const current = getNodeAtPath(selectedPath);
+    if (current) {
+      return;
+    }
+    if (tree.length > 0) {
+      selectedPath = [0];
+      return;
+    }
+    tree.push(createTreeNode({ label: t("tree.new.root"), team: "technique" }));
+    selectedPath = [0];
+  }
+
+  function renderTreeList(nodes, basePath = [], depth = 0) {
+    return nodes.map((node, index) => {
+      const path = [...basePath, index];
+      const key = pathToKey(path);
+      const isSelected = key === pathToKey(selectedPath);
+      const isLeaf = !node.children || node.children.length === 0;
+      return `
+        <div class="cat-item-wrap" style="--depth:${depth}">
+          <button type="button" class="cat-item ${isSelected ? "active" : ""}" data-action="select-cat" data-path="${key}">
+            <span class="cat-item-title">${escHtml(node.label)}</span>
+            <span class="cat-item-meta">${teamLabel(node.team)} · ${specialtyLabel(node.suggestedSpecialty)} · ${formatHours(node.estimatedHours)}</span>
+            ${isLeaf ? `<span class="badge badge-muted">${t("tree.leaf")}</span>` : ""}
+          </button>
+          ${(node.children && node.children.length > 0) ? `<div class="cat-children">${renderTreeList(node.children, path, depth + 1)}</div>` : ""}
+        </div>
+      `;
+    }).join("");
+  }
+
+  function saveAndRefresh() {
+    saveTree(tree);
+    renderEditor();
+  }
+
   function renderEditor() {
-    const currentTree = loadTree();
+    ensureSelectionExists();
+    const selectedNode = getNodeAtPath(selectedPath);
+    if (!selectedNode) {
+      return;
+    }
+    const specialtyOptions = specialtyOptionsForTeam(selectedNode.team);
+
     container.innerHTML = `
-      <div class="tree-editor-wrap">
-        <div id="treeNodes">${currentTree.map((node, i) => nodeToHtml(node, [i])).join("")}</div>
-        <div class="tree-editor-actions">
-          <button class="button ghost" type="button" id="addRootNode">${t("tree.add.root")}</button>
-          <button class="button" type="button" id="saveTree">${t("tree.save")}</button>
-          <button class="button ghost" type="button" id="resetTree">${t("tree.restore")}</button>
+      <div class="tree-editor-wrap tree-editor-v2">
+        <div class="section-head compact">
+          <div>
+            <h2>${t("tree.title")}</h2>
+            <p class="subtle">${t("tree.sub")}</p>
+          </div>
+          <div class="tree-editor-actions">
+            <button class="button ghost" type="button" id="addRootNode">${t("tree.add.root")}</button>
+            <button class="button ghost" type="button" id="resetTree">${t("tree.restore")}</button>
+          </div>
+        </div>
+
+        <div class="category-editor-grid">
+          <aside class="category-tree-pane">
+            <div id="categoryTreeList" class="category-tree-list">${renderTreeList(tree)}</div>
+          </aside>
+
+          <section class="category-detail-pane card">
+            <h3>${t("tree.details")}</h3>
+            <form id="categoryDetailForm" class="form-grid">
+              <div class="field full">
+                <label for="catLabel">${t("tree.label")}</label>
+                <input id="catLabel" name="label" type="text" value="${escHtml(selectedNode.label)}" required />
+              </div>
+              <div class="field full">
+                <label for="catValue">${t("tree.value")}</label>
+                <input id="catValue" name="value" type="text" value="${escHtml(selectedNode.value)}" />
+              </div>
+              <div class="field">
+                <label for="catTeam">${t("tree.team")}</label>
+                <select id="catTeam" name="team">
+                  ${TEAM_KEYS.filter((key) => key !== "magasin").map((key) => `<option value="${key}" ${selectedNode.team === key ? "selected" : ""}>${teamLabel(key)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="catSpecialty">${t("tree.specialty")}</label>
+                <select id="catSpecialty" name="suggestedSpecialty">
+                  ${specialtyOptions.map((key) => `<option value="${key}" ${selectedNode.suggestedSpecialty === key ? "selected" : ""}>${specialtyLabel(key)}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="catHours">${t("tree.estimated")}</label>
+                <input id="catHours" name="estimatedHours" type="number" min="0.5" step="0.5" value="${normalizeHours(selectedNode.estimatedHours, 2)}" />
+              </div>
+              <div class="field full category-detail-actions">
+                <button class="button ghost" type="button" data-action="add-child">${t("tree.add.child")}</button>
+                <button class="button danger-ghost" type="button" data-action="delete-node">${t("tree.delete")}</button>
+                <button class="button" type="submit">${t("tree.save")}</button>
+              </div>
+            </form>
+          </section>
         </div>
       </div>
     `;
 
+    container.querySelectorAll("[data-action='select-cat']").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedPath = parsePath(button.dataset.path);
+        renderEditor();
+      });
+    });
+
     container.querySelector("#addRootNode").addEventListener("click", () => {
-      const tr = loadTree();
-      tr.push({ label: t("tree.add.root"), value: `cat_${Date.now()}`, children: [] });
-      saveTree(tr);
-      renderEditor();
+      tree.push(createTreeNode({ label: t("tree.new.root"), team: "technique" }));
+      selectedPath = [tree.length - 1];
+      saveAndRefresh();
     });
 
     container.querySelector("#resetTree").addEventListener("click", () => {
-      saveTree(DEFAULT_TREE);
-      renderEditor();
+      const restored = normalizeTree(DEFAULT_TREE);
+      tree.splice(0, tree.length, ...restored);
+      selectedPath = [0];
+      saveAndRefresh();
       toast(t("tree.restored"));
     });
 
-    container.querySelector("#saveTree").addEventListener("click", () => {
-      const tr2 = loadTree();
-      container.querySelectorAll("[data-path][data-field]").forEach((input) => {
-        const pathParts = input.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
-        const field = input.dataset.field;
-        const node = getNodeAtPath(tr2, pathParts);
-        if (node && typeof node === "object") {
-          node[field] = input.value.trim();
-        }
-      });
-      saveTree(tr2);
-      renderEditor();
+    const form = container.querySelector("#categoryDetailForm");
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const current = getNodeAtPath(selectedPath);
+      if (!current) {
+        return;
+      }
+      const data = new FormData(form);
+      const label = String(data.get("label") || "").trim() || t("tree.new.node");
+      const team = normalizeTeamKey(String(data.get("team") || "technique"));
+      const valueInput = String(data.get("value") || "").trim();
+      const suggestedSpecialty = String(data.get("suggestedSpecialty") || "general");
+      current.label = label;
+      current.value = valueInput || buildNodeValue(label, "cat");
+      current.team = team;
+      current.suggestedSpecialty = SPECIALTY_KEYS.includes(suggestedSpecialty) ? suggestedSpecialty : "general";
+      current.estimatedHours = normalizeHours(data.get("estimatedHours"), defaultHoursForSpecialty(current.suggestedSpecialty));
+      saveAndRefresh();
       toast(t("tree.saved"));
     });
 
-    container.querySelectorAll("[data-action='add-child']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const tr3 = loadTree();
-        const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
-        const node = getNodeAtPath(tr3, pathParts);
-        if (node) {
-          node.children = node.children || [];
-          node.children.push({ label: t("tree.add.child"), value: `item_${Date.now()}`, children: [] });
-          saveTree(tr3);
-          renderEditor();
-        }
+    container.querySelector("[data-action='add-child']")?.addEventListener("click", () => {
+      const current = getNodeAtPath(selectedPath);
+      if (!current) {
+        return;
+      }
+      current.children ||= [];
+      const child = createTreeNode({
+        label: t("tree.new.child"),
+        team: current.team,
+        suggestedSpecialty: current.suggestedSpecialty,
+        estimatedHours: current.estimatedHours,
       });
+      current.children.push(child);
+      selectedPath = [...selectedPath, current.children.length - 1];
+      saveAndRefresh();
     });
 
-    container.querySelectorAll("[data-action='delete-node']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const tr4 = loadTree();
-        const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
-        const parentPath = pathParts.slice(0, -1);
-        const index = pathParts[pathParts.length - 1];
-        const parent = parentPath.length === 0 ? { children: tr4 } : getNodeAtPath(tr4, parentPath);
-        if (parent && Array.isArray(parent.children || parent)) {
-          const arr = parentPath.length === 0 ? tr4 : parent.children || parent;
-          arr.splice(index, 1);
-          saveTree(tr4);
-          renderEditor();
-        }
-      });
+    container.querySelector("[data-action='delete-node']")?.addEventListener("click", () => {
+      const parentArray = getParentArray(selectedPath);
+      const index = selectedPath[selectedPath.length - 1];
+      if (!parentArray || index == null) {
+        return;
+      }
+      if (selectedPath.length === 1 && tree.length === 1) {
+        toast(t("tree.keep.one"));
+        return;
+      }
+      parentArray.splice(index, 1);
+      if (selectedPath.length > 1) {
+        const parentPath = selectedPath.slice(0, -1);
+        const nextIndex = Math.max(0, Math.min(index - 1, parentArray.length - 1));
+        selectedPath = [...parentPath, nextIndex >= 0 ? nextIndex : 0];
+      } else {
+        selectedPath = [Math.max(0, Math.min(index - 1, tree.length - 1))];
+      }
+      ensureSelectionExists();
+      saveAndRefresh();
     });
   }
 
@@ -1081,6 +1397,7 @@ function renderCollaboratorPage() {
                     <strong>${ticket.title}</strong>
                     <span class="badge badge-priority" data-priority="${ticket.priority}">${priorityLabel(ticket.priority)}</span>
                     <span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span>
+                    <span class="badge badge-muted">${formatHours(ticket.estimatedHours || 0)}</span>
                   </div>
                   <p class="subtle">${ticket.description}</p>
                   <div class="ticket-actions">
@@ -1177,12 +1494,24 @@ function renderManagerForm(ticket, collaborators) {
   const wrapper = document.createElement("form");
   wrapper.className = "manager-grid";
   const isWaiting = ticket.status === "en_attente";
+  const suggested = suggestAssignee(ticket, collaborators);
+  const suggestedLabel = suggested
+    ? `${escHtml(suggested.name)} (${specialtyLabel(ticket.suggestedSpecialty || "general")})`
+    : t("mgr.suggest.none");
+  const selectedAssignee = ticket.assignedTo || ticket.suggestedAssigneeId || suggested?.id || "";
   wrapper.innerHTML = `
+    <div class="field full">
+      <div class="suggestion-box">
+        <strong>${t("mgr.suggest.title")}</strong>
+        <p class="subtle">${t("mgr.suggest.for")}: ${specialtyLabel(ticket.suggestedSpecialty || "general")} · ${formatHours(ticket.estimatedHours || 0)}</p>
+        <p>${t("mgr.suggest.proposal")}: ${suggestedLabel}</p>
+      </div>
+    </div>
     <div class="field">
       <label>${t("mgr.assign")}</label>
       <select name="assignedTo">
         <option value="">${t("mgr.unassigned")}</option>
-        ${collaborators.map((u) => `<option value="${u.id}" ${ticket.assignedTo === u.id ? "selected" : ""}>${escHtml(u.name)}</option>`).join("")}
+        ${collaborators.map((u) => `<option value="${u.id}" ${selectedAssignee === u.id ? "selected" : ""}>${escHtml(u.name)} - ${escHtml(specialtiesSummary(u))}</option>`).join("")}
       </select>
     </div>
     <div class="field">
@@ -1190,6 +1519,10 @@ function renderManagerForm(ticket, collaborators) {
       <select name="priority">
         ${Object.entries(PRIORITY_LABELS()).map(([v, l]) => `<option value="${v}" ${ticket.priority === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
+    </div>
+    <div class="field">
+      <label>${t("mgr.estimated")}</label>
+      <input name="estimatedHours" type="number" min="0.5" step="0.5" value="${normalizeHours(ticket.estimatedHours, 2)}" />
     </div>
     <div class="field">
       <label>${t("mgr.date.validated")}</label>
@@ -1229,7 +1562,9 @@ function renderManagerForm(ticket, collaborators) {
     const formData = new FormData(wrapper);
     updateTicket(ticket.id, {
       assignedTo: String(formData.get("assignedTo")),
+      suggestedAssigneeId: suggested?.id || "",
       priority: String(formData.get("priority")),
+      estimatedHours: normalizeHours(formData.get("estimatedHours"), normalizeHours(ticket.estimatedHours, 2)),
       plannedDate: String(formData.get("plannedDate")),
       status: String(formData.get("status")),
       returnNote: String(formData.get("returnNote") || ""),
@@ -1249,6 +1584,8 @@ function renderDetails(ticket) {
     detailItem(t("ticket.by"),        createdBy),
     detailItem(t("ticket.desired"),   formatDate(ticket.desiredDate)),
     detailItem(t("ticket.validated"), formatDate(ticket.plannedDate)),
+    detailItem(t("ticket.estimated"), formatHours(ticket.estimatedHours || 0)),
+    detailItem(t("ticket.specialty"), specialtyLabel(ticket.suggestedSpecialty || "general")),
     detailItem(t("ticket.assigned"),  assignedTo),
     detailItem(t("ticket.manager"),   manager),
     detailItem(t("ticket.updated"),   formatDateTime(ticket.updatedAt)),
@@ -1307,11 +1644,40 @@ function managerIdForDepartment(department) {
   return manager ? manager.id : "";
 }
 
+function scoreAssigneeForTicket(user, ticket) {
+  if (!user || user.role !== "collaborator" || user.team !== ticket.department) {
+    return -1;
+  }
+  const specialties = normalizeSpecialties(user.specialties, user.team);
+  const specialty = ticket.suggestedSpecialty || "general";
+  const openTickets = state.tickets.filter((t) => t.assignedTo === user.id && t.status !== "termine").length;
+  let score = 10;
+  if (specialties.includes(specialty)) {
+    score += 50;
+  }
+  if (specialties.includes("general")) {
+    score += 10;
+  }
+  score -= openTickets * 5;
+  return score;
+}
+
+function suggestAssignee(ticket, collaborators) {
+  if (!Array.isArray(collaborators) || collaborators.length === 0) {
+    return null;
+  }
+  const ranked = collaborators
+    .map((user) => ({ user, score: scoreAssigneeForTicket(user, ticket) }))
+    .filter((entry) => entry.score >= 0)
+    .sort((left, right) => right.score - left.score);
+  return ranked[0]?.user || null;
+}
+
 function normalizeTeam(team) {
   if (pageConfig.role === "employee") {
     return "magasin";
   }
-  return team === "technique" || team === "decoration" ? team : "technique";
+  return normalizeTeamKey(team);
 }
 
 function teamLabel(team) {

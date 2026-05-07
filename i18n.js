@@ -80,6 +80,14 @@ const TRANSLATIONS = {
     "role.manager":       "Responsable",
     "role.collaborator":  "Collaborateur",
 
+    // ── Spécialités ───────────────────────────────────────────────────────
+    "skill.general":      "Polyvalent",
+    "skill.electricite":  "Électricité",
+    "skill.plomberie":    "Plomberie",
+    "skill.equipement":   "Équipement",
+    "skill.mise_en_scene": "Mise en scène",
+    "skill.signalisation": "Signalisation",
+
     // ── Demandes (employé) ─────────────────────────────────────────────────
     "emp.newrequest":     "Nouvelle demande",
     "emp.newrequest.sub": "Suivez les étapes pour qualifier votre demande d'intervention.",
@@ -112,6 +120,11 @@ const TRANSLATIONS = {
     "mgr.save":           "Enregistrer",
     "mgr.saved":          "Demande mise à jour.",
     "mgr.return.btn":     "↩ Retourner à l'employé",
+    "mgr.estimated":      "Durée estimée (h)",
+    "mgr.suggest.title":  "Suggestion d'attribution",
+    "mgr.suggest.for":    "Compétence ciblée",
+    "mgr.suggest.proposal":"Proposition",
+    "mgr.suggest.none":   "Aucun collaborateur adapté actuellement",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Demande par",
@@ -120,6 +133,8 @@ const TRANSLATIONS = {
     "ticket.assigned":    "Attribué à",
     "ticket.manager":     "Responsable",
     "ticket.updated":     "Mis à jour",
+    "ticket.estimated":   "Durée estimée",
+    "ticket.specialty":   "Compétence requise",
     "ticket.return.note": "Message du responsable",
     "ticket.photo":       "Photo",
     "ticket.unknown":     "Inconnu",
@@ -136,6 +151,7 @@ const TRANSLATIONS = {
     "users.name.ph":      "Prénom Nom",
     "users.role":         "Rôle",
     "users.dept":         "Département",
+    "users.skills":       "Compétences",
     "users.create":       "Créer l'utilisateur",
     "users.created":      "Utilisateur créé.",
     "users.deleted":      "Profil supprimé.",
@@ -163,6 +179,17 @@ const TRANSLATIONS = {
     "tree.restore":       "Restaurer par défaut",
     "tree.saved":         "Catégories enregistrées.",
     "tree.restored":      "Arbre restauré par défaut.",
+    "tree.label":         "Libellé",
+    "tree.value":         "Code catégorie",
+    "tree.team":          "Équipe cible",
+    "tree.specialty":     "Compétence suggérée",
+    "tree.estimated":     "Durée estimée (h)",
+    "tree.details":       "Détails de la catégorie",
+    "tree.new.node":      "Nouvelle catégorie",
+    "tree.new.root":      "Nouvelle catégorie racine",
+    "tree.new.child":     "Nouveau sous-niveau",
+    "tree.leaf":          "Feuille",
+    "tree.keep.one":      "Conservez au moins une catégorie racine.",
 
     // ── Planning ───────────────────────────────────────────────────────────
     "plan.title":         "Planning collaborateurs",
@@ -271,6 +298,14 @@ const TRANSLATIONS = {
     "role.manager":       "Verantwoordelijke",
     "role.collaborator":  "Medewerker",
 
+    // ── Specialisaties ───────────────────────────────────────────────────
+    "skill.general":      "Allround",
+    "skill.electricite":  "Elektriciteit",
+    "skill.plomberie":    "Loodgieterij",
+    "skill.equipement":   "Materieel",
+    "skill.mise_en_scene": "Presentatie",
+    "skill.signalisation": "Signalisatie",
+
     // ── Demandes (employé) ─────────────────────────────────────────────────
     "emp.newrequest":     "Nieuwe aanvraag",
     "emp.newrequest.sub": "Volg de stappen om uw interventieverzoek te kwalificeren.",
@@ -303,6 +338,11 @@ const TRANSLATIONS = {
     "mgr.save":           "Opslaan",
     "mgr.saved":          "Aanvraag bijgewerkt.",
     "mgr.return.btn":     "↩ Terugsturen naar medewerker",
+    "mgr.estimated":      "Geschatte duur (u)",
+    "mgr.suggest.title":  "Toewijzingssuggestie",
+    "mgr.suggest.for":    "Gerichte vaardigheid",
+    "mgr.suggest.proposal":"Voorstel",
+    "mgr.suggest.none":   "Momenteel geen geschikte medewerker",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Aangevraagd door",
@@ -311,6 +351,8 @@ const TRANSLATIONS = {
     "ticket.assigned":    "Toegewezen aan",
     "ticket.manager":     "Verantwoordelijke",
     "ticket.updated":     "Bijgewerkt",
+    "ticket.estimated":   "Geschatte duur",
+    "ticket.specialty":   "Vereiste vaardigheid",
     "ticket.return.note": "Bericht van de verantwoordelijke",
     "ticket.photo":       "Foto",
     "ticket.unknown":     "Onbekend",
@@ -327,6 +369,7 @@ const TRANSLATIONS = {
     "users.name.ph":      "Voornaam Achternaam",
     "users.role":         "Rol",
     "users.dept":         "Afdeling",
+    "users.skills":       "Vaardigheden",
     "users.create":       "Gebruiker aanmaken",
     "users.created":      "Gebruiker aangemaakt.",
     "users.deleted":      "Profiel verwijderd.",
@@ -354,6 +397,17 @@ const TRANSLATIONS = {
     "tree.restore":       "Standaard herstellen",
     "tree.saved":         "Categorieën opgeslagen.",
     "tree.restored":      "Boom hersteld naar standaard.",
+    "tree.label":         "Label",
+    "tree.value":         "Categoriecode",
+    "tree.team":          "Doelteam",
+    "tree.specialty":     "Voorgestelde vaardigheid",
+    "tree.estimated":     "Geschatte duur (u)",
+    "tree.details":       "Categoriedetails",
+    "tree.new.node":      "Nieuwe categorie",
+    "tree.new.root":      "Nieuwe hoofdcategorie",
+    "tree.new.child":     "Nieuw subniveau",
+    "tree.leaf":          "Blad",
+    "tree.keep.one":      "Behoud minstens één hoofdcategorie.",
 
     // ── Planning ───────────────────────────────────────────────────────────
     "plan.title":         "Medewerkerplanning",
