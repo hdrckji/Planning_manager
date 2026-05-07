@@ -39,9 +39,10 @@ const DEFAULT_TREE = [
 
 const STATUS_LABELS = {
   nouveau: "Nouveau",
-  planifie: "Planifie",
+  en_attente: "En attente",
+  planifie: "Planifié",
   en_cours: "En cours",
-  termine: "Termine",
+  termine: "Terminé",
 };
 
 const TEAM_LABELS = {
@@ -84,6 +85,14 @@ const state = {
   },
   currentUserId: "",
 };
+
+let managerSubPage = "dashboard";
+let planningWeekOffset = 0;
+let planningFilterCollab = "";
+
+function escHtml(str) {
+  return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
 
 const page = document.body.dataset.page || "employee";
 const pageConfig = PAGE_CONFIG[page] || PAGE_CONFIG.employee;
@@ -436,8 +445,20 @@ function renderEmployeePage() {
   const tickets = currentUser
     ? state.tickets.filter((t) => t.createdBy === currentUser.id).sort(sortByUpdatedDesc)
     : [];
+  const enAttenteTickets = tickets.filter((t) => t.status === "en_attente");
 
   refs.mainView.innerHTML = `
+    ${enAttenteTickets.length > 0 ? `
+    <section class="card alert-card">
+      <div class="section-head">
+        <div>
+          <h2>⚠ Demandes en attente d'informations</h2>
+          <p class="subtle">Le responsable a besoin de précisions supplémentaires sur ces demandes.</p>
+        </div>
+      </div>
+      <div class="ticket-list" id="waitingTicketList"></div>
+    </section>
+    ` : ""}
     <section class="card">
       <div class="section-head">
         <div>
@@ -598,52 +619,320 @@ function renderEmployeePage() {
     toast("Demande envoyee.");
   });
 
+  if (enAttenteTickets.length > 0) {
+    renderTicketCards(refs.mainView.querySelector("#waitingTicketList"), enAttenteTickets, { mode: "read" });
+  }
   renderTicketCards(refs.mainView.querySelector("#employeeTicketList"), tickets, { mode: "read" });
 }
 
 function renderManagerPage() {
   const currentUser = getCurrentUser();
-  const tickets = state.tickets
-    .filter((ticket) => ticket.department === currentUser.team)
+  const teamTickets = state.tickets
+    .filter((t) => t.department === currentUser.team)
     .sort(sortByPlannedDate);
-  const collaborators = state.users.filter((user) => user.role === "collaborator" && user.team === currentUser.team);
+  const collaborators = state.users.filter(
+    (u) => u.role === "collaborator" && u.team === currentUser.team,
+  );
+  const alertCount = teamTickets.filter((t) => t.status === "nouveau" || t.status === "en_attente").length;
 
   refs.mainView.innerHTML = `
+    <nav class="manager-tabs">
+      <button class="manager-tab ${managerSubPage === "dashboard" ? "active" : ""}" data-subpage="dashboard">Tableau de bord</button>
+      <button class="manager-tab ${managerSubPage === "demandes" ? "active" : ""}" data-subpage="demandes">Demandes${alertCount > 0 ? ` <span class="tab-badge">${alertCount}</span>` : ""}</button>
+      <button class="manager-tab ${managerSubPage === "utilisateurs" ? "active" : ""}" data-subpage="utilisateurs">Utilisateurs</button>
+      <button class="manager-tab ${managerSubPage === "categories" ? "active" : ""}" data-subpage="categories">Catégories</button>
+      <button class="manager-tab ${managerSubPage === "planning" ? "active" : ""}" data-subpage="planning">Planning</button>
+    </nav>
+    <div id="managerContent" class="manager-content"></div>
+  `;
+
+  refs.mainView.querySelectorAll(".manager-tab").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      managerSubPage = btn.dataset.subpage;
+      renderManagerPage();
+    });
+  });
+
+  const content = refs.mainView.querySelector("#managerContent");
+  switch (managerSubPage) {
+    case "dashboard":    return renderManagerDashboard(content, teamTickets);
+    case "demandes":     return renderManagerDemandes(content, teamTickets, collaborators);
+    case "utilisateurs": return renderManagerUtilisateurs(content);
+    case "categories":   return renderTreeEditor(content);
+    case "planning":     return renderManagerPlanning(content, collaborators);
+  }
+}
+
+function renderManagerDashboard(container, tickets) {
+  const currentUser = getCurrentUser();
+  const byStatus = (s) => tickets.filter((t) => t.status === s).length;
+
+  container.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Pilotage ${teamLabel(currentUser.team)}</h2>
-          <p class="subtle">Affecte, priorise et confirme les dates de realisation.</p>
+          <h2>Tableau de bord — ${teamLabel(currentUser.team)}</h2>
+          <p class="subtle">Vue synthétique de l'activité de votre département.</p>
         </div>
       </div>
-      <div class="lane-list" id="managerLanes"></div>
+      <div class="kpi-row">
+        <div class="kpi-card"><span class="kpi-value">${tickets.length}</span><span class="kpi-label">Total</span></div>
+        <div class="kpi-card kpi-warn"><span class="kpi-value">${byStatus("nouveau")}</span><span class="kpi-label">Nouveau</span></div>
+        <div class="kpi-card kpi-wait"><span class="kpi-value">${byStatus("en_attente")}</span><span class="kpi-label">En attente</span></div>
+        <div class="kpi-card kpi-info"><span class="kpi-value">${byStatus("planifie")}</span><span class="kpi-label">Planifié</span></div>
+        <div class="kpi-card kpi-progress"><span class="kpi-value">${byStatus("en_cours")}</span><span class="kpi-label">En cours</span></div>
+        <div class="kpi-card kpi-ok"><span class="kpi-value">${byStatus("termine")}</span><span class="kpi-label">Terminé</span></div>
+      </div>
     </section>
     <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>File detaillee</h2>
-          <p class="subtle">Chaque fiche reste editable rapidement.</p>
-        </div>
-      </div>
-      <div class="ticket-list" id="managerTicketList"></div>
-    </section>
-    <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Parametrer les categories</h2>
-          <p class="subtle">Definissez l'arbre decisionnel affiche aux employes lors de la creation d'une demande.</p>
-        </div>
-      </div>
-      <div id="treeEditor"></div>
+      <div class="section-head"><div>
+        <h2>Vue par statut</h2>
+        <p class="subtle">Aperçu rapide de toutes les demandes en cours.</p>
+      </div></div>
+      <div class="lane-list" id="dashLanes"></div>
     </section>
   `;
 
-  renderManagerLanes(refs.mainView.querySelector("#managerLanes"), tickets);
-  renderTicketCards(refs.mainView.querySelector("#managerTicketList"), tickets, {
-    mode: "manage",
-    collaborators,
+  renderManagerLanes(container.querySelector("#dashLanes"), tickets);
+}
+
+function renderManagerDemandes(container, tickets, collaborators) {
+  let currentFilter = "";
+
+  container.innerHTML = `
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Demandes d'intervention</h2>
+          <p class="subtle">Planifiez, affectez ou retournez chaque demande à l'employé.</p>
+        </div>
+        <div class="filter-bar">
+          <label for="statusFilter">Filtrer :</label>
+          <select id="statusFilter">
+            <option value="">Tous les statuts</option>
+            ${Object.entries(STATUS_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div id="demandeList" class="ticket-list"></div>
+    </section>
+  `;
+
+  const list = container.querySelector("#demandeList");
+  const filterSel = container.querySelector("#statusFilter");
+
+  function renderFiltered() {
+    const filtered = currentFilter ? tickets.filter((t) => t.status === currentFilter) : tickets;
+    renderTicketCards(list, filtered, { mode: "manage", collaborators });
+  }
+
+  filterSel.addEventListener("change", () => {
+    currentFilter = filterSel.value;
+    renderFiltered();
   });
-  renderTreeEditor(refs.mainView.querySelector("#treeEditor"));
+
+  renderFiltered();
+}
+
+function renderManagerUtilisateurs(container) {
+  function renderContent() {
+    const managers = state.users.filter((u) => u.role === "manager");
+    const collabs = state.users.filter((u) => u.role === "collaborator");
+    const employees = state.users.filter((u) => u.role === "employee");
+
+    const userListHtml = (users) => {
+      if (users.length === 0) {
+        return '<p class="subtle" style="padding:6px 0">Aucun utilisateur dans ce groupe.</p>';
+      }
+      return users.map((u) => `
+        <div class="user-item">
+          <div class="user-item-info">
+            <strong>${escHtml(u.name)}</strong>
+            <span class="badge badge-muted">${teamLabel(u.team)}</span>
+          </div>
+          <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">Supprimer</button>
+        </div>
+      `).join("");
+    };
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Gestion des utilisateurs</h2>
+            <p class="subtle">Créez et supprimez tous les profils de l'application.</p>
+          </div>
+        </div>
+        <div class="add-user-block">
+          <h3>Nouvel utilisateur</h3>
+          <form id="addUserForm" class="form-grid">
+            <div class="field">
+              <label for="nuName">Nom</label>
+              <input id="nuName" name="name" type="text" placeholder="Prénom Nom" required />
+            </div>
+            <div class="field">
+              <label for="nuRole">Rôle</label>
+              <select id="nuRole" name="role">
+                <option value="employee">Employé magasin</option>
+                <option value="collaborator">Collaborateur</option>
+                <option value="manager">Responsable</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="nuTeam">Département</label>
+              <select id="nuTeam" name="team">
+                <option value="magasin">Magasin</option>
+                <option value="technique">Technique</option>
+                <option value="decoration">Décoration</option>
+              </select>
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">Créer l'utilisateur</button>
+            </div>
+          </form>
+        </div>
+        <div class="user-groups">
+          <div class="user-group">
+            <h3>Responsables <span class="badge badge-muted">${managers.length}</span></h3>
+            <div class="user-group-list">${userListHtml(managers)}</div>
+          </div>
+          <div class="user-group">
+            <h3>Collaborateurs <span class="badge badge-muted">${collabs.length}</span></h3>
+            <div class="user-group-list">${userListHtml(collabs)}</div>
+          </div>
+          <div class="user-group">
+            <h3>Employés magasin <span class="badge badge-muted">${employees.length}</span></h3>
+            <div class="user-group-list">${userListHtml(employees)}</div>
+          </div>
+        </div>
+      </section>
+    `;
+
+    const roleSelect = container.querySelector("#nuRole");
+    const teamSelect = container.querySelector("#nuTeam");
+
+    function syncTeamOptions() {
+      const r = roleSelect.value;
+      if (r === "employee") {
+        teamSelect.innerHTML = '<option value="magasin">Magasin</option>';
+      } else {
+        teamSelect.innerHTML = `
+          <option value="technique">Technique</option>
+          <option value="decoration">Décoration</option>
+        `;
+      }
+    }
+
+    roleSelect.addEventListener("change", syncTeamOptions);
+    syncTeamOptions();
+
+    container.querySelector("#addUserForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = String(fd.get("name") || "").trim();
+      const role = String(fd.get("role"));
+      const team = String(fd.get("team"));
+      if (!name) return;
+      state.users.push({ id: nextUserId(), name, role, team });
+      persistState();
+      renderUserSelector();
+      renderContent();
+      toast("Utilisateur créé.");
+    });
+
+    container.querySelectorAll("[data-action='del-user']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        removeUser(btn.dataset.uid);
+      });
+    });
+  }
+
+  renderContent();
+}
+
+function renderManagerPlanning(container, collaborators) {
+  function getWeekDays() {
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((dow === 0 ? 7 : dow) - 1) + planningWeekOffset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }
+
+  function renderWeek() {
+    const days = getWeekDays();
+    const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
+    let calTickets = state.tickets.filter((t) => ["planifie", "en_cours", "termine"].includes(t.status));
+    if (planningFilterCollab) {
+      calTickets = calTickets.filter((t) => t.assignedTo === planningFilterCollab);
+    }
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>Planning collaborateurs</h2>
+            <p class="subtle">${weekLabel}</p>
+          </div>
+          <div class="planning-controls">
+            <button class="button ghost" id="prevWeekBtn">← Préc.</button>
+            <button class="button ghost" id="todayBtn">Aujourd'hui</button>
+            <button class="button ghost" id="nextWeekBtn">Suiv. →</button>
+          </div>
+        </div>
+        <div class="planning-filter-bar">
+          <label for="planCollab">Collaborateur :</label>
+          <select id="planCollab">
+            <option value="">Tous</option>
+            ${collaborators.map((c) => `<option value="${c.id}" ${planningFilterCollab === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="cal-week">
+          ${days.map((day) => {
+            const dateStr = day.toISOString().slice(0, 10);
+            const dayTickets = calTickets.filter((t) => (t.plannedDate || t.desiredDate) === dateStr);
+            const isToday = dateStr === today();
+            const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
+            const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            return `
+              <div class="cal-day${isToday ? " cal-day--today" : ""}">
+                <div class="cal-day-head">
+                  <span class="cal-weekday">${dayName}</span>
+                  <span class="cal-daynum">${dayNum}</span>
+                </div>
+                <div class="cal-day-body">
+                  ${dayTickets.length === 0
+                    ? '<span class="cal-empty">—</span>'
+                    : dayTickets.map((t) => {
+                        const assignee = findUser(t.assignedTo);
+                        return `
+                          <div class="cal-ticket" data-status="${t.status}" data-priority="${t.priority}">
+                            <span class="cal-ticket-title">${escHtml(t.title)}</span>
+                            ${assignee ? `<span class="cal-ticket-who">${escHtml(assignee.name)}</span>` : ""}
+                            <span class="badge badge-status" data-status="${t.status}">${statusLabel(t.status)}</span>
+                          </div>
+                        `;
+                      }).join("")}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </section>
+    `;
+
+    container.querySelector("#prevWeekBtn").addEventListener("click", () => { planningWeekOffset--; renderWeek(); });
+    container.querySelector("#todayBtn").addEventListener("click", () => { planningWeekOffset = 0; renderWeek(); });
+    container.querySelector("#nextWeekBtn").addEventListener("click", () => { planningWeekOffset++; renderWeek(); });
+    container.querySelector("#planCollab").addEventListener("change", (e) => { planningFilterCollab = e.target.value; renderWeek(); });
+  }
+
+  renderWeek();
 }
 
 function renderTreeEditor(container) {
@@ -663,10 +952,6 @@ function renderTreeEditor(container) {
         ${hasChildren ? `<div class="tree-children">${node.children.map((child, i) => nodeToHtml(child, [...path, "children", i])).join("")}</div>` : ""}
       </div>
     `;
-  }
-
-  function escHtml(str) {
-    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
   }
 
   function getNodeAtPath(treeData, pathParts) {
@@ -823,9 +1108,10 @@ function renderCollaboratorPage() {
 function renderManagerLanes(container, tickets) {
   const laneMap = [
     { key: "nouveau", label: "Nouveau" },
-    { key: "planifie", label: "Planifie" },
+    { key: "en_attente", label: "En attente" },
+    { key: "planifie", label: "Planifié" },
     { key: "en_cours", label: "En cours" },
-    { key: "termine", label: "Termine" },
+    { key: "termine", label: "Terminé" },
   ];
 
   container.innerHTML = laneMap
@@ -898,46 +1184,53 @@ function renderTicketCards(container, tickets, options) {
 function renderManagerForm(ticket, collaborators) {
   const wrapper = document.createElement("form");
   wrapper.className = "manager-grid";
+  const isWaiting = ticket.status === "en_attente";
   wrapper.innerHTML = `
     <div class="field">
-      <label>Affecter a</label>
+      <label>Affecter à</label>
       <select name="assignedTo">
-        <option value="">Non attribue</option>
-        ${collaborators
-          .map(
-            (user) => `<option value="${user.id}" ${ticket.assignedTo === user.id ? "selected" : ""}>${user.name}</option>`,
-          )
-          .join("")}
+        <option value="">Non attribué</option>
+        ${collaborators.map((u) => `<option value="${u.id}" ${ticket.assignedTo === u.id ? "selected" : ""}>${escHtml(u.name)}</option>`).join("")}
       </select>
     </div>
     <div class="field">
-      <label>Priorite</label>
+      <label>Priorité</label>
       <select name="priority">
-        ${Object.entries(PRIORITY_LABELS)
-          .map(
-            ([value, label]) => `<option value="${value}" ${ticket.priority === value ? "selected" : ""}>${label}</option>`,
-          )
-          .join("")}
+        ${Object.entries(PRIORITY_LABELS).map(([v, l]) => `<option value="${v}" ${ticket.priority === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
     </div>
     <div class="field">
-      <label>Date validee</label>
+      <label>Date validée</label>
       <input name="plannedDate" type="date" value="${ticket.plannedDate || ticket.desiredDate || today()}" />
     </div>
     <div class="field">
       <label>Statut</label>
-      <select name="status">
-        ${Object.entries(STATUS_LABELS)
-          .map(
-            ([value, label]) => `<option value="${value}" ${ticket.status === value ? "selected" : ""}>${label}</option>`,
-          )
-          .join("")}
+      <select name="status" class="status-select">
+        ${Object.entries(STATUS_LABELS).map(([v, l]) => `<option value="${v}" ${ticket.status === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
+    </div>
+    <div class="field full return-note-field${isWaiting ? "" : " hidden"}">
+      <label>Message pour l'employé</label>
+      <textarea name="returnNote" placeholder="Précisez les informations manquantes...">${escHtml(ticket.returnNote || "")}</textarea>
     </div>
     <div class="field full">
       <button class="button secondary" type="submit">Enregistrer</button>
+      ${!isWaiting ? `<button class="button ghost" type="button" data-action="quick-return">↩ Retourner à l'employé</button>` : ""}
     </div>
   `;
+
+  const statusSel = wrapper.querySelector(".status-select");
+  const noteField = wrapper.querySelector(".return-note-field");
+
+  statusSel.addEventListener("change", () => {
+    noteField.classList.toggle("hidden", statusSel.value !== "en_attente");
+  });
+
+  wrapper.querySelector("[data-action='quick-return']")?.addEventListener("click", () => {
+    statusSel.value = "en_attente";
+    noteField.classList.remove("hidden");
+    noteField.querySelector("textarea")?.focus();
+  });
 
   wrapper.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -947,8 +1240,9 @@ function renderManagerForm(ticket, collaborators) {
       priority: String(formData.get("priority")),
       plannedDate: String(formData.get("plannedDate")),
       status: String(formData.get("status")),
+      returnNote: String(formData.get("returnNote") || ""),
     });
-    toast("Demande mise a jour.");
+    toast("Demande mise à jour.");
   });
 
   return wrapper;
@@ -956,17 +1250,23 @@ function renderManagerForm(ticket, collaborators) {
 
 function renderDetails(ticket) {
   const createdBy = findUser(ticket.createdBy)?.name || "Inconnu";
-  const assignedTo = findUser(ticket.assignedTo)?.name || "Non attribue";
-  const manager = findUser(ticket.managerId)?.name || "Responsable non defini";
+  const assignedTo = findUser(ticket.assignedTo)?.name || "Non attribué";
+  const manager = findUser(ticket.managerId)?.name || "Responsable non défini";
 
-  return [
+  const items = [
     detailItem("Demande par", createdBy),
-    detailItem("Date souhaitee", formatDate(ticket.desiredDate)),
-    detailItem("Date validee", formatDate(ticket.plannedDate)),
-    detailItem("Attribue a", assignedTo),
+    detailItem("Date souhaitée", formatDate(ticket.desiredDate)),
+    detailItem("Date validée", formatDate(ticket.plannedDate)),
+    detailItem("Attribué à", assignedTo),
     detailItem("Responsable", manager),
-    detailItem("Mis a jour", formatDateTime(ticket.updatedAt)),
-  ].join("");
+    detailItem("Mis à jour", formatDateTime(ticket.updatedAt)),
+  ];
+
+  if (ticket.status === "en_attente" && ticket.returnNote) {
+    items.push(`<div class="return-note-banner"><dt>Message du responsable</dt><dd>${escHtml(ticket.returnNote)}</dd></div>`);
+  }
+
+  return items.join("");
 }
 
 function updateTicket(ticketId, updates) {
