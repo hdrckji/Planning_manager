@@ -221,6 +221,101 @@
         opacity: 0.7;
       }
 
+      .auth-modal[hidden] {
+        display: none;
+      }
+
+      .auth-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        display: grid;
+        place-items: center;
+        background: rgba(18, 36, 22, 0.42);
+        padding: 24px;
+      }
+
+      .auth-modal-open {
+        overflow: hidden;
+      }
+
+      .auth-dialog {
+        width: min(460px, 100%);
+        background: #ffffff;
+        border-radius: 22px;
+        border: 1px solid rgba(0,0,0,.08);
+        box-shadow: 0 24px 70px rgba(0,0,0,.22);
+        padding: 28px;
+      }
+
+      .auth-dialog__eyebrow {
+        margin: 0 0 8px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #2a7a3b;
+      }
+
+      .auth-dialog h2 {
+        margin: 0 0 10px;
+        font-family: "Fraunces", serif;
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      .auth-dialog p {
+        margin: 0;
+        color: #4d6b55;
+        line-height: 1.6;
+      }
+
+      .auth-form {
+        display: grid;
+        gap: 14px;
+        margin-top: 22px;
+      }
+
+      .auth-form label {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #1a5228;
+      }
+
+      .auth-form input {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(0,0,0,.12);
+        padding: 12px 14px;
+        font: inherit;
+      }
+
+      .auth-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      .auth-button {
+        border: none;
+        border-radius: 14px;
+        padding: 11px 16px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .auth-button--ghost {
+        background: rgba(26, 82, 40, 0.08);
+        color: #1a5228;
+      }
+
+      .auth-button--primary {
+        background: linear-gradient(135deg, #2a7a3b, #1a5228);
+        color: #ffffff;
+      }
+
       @media (max-width: 780px) {
         .portal {
           padding: 48px 0 40px;
@@ -251,7 +346,7 @@
 
       <main class="portal__roles">
 
-        <a class="role-card role-card--employee" href="employee.html">
+        <a class="role-card role-card--employee" href="employee.html" data-role-card="employee">
           <div class="role-card__stripe"></div>
           <div class="role-card__icon">&#x1F6D2;</div>
           <div class="role-card__body">
@@ -268,7 +363,7 @@
           </div>
         </a>
 
-        <a class="role-card role-card--manager" href="manager.html">
+        <a class="role-card role-card--manager" href="manager.html" data-role-card="manager">
           <div class="role-card__stripe"></div>
           <div class="role-card__icon">&#x1F4CB;</div>
           <div class="role-card__body">
@@ -285,7 +380,7 @@
           </div>
         </a>
 
-        <a class="role-card role-card--collab" href="collaborator.html">
+        <a class="role-card role-card--collab" href="collaborator.html" data-role-card="collaborator">
           <div class="role-card__stripe"></div>
           <div class="role-card__icon">&#x1F527;</div>
           <div class="role-card__body">
@@ -308,6 +403,25 @@
         Flow Desk &mdash; Usage interne Famiflora &nbsp;&middot;&nbsp; <span id="yr"></span>
       </footer>
     </div>
+    <div class="auth-modal" id="authModal" hidden>
+      <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <p class="auth-dialog__eyebrow">Acces protege</p>
+        <h2 id="authTitle"></h2>
+        <p id="authMessage"></p>
+        <form id="authForm" class="auth-form">
+          <input id="authRole" name="authRole" type="hidden" />
+          <div>
+            <label for="authPassword">Mot de passe</label>
+            <input id="authPassword" name="authPassword" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="auth-actions">
+            <button class="auth-button auth-button--ghost" id="authCancel" type="button">Annuler</button>
+            <button class="auth-button auth-button--primary" type="submit">Entrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <script>document.getElementById("yr").textContent = new Date().getFullYear();</script>
+    <script src="auth.js"></script>
   </body>
 </html>

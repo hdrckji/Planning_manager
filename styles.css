@@ -118,6 +118,14 @@ h1 {
   align-content: start;
 }
 
+.auth-note {
+  margin: 0;
+}
+
+.auth-logout-button {
+  width: 100%;
+}
+
 .current-user-meta,
 .ticket-meta-row,
 .tabs,
