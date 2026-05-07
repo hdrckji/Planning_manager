@@ -545,6 +545,23 @@ textarea {
   z-index: 10;
 }
 
+.lang-toggle {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: 160ms ease;
+  margin-top: 12px;
+}
+
+.lang-toggle:hover {
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow);
+}
+
 @media (max-width: 1080px) {
   .hero,
   .layout {

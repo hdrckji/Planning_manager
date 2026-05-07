@@ -64,13 +64,13 @@ function injectLogoutButton(role) {
 
   const info = document.createElement("p");
   info.className = "hint auth-note";
-  info.textContent = "Acces protege par mot de passe. Session active pour cet espace.";
+  info.textContent = typeof t === "function" ? t("misc.session.active") : "Session active pour cet espace.";
 
   const button = document.createElement("button");
   button.type = "button";
   button.className = "button ghost auth-logout-button";
   button.dataset.authLogout = "true";
-  button.textContent = "Se deconnecter";
+  button.textContent = typeof t === "function" ? t("misc.logout") : "Se deconnecter";
   button.addEventListener("click", () => {
     logout(role);
     window.location.replace("index.html");
@@ -101,8 +101,8 @@ function setupPortalLogin() {
     }
 
     roleInput.value = role;
-    title.textContent = config.label;
-    message.textContent = `Entrez le mot de passe pour acceder a ${config.label.toLowerCase()}.`;
+    title.textContent = typeof t === "function" ? t("auth.protected") : config.label;
+    message.textContent = typeof t === "function" ? `${t("auth.password")} — ${config.label}` : `Entrez le mot de passe pour acceder a ${config.label.toLowerCase()}.`;
     passwordInput.value = "";
     passwordInput.setCustomValidity("");
     modal.hidden = false;
@@ -144,7 +144,7 @@ function setupPortalLogin() {
     const role = roleInput.value;
     const password = passwordInput.value;
     if (!login(role, password)) {
-      passwordInput.setCustomValidity("Mot de passe incorrect.");
+      passwordInput.setCustomValidity(typeof t === "function" ? t("auth.wrong") : "Mot de passe incorrect.");
       passwordInput.reportValidity();
       return;
     }

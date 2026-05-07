@@ -37,40 +37,28 @@ const DEFAULT_TREE = [
   },
 ];
 
-const STATUS_LABELS = {
-  nouveau: "Nouveau",
-  en_attente: "En attente",
-  planifie: "Planifié",
-  en_cours: "En cours",
-  termine: "Terminé",
-};
+const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
+const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
+const TEAM_KEYS     = ["magasin", "technique", "decoration"];
 
-const TEAM_LABELS = {
-  magasin: "Magasin",
-  technique: "Technique",
-  decoration: "Decoration",
-};
-
-const PRIORITY_LABELS = {
-  basse: "Basse",
-  moyenne: "Moyenne",
-  haute: "Haute",
-};
+function STATUS_LABELS() { return { nouveau: t("status.nouveau"), en_attente: t("status.en_attente"), planifie: t("status.planifie"), en_cours: t("status.en_cours"), termine: t("status.termine") }; }
+function PRIORITY_LABELS() { return { basse: t("priority.basse"), moyenne: t("priority.moyenne"), haute: t("priority.haute") }; }
+function TEAM_LABELS_MAP() { return { magasin: t("team.magasin"), technique: t("team.technique"), decoration: t("team.decoration") }; }
 
 const PAGE_CONFIG = {
   employee: {
-    title: "Espace employe magasin",
-    subtitle: "Creation et suivi des demandes d'intervention.",
+    title: "page.employee.title",
+    subtitle: "page.employee.subtitle",
     role: "employee",
   },
   manager: {
-    title: "Espace responsable",
-    subtitle: "Validation, attribution et planification des demandes.",
+    title: "page.manager.title",
+    subtitle: "page.manager.subtitle",
     role: "manager",
   },
   collaborator: {
-    title: "Espace collaborateur",
-    subtitle: "Planning personnel des taches attribuees.",
+    title: "page.collab.title",
+    subtitle: "page.collab.subtitle",
     role: "collaborator",
   },
 };
@@ -227,7 +215,7 @@ function bindGlobalEvents() {
       persistState();
       renderUserSelector();
       render();
-      toast("Profil ajoute.");
+    toast(t("misc.profile.added"));
     });
   }
 }
@@ -246,15 +234,17 @@ function render() {
   const user = getCurrentUser();
 
   if (refs.pageTitle) {
-    refs.pageTitle.textContent = pageConfig.title;
+    const titleKeys = { employee: "emp.myrequests", manager: "role.manager", collaborator: "collab.planning" };
+    refs.pageTitle.textContent = t(titleKeys[page] || "app.name");
   }
   if (refs.pageSubtitle) {
-    refs.pageSubtitle.textContent = pageConfig.subtitle;
+    const subKeys = { employee: "emp.myrequests.sub", manager: "page.manager.hero", collaborator: "collab.planning.sub" };
+    refs.pageSubtitle.textContent = t(subKeys[page] || "app.name");
   }
 
   if (!user) {
-    refs.currentRoleBadge.textContent = "Aucun profil";
-    refs.currentTeamBadge.textContent = "Aucune equipe";
+    refs.currentRoleBadge.textContent = t("misc.no.profile");
+    refs.currentTeamBadge.textContent = "";
   } else {
     refs.currentUser.value = user.id;
     refs.currentRoleBadge.textContent = roleLabel(user.role);
@@ -272,7 +262,7 @@ function renderUserSelector() {
   const users = usersForCurrentPage();
 
   if (users.length === 0) {
-    refs.currentUser.innerHTML = '<option value="">Aucun profil cree</option>';
+    refs.currentUser.innerHTML = `<option value="">${t("misc.no.profile")}</option>`;
     refs.currentUser.disabled = true;
     state.currentUserId = "";
     return;
@@ -300,7 +290,7 @@ function renderProfileList() {
 
   const users = usersForCurrentPage();
   if (users.length === 0) {
-    refs.profileList.innerHTML = '<div class="empty-state">Aucun profil pour ce role.</div>';
+    refs.profileList.innerHTML = `<div class="empty-state">${t("misc.no.profile")}</div>`;
     return;
   }
 
@@ -311,7 +301,7 @@ function renderProfileList() {
           <strong>${user.name}</strong>
           <p class="subtle">${teamLabel(user.team)}</p>
         </div>
-        <button class="button ghost" type="button" data-action="delete-profile" data-user-id="${user.id}">Supprimer</button>
+        <button class="button ghost" type="button" data-action="delete-profile" data-user-id="${user.id}">${t("users.delete")}</button>
       </div>
     `)
     .join("");
@@ -353,7 +343,7 @@ function removeUser(userId) {
   persistState();
   renderUserSelector();
   render();
-  toast("Profil supprime.");
+  toast(t("users.deleted"));
 }
 
 function renderStats() {
@@ -361,10 +351,10 @@ function renderStats() {
 
   if (!currentUser) {
     const zeroStats = [
-      { label: "Demandes totales", value: 0 },
-      { label: "A traiter", value: 0 },
-      { label: "Haute priorite", value: 0 },
-      { label: "Mon planning", value: 0 },
+      { label: t("stats.total"),    value: 0 },
+      { label: t("stats.pending"),  value: 0 },
+      { label: t("stats.high"),     value: 0 },
+      { label: t("stats.planning"), value: 0 },
     ];
 
     refs.statsGrid.innerHTML = zeroStats
@@ -387,10 +377,10 @@ function renderStats() {
   const pending = ticketsForTeam.filter((ticket) => ticket.status !== "termine");
 
   const stats = [
-    { label: "Demandes totales", value: ticketsForTeam.length },
-    { label: "A traiter", value: pending.length },
-    { label: "Haute priorite", value: ticketsForTeam.filter((ticket) => ticket.priority === "haute").length },
-    { label: "Mon planning", value: assignedTickets.length },
+    { label: t("stats.total"),    value: ticketsForTeam.length },
+    { label: t("stats.pending"),  value: pending.length },
+    { label: t("stats.high"),     value: ticketsForTeam.filter((ticket) => ticket.priority === "haute").length },
+    { label: t("stats.planning"), value: assignedTickets.length },
   ];
 
   refs.statsGrid.innerHTML = stats
@@ -414,7 +404,7 @@ function renderActiveNavigation() {
 function renderCurrentPage() {
   const user = getCurrentUser();
   if (!user) {
-    refs.mainView.innerHTML = '<div class="empty-state">Ajoute d\'abord un profil dans le panneau de gauche.</div>';
+    refs.mainView.innerHTML = `<div class="empty-state">${t("misc.add.profile")}</div>`;
     return;
   }
 
@@ -460,8 +450,8 @@ function renderEmployeePage() {
     <section class="card alert-card">
       <div class="section-head">
         <div>
-          <h2>⚠ Demandes en attente d'informations</h2>
-          <p class="subtle">Le responsable a besoin de précisions supplémentaires sur ces demandes.</p>
+          <h2>${t("emp.waiting.title")}</h2>
+          <p class="subtle">${t("emp.waiting.sub")}</p>
         </div>
       </div>
       <div class="ticket-list" id="waitingTicketList"></div>
@@ -470,29 +460,29 @@ function renderEmployeePage() {
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Nouvelle demande</h2>
-          <p class="subtle">Suivez les etapes pour qualifier votre demande d'intervention.</p>
+          <h2>${t("emp.newrequest")}</h2>
+          <p class="subtle">${t("emp.newrequest.sub")}</p>
         </div>
       </div>
       <form id="ticketForm" class="form-grid">
         <div class="field full" id="treeStepsContainer"></div>
         <div class="field full hidden" id="commentField">
-          <label for="ticketComment">Commentaire (optionnel)</label>
-          <textarea id="ticketComment" name="comment" placeholder="Decris l'emplacement, le contexte, l'urgence..."></textarea>
+          <label for="ticketComment">${t("emp.comment")}</label>
+          <textarea id="ticketComment" name="comment" placeholder="${t("emp.comment.ph")}"></textarea>
         </div>
         <div class="field full hidden" id="photoField">
-          <label for="ticketPhoto">Photo (optionnelle)</label>
+          <label for="ticketPhoto">${t("emp.photo")}</label>
           <input id="ticketPhoto" name="photo" type="file" accept="image/*" />
         </div>
         <div class="field full hidden" id="submitField">
-          <button class="button" type="submit">Envoyer la demande</button>
+          <button class="button" type="submit">${t("emp.submit")}</button>
         </div>
       </form>
     </section>
     <section class="card">
       <div class="section-head"><div>
-        <h2>Mes demandes</h2>
-        <p class="subtle">Suivi des demandes creees depuis ce profil.</p>
+        <h2>${t("emp.myrequests")}</h2>
+        <p class="subtle">${t("emp.myrequests.sub")}</p>
       </div></div>
       <div class="ticket-list" id="employeeTicketList"></div>
     </section>
@@ -549,14 +539,14 @@ function renderEmployeePage() {
   }
 
   function appendSelect(nodes, depth, selectedValue) {
-    const label = depth === 0 ? "Categorie" : depth === 1 ? "Sous-categorie" : `Precision ${depth}`;
+    const label = depth === 0 ? t("emp.cat") : depth === 1 ? t("emp.subcat") : `${t("emp.precision")} ${depth}`;
     const wrapper = document.createElement("div");
     wrapper.className = "field full tree-step";
     wrapper.dataset.depth = depth;
     wrapper.innerHTML = `
       <label>${label}</label>
       <select data-tree-depth="${depth}">
-        <option value="">-- Choisir --</option>
+        <option value="">${t("emp.choose")}</option>
         ${nodes.map((n) => `<option value="${n.value}" ${n.value === selectedValue ? "selected" : ""}>${n.label}</option>`).join("")}
       </select>
     `;
@@ -624,7 +614,7 @@ function renderEmployeePage() {
     form.reset();
     rebuildSelects();
     render();
-    toast("Demande envoyee.");
+    toast(t("emp.sent"));
   });
 
   if (enAttenteTickets.length > 0) {
@@ -641,15 +631,15 @@ function renderManagerPage() {
   const collaborators = state.users.filter(
     (u) => u.role === "collaborator" && u.team === currentUser.team,
   );
-  const alertCount = teamTickets.filter((t) => t.status === "nouveau" || t.status === "en_attente").length;
+  const alertCount = teamTickets.filter((t_) => t_.status === "nouveau" || t_.status === "en_attente").length;
 
   refs.mainView.innerHTML = `
     <nav class="manager-tabs">
-      <button class="manager-tab ${managerSubPage === "dashboard" ? "active" : ""}" data-subpage="dashboard">Tableau de bord</button>
-      <button class="manager-tab ${managerSubPage === "demandes" ? "active" : ""}" data-subpage="demandes">Demandes${alertCount > 0 ? ` <span class="tab-badge">${alertCount}</span>` : ""}</button>
-      <button class="manager-tab ${managerSubPage === "utilisateurs" ? "active" : ""}" data-subpage="utilisateurs">Utilisateurs</button>
-      <button class="manager-tab ${managerSubPage === "categories" ? "active" : ""}" data-subpage="categories">Catégories</button>
-      <button class="manager-tab ${managerSubPage === "planning" ? "active" : ""}" data-subpage="planning">Planning</button>
+      <button class="manager-tab ${managerSubPage === "dashboard"    ? "active" : ""}" data-subpage="dashboard">${t("tab.dashboard")}</button>
+      <button class="manager-tab ${managerSubPage === "demandes"     ? "active" : ""}" data-subpage="demandes">${t("tab.requests")}${alertCount > 0 ? ` <span class="tab-badge">${alertCount}</span>` : ""}</button>
+      <button class="manager-tab ${managerSubPage === "utilisateurs" ? "active" : ""}" data-subpage="utilisateurs">${t("tab.users")}</button>
+      <button class="manager-tab ${managerSubPage === "categories"   ? "active" : ""}" data-subpage="categories">${t("tab.categories")}</button>
+      <button class="manager-tab ${managerSubPage === "planning"     ? "active" : ""}" data-subpage="planning">${t("tab.planning")}</button>
     </nav>
     <div id="managerContent" class="manager-content"></div>
   `;
@@ -673,29 +663,29 @@ function renderManagerPage() {
 
 function renderManagerDashboard(container, tickets) {
   const currentUser = getCurrentUser();
-  const byStatus = (s) => tickets.filter((t) => t.status === s).length;
+  const byStatus = (s) => tickets.filter((t_) => t_.status === s).length;
 
   container.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Tableau de bord — ${teamLabel(currentUser.team)}</h2>
-          <p class="subtle">Vue synthétique de l'activité de votre département.</p>
+          <h2>${t("dash.title")} — ${teamLabel(currentUser.team)}</h2>
+          <p class="subtle">${t("dash.subtitle")}</p>
         </div>
       </div>
       <div class="kpi-row">
-        <div class="kpi-card"><span class="kpi-value">${tickets.length}</span><span class="kpi-label">Total</span></div>
-        <div class="kpi-card kpi-warn"><span class="kpi-value">${byStatus("nouveau")}</span><span class="kpi-label">Nouveau</span></div>
-        <div class="kpi-card kpi-wait"><span class="kpi-value">${byStatus("en_attente")}</span><span class="kpi-label">En attente</span></div>
-        <div class="kpi-card kpi-info"><span class="kpi-value">${byStatus("planifie")}</span><span class="kpi-label">Planifié</span></div>
-        <div class="kpi-card kpi-progress"><span class="kpi-value">${byStatus("en_cours")}</span><span class="kpi-label">En cours</span></div>
-        <div class="kpi-card kpi-ok"><span class="kpi-value">${byStatus("termine")}</span><span class="kpi-label">Terminé</span></div>
+        <div class="kpi-card"><span class="kpi-value">${tickets.length}</span><span class="kpi-label">${t("stats.total")}</span></div>
+        <div class="kpi-card kpi-warn"><span class="kpi-value">${byStatus("nouveau")}</span><span class="kpi-label">${t("status.nouveau")}</span></div>
+        <div class="kpi-card kpi-wait"><span class="kpi-value">${byStatus("en_attente")}</span><span class="kpi-label">${t("status.en_attente")}</span></div>
+        <div class="kpi-card kpi-info"><span class="kpi-value">${byStatus("planifie")}</span><span class="kpi-label">${t("status.planifie")}</span></div>
+        <div class="kpi-card kpi-progress"><span class="kpi-value">${byStatus("en_cours")}</span><span class="kpi-label">${t("status.en_cours")}</span></div>
+        <div class="kpi-card kpi-ok"><span class="kpi-value">${byStatus("termine")}</span><span class="kpi-label">${t("status.termine")}</span></div>
       </div>
     </section>
     <section class="card">
       <div class="section-head"><div>
-        <h2>Vue par statut</h2>
-        <p class="subtle">Aperçu rapide de toutes les demandes en cours.</p>
+        <h2>${t("dash.lanes.title")}</h2>
+        <p class="subtle">${t("dash.lanes.subtitle")}</p>
       </div></div>
       <div class="lane-list" id="dashLanes"></div>
     </section>
@@ -711,14 +701,14 @@ function renderManagerDemandes(container, tickets, collaborators) {
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Demandes d'intervention</h2>
-          <p class="subtle">Planifiez, affectez ou retournez chaque demande à l'employé.</p>
+          <h2>${t("mgr.requests.title")}</h2>
+          <p class="subtle">${t("mgr.requests.sub")}</p>
         </div>
         <div class="filter-bar">
-          <label for="statusFilter">Filtrer :</label>
+          <label for="statusFilter">${t("mgr.filter.label")}</label>
           <select id="statusFilter">
-            <option value="">Tous les statuts</option>
-            ${Object.entries(STATUS_LABELS).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}
+            <option value="">${t("mgr.filter.all")}</option>
+            ${Object.entries(STATUS_LABELS()).map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}
           </select>
         </div>
       </div>
@@ -750,7 +740,7 @@ function renderManagerUtilisateurs(container) {
 
     const userListHtml = (users) => {
       if (users.length === 0) {
-        return '<p class="subtle" style="padding:6px 0">Aucun utilisateur dans ce groupe.</p>';
+        return `<p class="subtle" style="padding:6px 0">${t("users.none")}</p>`;
       }
       return users.map((u) => `
         <div class="user-item">
@@ -758,7 +748,7 @@ function renderManagerUtilisateurs(container) {
             <strong>${escHtml(u.name)}</strong>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
           </div>
-          <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">Supprimer</button>
+          <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
         </div>
       `).join("");
     };
@@ -767,49 +757,49 @@ function renderManagerUtilisateurs(container) {
       <section class="card">
         <div class="section-head">
           <div>
-            <h2>Gestion des utilisateurs</h2>
-            <p class="subtle">Créez et supprimez tous les profils de l'application.</p>
+            <h2>${t("users.title")}</h2>
+            <p class="subtle">${t("users.sub")}</p>
           </div>
         </div>
         <div class="add-user-block">
-          <h3>Nouvel utilisateur</h3>
+          <h3>${t("users.new")}</h3>
           <form id="addUserForm" class="form-grid">
             <div class="field">
-              <label for="nuName">Nom</label>
-              <input id="nuName" name="name" type="text" placeholder="Prénom Nom" required />
+              <label for="nuName">${t("users.name")}</label>
+              <input id="nuName" name="name" type="text" placeholder="${t("users.name.ph")}" required />
             </div>
             <div class="field">
-              <label for="nuRole">Rôle</label>
+              <label for="nuRole">${t("users.role")}</label>
               <select id="nuRole" name="role">
-                <option value="employee">Employé magasin</option>
-                <option value="collaborator">Collaborateur</option>
-                <option value="manager">Responsable</option>
+                <option value="employee">${t("role.employee.opt")}</option>
+                <option value="collaborator">${t("role.collab.opt")}</option>
+                <option value="manager">${t("role.manager.opt")}</option>
               </select>
             </div>
             <div class="field">
-              <label for="nuTeam">Département</label>
+              <label for="nuTeam">${t("users.dept")}</label>
               <select id="nuTeam" name="team">
-                <option value="magasin">Magasin</option>
-                <option value="technique">Technique</option>
-                <option value="decoration">Décoration</option>
+                <option value="magasin">${t("dept.magasin")}</option>
+                <option value="technique">${t("dept.technique")}</option>
+                <option value="decoration">${t("dept.decoration")}</option>
               </select>
             </div>
             <div class="field full">
-              <button class="button" type="submit">Créer l'utilisateur</button>
+              <button class="button" type="submit">${t("users.create")}</button>
             </div>
           </form>
         </div>
         <div class="user-groups">
           <div class="user-group">
-            <h3>Responsables <span class="badge badge-muted">${managers.length}</span></h3>
+            <h3>${t("users.managers")} <span class="badge badge-muted">${managers.length}</span></h3>
             <div class="user-group-list">${userListHtml(managers)}</div>
           </div>
           <div class="user-group">
-            <h3>Collaborateurs <span class="badge badge-muted">${collabs.length}</span></h3>
+            <h3>${t("users.collabs")} <span class="badge badge-muted">${collabs.length}</span></h3>
             <div class="user-group-list">${userListHtml(collabs)}</div>
           </div>
           <div class="user-group">
-            <h3>Employés magasin <span class="badge badge-muted">${employees.length}</span></h3>
+            <h3>${t("users.employees")} <span class="badge badge-muted">${employees.length}</span></h3>
             <div class="user-group-list">${userListHtml(employees)}</div>
           </div>
         </div>
@@ -822,11 +812,11 @@ function renderManagerUtilisateurs(container) {
     function syncTeamOptions() {
       const r = roleSelect.value;
       if (r === "employee") {
-        teamSelect.innerHTML = '<option value="magasin">Magasin</option>';
+        teamSelect.innerHTML = `<option value="magasin">${t("dept.magasin")}</option>`;
       } else {
         teamSelect.innerHTML = `
-          <option value="technique">Technique</option>
-          <option value="decoration">Décoration</option>
+          <option value="technique">${t("dept.technique")}</option>
+          <option value="decoration">${t("dept.decoration")}</option>
         `;
       }
     }
@@ -845,7 +835,7 @@ function renderManagerUtilisateurs(container) {
       persistState();
       renderUserSelector();
       renderContent();
-      toast("Utilisateur créé.");
+      toast(t("users.created"));
     });
 
     container.querySelectorAll("[data-action='del-user']").forEach((btn) => {
@@ -875,28 +865,28 @@ function renderManagerPlanning(container, collaborators) {
   function renderWeek() {
     const days = getWeekDays();
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
-    let calTickets = state.tickets.filter((t) => ["planifie", "en_cours", "termine"].includes(t.status));
+    let calTickets = state.tickets.filter((t_) => ["planifie", "en_cours", "termine"].includes(t_.status));
     if (planningFilterCollab) {
-      calTickets = calTickets.filter((t) => t.assignedTo === planningFilterCollab);
+      calTickets = calTickets.filter((t_) => t_.assignedTo === planningFilterCollab);
     }
 
     container.innerHTML = `
       <section class="card">
         <div class="section-head">
           <div>
-            <h2>Planning collaborateurs</h2>
+            <h2>${t("plan.title")}</h2>
             <p class="subtle">${weekLabel}</p>
           </div>
           <div class="planning-controls">
-            <button class="button ghost" id="prevWeekBtn">← Préc.</button>
-            <button class="button ghost" id="todayBtn">Aujourd'hui</button>
-            <button class="button ghost" id="nextWeekBtn">Suiv. →</button>
+            <button class="button ghost" id="prevWeekBtn">${t("plan.prev")}</button>
+            <button class="button ghost" id="todayBtn">${t("plan.today")}</button>
+            <button class="button ghost" id="nextWeekBtn">${t("plan.next")}</button>
           </div>
         </div>
         <div class="planning-filter-bar">
-          <label for="planCollab">Collaborateur :</label>
+          <label for="planCollab">${t("plan.collab.label")}</label>
           <select id="planCollab">
-            <option value="">Tous</option>
+            <option value="">${t("plan.collab.all")}</option>
             ${collaborators.map((c) => `<option value="${c.id}" ${planningFilterCollab === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
           </select>
         </div>
@@ -952,10 +942,10 @@ function renderTreeEditor(container) {
     return `
       <div class="tree-node" data-path="${pathKey}">
         <div class="tree-node-row">
-          <input class="tree-node-label" type="text" value="${escHtml(node.label)}" data-path="${pathKey}" data-field="label" placeholder="Libelle" />
-          <input class="tree-node-value" type="text" value="${escHtml(node.value)}" data-path="${pathKey}" data-field="value" placeholder="Valeur (sans espace)" />
-          <button class="button ghost tree-btn" type="button" data-action="add-child" data-path="${pathKey}">+ Sous-niveau</button>
-          <button class="button danger-ghost tree-btn" type="button" data-action="delete-node" data-path="${pathKey}">Supprimer</button>
+          <input class="tree-node-label" type="text" value="${escHtml(node.label)}" data-path="${pathKey}" data-field="label" placeholder="${t("tree.label.ph")}" />
+          <input class="tree-node-value" type="text" value="${escHtml(node.value)}" data-path="${pathKey}" data-field="value" placeholder="${t("tree.value.ph")}" />
+          <button class="button ghost tree-btn" type="button" data-action="add-child" data-path="${pathKey}">${t("tree.add.child")}</button>
+          <button class="button danger-ghost tree-btn" type="button" data-action="delete-node" data-path="${pathKey}">${t("tree.delete")}</button>
         </div>
         ${hasChildren ? `<div class="tree-children">${node.children.map((child, i) => nodeToHtml(child, [...path, "children", i])).join("")}</div>` : ""}
       </div>
@@ -981,50 +971,50 @@ function renderTreeEditor(container) {
       <div class="tree-editor-wrap">
         <div id="treeNodes">${currentTree.map((node, i) => nodeToHtml(node, [i])).join("")}</div>
         <div class="tree-editor-actions">
-          <button class="button ghost" type="button" id="addRootNode">+ Ajouter une categorie racine</button>
-          <button class="button" type="button" id="saveTree">Enregistrer</button>
-          <button class="button ghost" type="button" id="resetTree">Restaurer par defaut</button>
+          <button class="button ghost" type="button" id="addRootNode">${t("tree.add.root")}</button>
+          <button class="button" type="button" id="saveTree">${t("tree.save")}</button>
+          <button class="button ghost" type="button" id="resetTree">${t("tree.restore")}</button>
         </div>
       </div>
     `;
 
     container.querySelector("#addRootNode").addEventListener("click", () => {
-      const t = loadTree();
-      t.push({ label: "Nouvelle categorie", value: `cat_${Date.now()}`, children: [] });
-      saveTree(t);
+      const tr = loadTree();
+      tr.push({ label: t("tree.add.root"), value: `cat_${Date.now()}`, children: [] });
+      saveTree(tr);
       renderEditor();
     });
 
     container.querySelector("#resetTree").addEventListener("click", () => {
       saveTree(DEFAULT_TREE);
       renderEditor();
-      toast("Arbre restaure par defaut.");
+      toast(t("tree.restored"));
     });
 
     container.querySelector("#saveTree").addEventListener("click", () => {
-      const t = loadTree();
+      const tr2 = loadTree();
       container.querySelectorAll("[data-path][data-field]").forEach((input) => {
         const pathParts = input.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
         const field = input.dataset.field;
-        const node = getNodeAtPath(t, pathParts);
+        const node = getNodeAtPath(tr2, pathParts);
         if (node && typeof node === "object") {
           node[field] = input.value.trim();
         }
       });
-      saveTree(t);
+      saveTree(tr2);
       renderEditor();
-      toast("Categories enregistrees.");
+      toast(t("tree.saved"));
     });
 
     container.querySelectorAll("[data-action='add-child']").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const t = loadTree();
+        const tr3 = loadTree();
         const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
-        const node = getNodeAtPath(t, pathParts);
+        const node = getNodeAtPath(tr3, pathParts);
         if (node) {
           node.children = node.children || [];
-          node.children.push({ label: "Nouveau", value: `item_${Date.now()}`, children: [] });
-          saveTree(t);
+          node.children.push({ label: t("tree.add.child"), value: `item_${Date.now()}`, children: [] });
+          saveTree(tr3);
           renderEditor();
         }
       });
@@ -1032,15 +1022,15 @@ function renderTreeEditor(container) {
 
     container.querySelectorAll("[data-action='delete-node']").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const t = loadTree();
+        const tr4 = loadTree();
         const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
         const parentPath = pathParts.slice(0, -1);
         const index = pathParts[pathParts.length - 1];
-        const parent = parentPath.length === 0 ? { children: t } : getNodeAtPath(t, parentPath);
+        const parent = parentPath.length === 0 ? { children: tr4 } : getNodeAtPath(tr4, parentPath);
         if (parent && Array.isArray(parent.children || parent)) {
-          const arr = parentPath.length === 0 ? t : parent.children || parent;
+          const arr = parentPath.length === 0 ? tr4 : parent.children || parent;
           arr.splice(index, 1);
-          saveTree(t);
+          saveTree(tr4);
           renderEditor();
         }
       });
@@ -1061,8 +1051,8 @@ function renderCollaboratorPage() {
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Mon planning</h2>
-          <p class="subtle">Vue chronologique des taches affectees a ce collaborateur.</p>
+          <h2>${t("collab.planning")}</h2>
+          <p class="subtle">${t("collab.planning.sub")}</p>
         </div>
       </div>
       <div class="planning-list" id="planningList"></div>
@@ -1071,7 +1061,7 @@ function renderCollaboratorPage() {
 
   const planningList = refs.mainView.querySelector("#planningList");
   if (tickets.length === 0) {
-    planningList.innerHTML = '<div class="empty-state">Aucune tache affectee pour le moment.</div>';
+    planningList.innerHTML = `<div class="empty-state">${t("collab.task.none")}</div>`;
     return;
   }
 
@@ -1081,7 +1071,7 @@ function renderCollaboratorPage() {
         <section class="planning-day">
           <div class="timeline-meta">
             <h3>${formatDate(date)}</h3>
-            <span class="badge badge-muted">${dayTickets.length} tache(s)</span>
+            <span class="badge badge-muted">${dayTickets.length} ${t("collab.task.count")}</span>
           </div>
           ${dayTickets
             .map(
@@ -1094,7 +1084,7 @@ function renderCollaboratorPage() {
                   </div>
                   <p class="subtle">${ticket.description}</p>
                   <div class="ticket-actions">
-                    ${ticket.status !== "termine" ? `<button class="button" type="button" data-action="mark-done" data-ticket-id="${ticket.id}">Marquer termine</button>` : ""}
+                    ${ticket.status !== "termine" ? `<button class="button" type="button" data-action="mark-done" data-ticket-id="${ticket.id}">${t("collab.done")}</button>` : ""}
                   </div>
                 </article>
               `,
@@ -1108,32 +1098,26 @@ function renderCollaboratorPage() {
   planningList.querySelectorAll("[data-action='mark-done']").forEach((button) => {
     button.addEventListener("click", () => {
       updateTicket(button.dataset.ticketId, { status: "termine" });
-      toast("Tache marquee comme terminee.");
+      toast(t("collab.marked"));
     });
   });
 }
 
 function renderManagerLanes(container, tickets) {
-  const laneMap = [
-    { key: "nouveau", label: "Nouveau" },
-    { key: "en_attente", label: "En attente" },
-    { key: "planifie", label: "Planifié" },
-    { key: "en_cours", label: "En cours" },
-    { key: "termine", label: "Terminé" },
-  ];
+  const laneKeys = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
 
-  container.innerHTML = laneMap
-    .map((lane) => {
-      const items = tickets.filter((ticket) => ticket.status === lane.key);
+  container.innerHTML = laneKeys
+    .map((key) => {
+      const items = tickets.filter((ticket) => ticket.status === key);
       return `
         <section class="lane-card">
-          <h3>${lane.label}</h3>
-          ${items.length === 0 ? '<div class="empty-state">Aucune demande.</div>' : items
+          <h3>${t("status." + key)}</h3>
+          ${items.length === 0 ? `<div class="empty-state">${t("misc.empty")}</div>` : items
             .map(
               (ticket) => `
                 <article class="ticket-mini">
                   <strong>${ticket.title}</strong>
-                  <p class="subtle">${ticket.plannedDate ? formatDate(ticket.plannedDate) : "Date a confirmer"}</p>
+                  <p class="subtle">${ticket.plannedDate ? formatDate(ticket.plannedDate) : t("ticket.date.confirm")}</p>
                 </article>
               `,
             )
@@ -1146,7 +1130,7 @@ function renderManagerLanes(container, tickets) {
 
 function renderTicketCards(container, tickets, options) {
   if (tickets.length === 0) {
-    container.innerHTML = '<div class="empty-state">Aucune demande a afficher.</div>';
+    container.innerHTML = `<div class="empty-state">${t("ticket.empty")}</div>`;
     return;
   }
 
@@ -1195,35 +1179,35 @@ function renderManagerForm(ticket, collaborators) {
   const isWaiting = ticket.status === "en_attente";
   wrapper.innerHTML = `
     <div class="field">
-      <label>Affecter à</label>
+      <label>${t("mgr.assign")}</label>
       <select name="assignedTo">
-        <option value="">Non attribué</option>
+        <option value="">${t("mgr.unassigned")}</option>
         ${collaborators.map((u) => `<option value="${u.id}" ${ticket.assignedTo === u.id ? "selected" : ""}>${escHtml(u.name)}</option>`).join("")}
       </select>
     </div>
     <div class="field">
-      <label>Priorité</label>
+      <label>${t("mgr.priority")}</label>
       <select name="priority">
-        ${Object.entries(PRIORITY_LABELS).map(([v, l]) => `<option value="${v}" ${ticket.priority === v ? "selected" : ""}>${l}</option>`).join("")}
+        ${Object.entries(PRIORITY_LABELS()).map(([v, l]) => `<option value="${v}" ${ticket.priority === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
     </div>
     <div class="field">
-      <label>Date validée</label>
+      <label>${t("mgr.date.validated")}</label>
       <input name="plannedDate" type="date" value="${ticket.plannedDate || ticket.desiredDate || today()}" />
     </div>
     <div class="field">
-      <label>Statut</label>
+      <label>${t("mgr.status")}</label>
       <select name="status" class="status-select">
-        ${Object.entries(STATUS_LABELS).map(([v, l]) => `<option value="${v}" ${ticket.status === v ? "selected" : ""}>${l}</option>`).join("")}
+        ${Object.entries(STATUS_LABELS()).map(([v, l]) => `<option value="${v}" ${ticket.status === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
     </div>
     <div class="field full return-note-field${isWaiting ? "" : " hidden"}">
-      <label>Message pour l'employé</label>
-      <textarea name="returnNote" placeholder="Précisez les informations manquantes...">${escHtml(ticket.returnNote || "")}</textarea>
+      <label>${t("mgr.return.msg")}</label>
+      <textarea name="returnNote" placeholder="${t("mgr.return.ph")}">${escHtml(ticket.returnNote || "")}</textarea>
     </div>
     <div class="field full">
-      <button class="button secondary" type="submit">Enregistrer</button>
-      ${!isWaiting ? `<button class="button ghost" type="button" data-action="quick-return">↩ Retourner à l'employé</button>` : ""}
+      <button class="button secondary" type="submit">${t("mgr.save")}</button>
+      ${!isWaiting ? `<button class="button ghost" type="button" data-action="quick-return">${t("mgr.return.btn")}</button>` : ""}
     </div>
   `;
 
@@ -1250,28 +1234,28 @@ function renderManagerForm(ticket, collaborators) {
       status: String(formData.get("status")),
       returnNote: String(formData.get("returnNote") || ""),
     });
-    toast("Demande mise à jour.");
+    toast(t("mgr.saved"));
   });
 
   return wrapper;
 }
 
 function renderDetails(ticket) {
-  const createdBy = findUser(ticket.createdBy)?.name || "Inconnu";
-  const assignedTo = findUser(ticket.assignedTo)?.name || "Non attribué";
-  const manager = findUser(ticket.managerId)?.name || "Responsable non défini";
+  const createdBy = findUser(ticket.createdBy)?.name || t("ticket.unknown");
+  const assignedTo = findUser(ticket.assignedTo)?.name || t("mgr.unassigned");
+  const manager = findUser(ticket.managerId)?.name || t("ticket.no.manager");
 
   const items = [
-    detailItem("Demande par", createdBy),
-    detailItem("Date souhaitée", formatDate(ticket.desiredDate)),
-    detailItem("Date validée", formatDate(ticket.plannedDate)),
-    detailItem("Attribué à", assignedTo),
-    detailItem("Responsable", manager),
-    detailItem("Mis à jour", formatDateTime(ticket.updatedAt)),
+    detailItem(t("ticket.by"),        createdBy),
+    detailItem(t("ticket.desired"),   formatDate(ticket.desiredDate)),
+    detailItem(t("ticket.validated"), formatDate(ticket.plannedDate)),
+    detailItem(t("ticket.assigned"),  assignedTo),
+    detailItem(t("ticket.manager"),   manager),
+    detailItem(t("ticket.updated"),   formatDateTime(ticket.updatedAt)),
   ];
 
   if (ticket.status === "en_attente" && ticket.returnNote) {
-    items.push(`<div class="return-note-banner"><dt>Message du responsable</dt><dd>${escHtml(ticket.returnNote)}</dd></div>`);
+    items.push(`<div class="return-note-banner"><dt>${t("ticket.return.note")}</dt><dd>${escHtml(ticket.returnNote)}</dd></div>`);
   }
 
   return items.join("");
@@ -1331,24 +1315,19 @@ function normalizeTeam(team) {
 }
 
 function teamLabel(team) {
-  return TEAM_LABELS[team] || "Magasin";
+  return TEAM_LABELS_MAP()[team] || t("team.magasin");
 }
 
 function roleLabel(role) {
-  const labels = {
-    employee: "Employe magasin",
-    manager: "Responsable",
-    collaborator: "Collaborateur",
-  };
-  return labels[role] || role;
+  return t("role." + role) || role;
 }
 
 function priorityLabel(priority) {
-  return PRIORITY_LABELS[priority] || "Moyenne";
+  return PRIORITY_LABELS()[priority] || t("priority.moyenne");
 }
 
 function statusLabel(status) {
-  return STATUS_LABELS[status] || "Nouveau";
+  return STATUS_LABELS()[status] || t("status.nouveau");
 }
 
 function detailItem(label, value) {
@@ -1411,3 +1390,7 @@ function toast(message) {
     element.remove();
   }, 2200);
 }
+
+// Re-render when language changes
+document.addEventListener("langchange", () => render());
+

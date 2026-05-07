@@ -1,0 +1,459 @@
+// ── i18n : Traductions FR / NL ─────────────────────────────────────────────
+const TRANSLATIONS = {
+  fr: {
+    // ── Général ────────────────────────────────────────────────────────────
+    "app.brand":          "Famiflora",
+    "app.name":           "Flow Desk",
+    "lang.toggle":        "NL",
+    "lang.current":       "FR",
+
+    // ── Portail (index.html) ───────────────────────────────────────────────
+    "portal.sub":         "Portail interne de ticketing et de gestion des interventions.\nChoisissez votre espace pour commencer.",
+    "portal.footer":      "Flow Desk — Usage interne Famiflora",
+
+    "role.employee.tag":  "Magasin",
+    "role.employee.title":"Espace employé",
+    "role.employee.desc": "Créer une demande d'intervention, décrire le besoin et proposer une date de passage.",
+    "role.employee.cta":  "Accéder à mon espace",
+
+    "role.manager.tag":   "Responsable",
+    "role.manager.title": "Espace manager",
+    "role.manager.desc":  "Valider les demandes, affecter les tâches aux équipes et ajuster les plannings d'intervention.",
+    "role.manager.cta":   "Accéder à mon espace",
+
+    "role.collab.tag":    "Technique · Décoration",
+    "role.collab.title":  "Espace collaborateur",
+    "role.collab.desc":   "Consulter son planning, suivre les tâches assignées et clôturer les interventions terminées.",
+    "role.collab.cta":    "Accéder à mon espace",
+
+    // ── Auth modal ─────────────────────────────────────────────────────────
+    "auth.protected":     "Accès protégé",
+    "auth.password":      "Mot de passe",
+    "auth.cancel":        "Annuler",
+    "auth.submit":        "Entrer",
+    "auth.wrong":         "Mot de passe incorrect.",
+
+    // ── Headers pages ──────────────────────────────────────────────────────
+    "page.employee.hero": "Demandes d'intervention et d'aménagement pour les services Technique et Décoration.",
+    "page.manager.hero":  "Espace de pilotage pour valider, attribuer et planifier les demandes par département.",
+    "page.collab.hero":   "Espace planning pour consulter les tâches attribuées et suivre l'avancement quotidien.",
+
+    // ── Stats rapide ───────────────────────────────────────────────────────
+    "stats.title":        "Vue rapide",
+    "stats.total":        "Demandes totales",
+    "stats.pending":      "À traiter",
+    "stats.high":         "Haute priorité",
+    "stats.planning":     "Mon planning",
+
+    // ── Onglets manager ────────────────────────────────────────────────────
+    "tab.dashboard":      "Tableau de bord",
+    "tab.requests":       "Demandes",
+    "tab.users":          "Utilisateurs",
+    "tab.categories":     "Catégories",
+    "tab.planning":       "Planning",
+
+    // ── Tableau de bord ────────────────────────────────────────────────────
+    "dash.title":         "Tableau de bord",
+    "dash.subtitle":      "Vue synthétique de l'activité de votre département.",
+    "dash.lanes.title":   "Vue par statut",
+    "dash.lanes.subtitle":"Aperçu rapide de toutes les demandes en cours.",
+
+    // ── Statuts ────────────────────────────────────────────────────────────
+    "status.nouveau":     "Nouveau",
+    "status.en_attente":  "En attente",
+    "status.planifie":    "Planifié",
+    "status.en_cours":    "En cours",
+    "status.termine":     "Terminé",
+
+    // ── Priorités ──────────────────────────────────────────────────────────
+    "priority.basse":     "Basse",
+    "priority.moyenne":   "Moyenne",
+    "priority.haute":     "Haute",
+
+    // ── Équipes ────────────────────────────────────────────────────────────
+    "team.magasin":       "Magasin",
+    "team.technique":     "Technique",
+    "team.decoration":    "Décoration",
+
+    // ── Rôles ──────────────────────────────────────────────────────────────
+    "role.employee":      "Employé magasin",
+    "role.manager":       "Responsable",
+    "role.collaborator":  "Collaborateur",
+
+    // ── Demandes (employé) ─────────────────────────────────────────────────
+    "emp.newrequest":     "Nouvelle demande",
+    "emp.newrequest.sub": "Suivez les étapes pour qualifier votre demande d'intervention.",
+    "emp.waiting.title":  "⚠ Demandes en attente d'informations",
+    "emp.waiting.sub":    "Le responsable a besoin de précisions supplémentaires sur ces demandes.",
+    "emp.myrequests":     "Mes demandes",
+    "emp.myrequests.sub": "Suivi des demandes créées depuis ce profil.",
+    "emp.cat":            "Catégorie",
+    "emp.subcat":         "Sous-catégorie",
+    "emp.precision":      "Précision",
+    "emp.choose":         "-- Choisir --",
+    "emp.comment":        "Commentaire (optionnel)",
+    "emp.comment.ph":     "Décris l'emplacement, le contexte, l'urgence...",
+    "emp.photo":          "Photo (optionnelle)",
+    "emp.submit":         "Envoyer la demande",
+    "emp.sent":           "Demande envoyée.",
+
+    // ── Demandes (manager) ─────────────────────────────────────────────────
+    "mgr.requests.title": "Demandes d'intervention",
+    "mgr.requests.sub":   "Planifiez, affectez ou retournez chaque demande à l'employé.",
+    "mgr.filter.label":   "Filtrer :",
+    "mgr.filter.all":     "Tous les statuts",
+    "mgr.assign":         "Affecter à",
+    "mgr.unassigned":     "Non attribué",
+    "mgr.priority":       "Priorité",
+    "mgr.date.validated": "Date validée",
+    "mgr.status":         "Statut",
+    "mgr.return.msg":     "Message pour l'employé",
+    "mgr.return.ph":      "Précisez les informations manquantes...",
+    "mgr.save":           "Enregistrer",
+    "mgr.saved":          "Demande mise à jour.",
+    "mgr.return.btn":     "↩ Retourner à l'employé",
+
+    // ── Détails ticket ─────────────────────────────────────────────────────
+    "ticket.by":          "Demande par",
+    "ticket.desired":     "Date souhaitée",
+    "ticket.validated":   "Date validée",
+    "ticket.assigned":    "Attribué à",
+    "ticket.manager":     "Responsable",
+    "ticket.updated":     "Mis à jour",
+    "ticket.return.note": "Message du responsable",
+    "ticket.photo":       "Photo",
+    "ticket.unknown":     "Inconnu",
+    "ticket.no.manager":  "Responsable non défini",
+    "ticket.empty":       "Aucune demande à afficher.",
+    "ticket.date.tbd":    "À définir",
+    "ticket.date.confirm":"Date à confirmer",
+
+    // ── Utilisateurs ───────────────────────────────────────────────────────
+    "users.title":        "Gestion des utilisateurs",
+    "users.sub":          "Créez et supprimez tous les profils de l'application.",
+    "users.new":          "Nouvel utilisateur",
+    "users.name":         "Nom",
+    "users.name.ph":      "Prénom Nom",
+    "users.role":         "Rôle",
+    "users.dept":         "Département",
+    "users.create":       "Créer l'utilisateur",
+    "users.created":      "Utilisateur créé.",
+    "users.deleted":      "Profil supprimé.",
+    "users.none":         "Aucun utilisateur dans ce groupe.",
+    "users.delete":       "Supprimer",
+    "users.managers":     "Responsables",
+    "users.collabs":      "Collaborateurs",
+    "users.employees":    "Employés magasin",
+    "dept.magasin":       "Magasin",
+    "dept.technique":     "Technique",
+    "dept.decoration":    "Décoration",
+    "role.employee.opt":  "Employé magasin",
+    "role.collab.opt":    "Collaborateur",
+    "role.manager.opt":   "Responsable",
+
+    // ── Catégories (arbre) ─────────────────────────────────────────────────
+    "tree.title":         "Paramétrer les catégories",
+    "tree.sub":           "Définissez l'arbre décisionnel affiché aux employés lors de la création d'une demande.",
+    "tree.label.ph":      "Libellé",
+    "tree.value.ph":      "Valeur (sans espace)",
+    "tree.add.child":     "+ Sous-niveau",
+    "tree.delete":        "Supprimer",
+    "tree.add.root":      "+ Ajouter une catégorie racine",
+    "tree.save":          "Enregistrer",
+    "tree.restore":       "Restaurer par défaut",
+    "tree.saved":         "Catégories enregistrées.",
+    "tree.restored":      "Arbre restauré par défaut.",
+
+    // ── Planning ───────────────────────────────────────────────────────────
+    "plan.title":         "Planning collaborateurs",
+    "plan.collab.all":    "Tous",
+    "plan.collab.label":  "Collaborateur :",
+    "plan.prev":          "← Préc.",
+    "plan.today":         "Aujourd'hui",
+    "plan.next":          "Suiv. →",
+
+    // ── Collaborateur ──────────────────────────────────────────────────────
+    "collab.planning":    "Mon planning",
+    "collab.planning.sub":"Vue chronologique des tâches affectées à ce collaborateur.",
+    "collab.task.none":   "Aucune tâche affectée pour le moment.",
+    "collab.task.count":  "tâche(s)",
+    "collab.done":        "Marquer terminé",
+    "collab.marked":      "Tâche marquée comme terminée.",
+
+    // ── Divers ─────────────────────────────────────────────────────────────
+    "misc.no.profile":    "Aucun profil pour ce rôle.",
+    "misc.no.profile.selector": "Aucun profil créé",
+    "misc.add.profile":   "Ajoutez d'abord un profil dans le panneau de gauche.",
+    "misc.empty":         "Aucune demande.",
+    "misc.logout":        "Se déconnecter",
+    "misc.session.active":"Session active pour cet espace.",
+    "misc.profile.added": "Profil ajouté.",
+    "misc.toast.added":   "Profil ajouté.",
+  },
+
+  nl: {
+    // ── Général ────────────────────────────────────────────────────────────
+    "app.brand":          "Famiflora",
+    "app.name":           "Flow Desk",
+    "lang.toggle":        "FR",
+    "lang.current":       "NL",
+
+    // ── Portaal ────────────────────────────────────────────────────────────
+    "portal.sub":         "Intern ticketingsysteem voor interventiebeheer.\nKies uw ruimte om te beginnen.",
+    "portal.footer":      "Flow Desk — Intern gebruik Famiflora",
+
+    "role.employee.tag":  "Winkel",
+    "role.employee.title":"Medewerkerruimte",
+    "role.employee.desc": "Een interventieverzoek indienen, de behoefte beschrijven en een gewenste datum voorstellen.",
+    "role.employee.cta":  "Naar mijn ruimte",
+
+    "role.manager.tag":   "Verantwoordelijke",
+    "role.manager.title": "Managerruimte",
+    "role.manager.desc":  "Aanvragen valideren, taken toewijzen aan teams en interventieplanningen aanpassen.",
+    "role.manager.cta":   "Naar mijn ruimte",
+
+    "role.collab.tag":    "Techniek · Decoratie",
+    "role.collab.title":  "Medewerkerruimte",
+    "role.collab.desc":   "Uw planning raadplegen, toegewezen taken opvolgen en voltooide interventies afsluiten.",
+    "role.collab.cta":    "Naar mijn ruimte",
+
+    // ── Auth modal ─────────────────────────────────────────────────────────
+    "auth.protected":     "Beveiligde toegang",
+    "auth.password":      "Wachtwoord",
+    "auth.cancel":        "Annuleren",
+    "auth.submit":        "Inloggen",
+    "auth.wrong":         "Onjuist wachtwoord.",
+
+    // ── Headers pages ──────────────────────────────────────────────────────
+    "page.employee.hero": "Interventie- en inrichtingsaanvragen voor de diensten Techniek en Decoratie.",
+    "page.manager.hero":  "Beheersruimte voor het valideren, toewijzen en plannen van aanvragen per afdeling.",
+    "page.collab.hero":   "Planningsruimte voor het raadplegen van toegewezen taken en het opvolgen van de dagelijkse voortgang.",
+
+    // ── Stats rapide ───────────────────────────────────────────────────────
+    "stats.title":        "Snel overzicht",
+    "stats.total":        "Totale aanvragen",
+    "stats.pending":      "Te behandelen",
+    "stats.high":         "Hoge prioriteit",
+    "stats.planning":     "Mijn planning",
+
+    // ── Onglets manager ────────────────────────────────────────────────────
+    "tab.dashboard":      "Dashboard",
+    "tab.requests":       "Aanvragen",
+    "tab.users":          "Gebruikers",
+    "tab.categories":     "Categorieën",
+    "tab.planning":       "Planning",
+
+    // ── Tableau de bord ────────────────────────────────────────────────────
+    "dash.title":         "Dashboard",
+    "dash.subtitle":      "Beknopt overzicht van de activiteit van uw afdeling.",
+    "dash.lanes.title":   "Overzicht per status",
+    "dash.lanes.subtitle":"Snel overzicht van alle lopende aanvragen.",
+
+    // ── Statuts ────────────────────────────────────────────────────────────
+    "status.nouveau":     "Nieuw",
+    "status.en_attente":  "In afwachting",
+    "status.planifie":    "Gepland",
+    "status.en_cours":    "In uitvoering",
+    "status.termine":     "Voltooid",
+
+    // ── Priorités ──────────────────────────────────────────────────────────
+    "priority.basse":     "Laag",
+    "priority.moyenne":   "Gemiddeld",
+    "priority.haute":     "Hoog",
+
+    // ── Équipes ────────────────────────────────────────────────────────────
+    "team.magasin":       "Winkel",
+    "team.technique":     "Techniek",
+    "team.decoration":    "Decoratie",
+
+    // ── Rôles ──────────────────────────────────────────────────────────────
+    "role.employee":      "Winkelmedewerker",
+    "role.manager":       "Verantwoordelijke",
+    "role.collaborator":  "Medewerker",
+
+    // ── Demandes (employé) ─────────────────────────────────────────────────
+    "emp.newrequest":     "Nieuwe aanvraag",
+    "emp.newrequest.sub": "Volg de stappen om uw interventieverzoek te kwalificeren.",
+    "emp.waiting.title":  "⚠ Aanvragen in afwachting van informatie",
+    "emp.waiting.sub":    "De verantwoordelijke heeft aanvullende informatie nodig voor deze aanvragen.",
+    "emp.myrequests":     "Mijn aanvragen",
+    "emp.myrequests.sub": "Opvolging van aanvragen aangemaakt vanuit dit profiel.",
+    "emp.cat":            "Categorie",
+    "emp.subcat":         "Subcategorie",
+    "emp.precision":      "Precisering",
+    "emp.choose":         "-- Kies --",
+    "emp.comment":        "Opmerking (optioneel)",
+    "emp.comment.ph":     "Beschrijf de locatie, context, urgentie...",
+    "emp.photo":          "Foto (optioneel)",
+    "emp.submit":         "Aanvraag versturen",
+    "emp.sent":           "Aanvraag verzonden.",
+
+    // ── Demandes (manager) ─────────────────────────────────────────────────
+    "mgr.requests.title": "Interventieverzoeken",
+    "mgr.requests.sub":   "Plan, wijs toe of stuur elke aanvraag terug naar de medewerker.",
+    "mgr.filter.label":   "Filteren:",
+    "mgr.filter.all":     "Alle statussen",
+    "mgr.assign":         "Toewijzen aan",
+    "mgr.unassigned":     "Niet toegewezen",
+    "mgr.priority":       "Prioriteit",
+    "mgr.date.validated": "Gevalideerde datum",
+    "mgr.status":         "Status",
+    "mgr.return.msg":     "Bericht voor de medewerker",
+    "mgr.return.ph":      "Geef aan welke informatie ontbreekt...",
+    "mgr.save":           "Opslaan",
+    "mgr.saved":          "Aanvraag bijgewerkt.",
+    "mgr.return.btn":     "↩ Terugsturen naar medewerker",
+
+    // ── Détails ticket ─────────────────────────────────────────────────────
+    "ticket.by":          "Aangevraagd door",
+    "ticket.desired":     "Gewenste datum",
+    "ticket.validated":   "Gevalideerde datum",
+    "ticket.assigned":    "Toegewezen aan",
+    "ticket.manager":     "Verantwoordelijke",
+    "ticket.updated":     "Bijgewerkt",
+    "ticket.return.note": "Bericht van de verantwoordelijke",
+    "ticket.photo":       "Foto",
+    "ticket.unknown":     "Onbekend",
+    "ticket.no.manager":  "Geen verantwoordelijke",
+    "ticket.empty":       "Geen aanvragen om weer te geven.",
+    "ticket.date.tbd":    "Te bepalen",
+    "ticket.date.confirm":"Datum te bevestigen",
+
+    // ── Utilisateurs ───────────────────────────────────────────────────────
+    "users.title":        "Gebruikersbeheer",
+    "users.sub":          "Maak alle profielen in de applicatie aan of verwijder ze.",
+    "users.new":          "Nieuwe gebruiker",
+    "users.name":         "Naam",
+    "users.name.ph":      "Voornaam Achternaam",
+    "users.role":         "Rol",
+    "users.dept":         "Afdeling",
+    "users.create":       "Gebruiker aanmaken",
+    "users.created":      "Gebruiker aangemaakt.",
+    "users.deleted":      "Profiel verwijderd.",
+    "users.none":         "Geen gebruikers in deze groep.",
+    "users.delete":       "Verwijderen",
+    "users.managers":     "Verantwoordelijken",
+    "users.collabs":      "Medewerkers",
+    "users.employees":    "Winkelmedewerkers",
+    "dept.magasin":       "Winkel",
+    "dept.technique":     "Techniek",
+    "dept.decoration":    "Decoratie",
+    "role.employee.opt":  "Winkelmedewerker",
+    "role.collab.opt":    "Medewerker",
+    "role.manager.opt":   "Verantwoordelijke",
+
+    // ── Catégories ─────────────────────────────────────────────────────────
+    "tree.title":         "Categorieën configureren",
+    "tree.sub":           "Definieer de beslissingsboom die medewerkers zien bij het aanmaken van een aanvraag.",
+    "tree.label.ph":      "Label",
+    "tree.value.ph":      "Waarde (zonder spatie)",
+    "tree.add.child":     "+ Subniveau",
+    "tree.delete":        "Verwijderen",
+    "tree.add.root":      "+ Hoofdcategorie toevoegen",
+    "tree.save":          "Opslaan",
+    "tree.restore":       "Standaard herstellen",
+    "tree.saved":         "Categorieën opgeslagen.",
+    "tree.restored":      "Boom hersteld naar standaard.",
+
+    // ── Planning ───────────────────────────────────────────────────────────
+    "plan.title":         "Medewerkerplanning",
+    "plan.collab.all":    "Allen",
+    "plan.collab.label":  "Medewerker:",
+    "plan.prev":          "← Vorige",
+    "plan.today":         "Vandaag",
+    "plan.next":          "Volgende →",
+
+    // ── Collaborateur ──────────────────────────────────────────────────────
+    "collab.planning":    "Mijn planning",
+    "collab.planning.sub":"Chronologisch overzicht van taken toegewezen aan deze medewerker.",
+    "collab.task.none":   "Geen taken toegewezen voor het moment.",
+    "collab.task.count":  "taak/taken",
+    "collab.done":        "Markeren als voltooid",
+    "collab.marked":      "Taak gemarkeerd als voltooid.",
+
+    // ── Divers ─────────────────────────────────────────────────────────────
+    "misc.no.profile":    "Geen profiel voor deze rol.",
+    "misc.no.profile.selector": "Geen profiel aangemaakt",
+    "misc.add.profile":   "Voeg eerst een profiel toe in het linkerpaneel.",
+    "misc.empty":         "Geen aanvragen.",
+    "misc.logout":        "Uitloggen",
+    "misc.session.active":"Sessie actief voor deze ruimte.",
+    "misc.profile.added": "Profiel toegevoegd.",
+    "misc.toast.added":   "Profiel toegevoegd.",
+  },
+};
+
+// ── API publique ───────────────────────────────────────────────────────────────
+const LANG_KEY = "famiflora-lang";
+
+function getLang() {
+  return localStorage.getItem(LANG_KEY) || "fr";
+}
+
+function setLang(lang) {
+  localStorage.setItem(LANG_KEY, lang);
+  document.documentElement.lang = lang;
+  applyStaticTranslations();
+  // Déclenche un événement pour que app.js puisse re-rendre
+  document.dispatchEvent(new CustomEvent("langchange", { detail: { lang } }));
+}
+
+function t(key) {
+  const lang = getLang();
+  return (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) || TRANSLATIONS["fr"][key] || key;
+}
+
+// Applique les traductions sur les éléments avec data-i18n
+function applyStaticTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    const val = t(key);
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      el.placeholder = val;
+    } else {
+      el.textContent = val;
+    }
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  // Sync bouton de langue
+  document.querySelectorAll(".lang-toggle").forEach((btn) => {
+    btn.textContent = t("lang.toggle");
+    btn.dataset.targetLang = getLang() === "fr" ? "nl" : "fr";
+  });
+}
+
+// Injecte le bouton de changement de langue dans tous les headers
+function injectLangToggle() {
+  const lang = getLang();
+  const btn = document.createElement("button");
+  btn.className = "lang-toggle";
+  btn.textContent = t("lang.toggle");
+  btn.dataset.targetLang = lang === "fr" ? "nl" : "fr";
+  btn.setAttribute("type", "button");
+  btn.setAttribute("aria-label", "Changer de langue / Taal wijzigen");
+
+  btn.addEventListener("click", () => {
+    setLang(btn.dataset.targetLang);
+  });
+
+  // Placement : dans .portal (portail) ou dans .hero-copy (autres pages)
+  const heroCopy = document.querySelector(".hero-copy");
+  const portal   = document.querySelector(".portal__header");
+
+  if (portal) {
+    portal.appendChild(btn);
+  } else if (heroCopy) {
+    heroCopy.appendChild(btn);
+  } else {
+    document.body.appendChild(btn);
+  }
+}
+
+// Init au chargement
+document.addEventListener("DOMContentLoaded", () => {
+  document.documentElement.lang = getLang();
+  injectLangToggle();
+  applyStaticTranslations();
+});
