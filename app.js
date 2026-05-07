@@ -165,11 +165,19 @@ function enforcePageUserRole() {
   const preferred = users.find((user) => user.id === preferredId);
   state.currentUserId = preferred ? preferred.id : users[0]?.id || "";
 
-  // Pour la page employe, creer un profil generique si aucun n'existe
-  if (pageConfig.role === "employee" && !state.currentUserId) {
-    const autoUser = { id: nextUserId(), name: "Employe", role: "employee", team: "magasin" };
-    state.users.push(autoUser);
-    state.currentUserId = autoUser.id;
+  // Auto-créer un profil générique si aucun n'existe pour ce rôle
+  if (!state.currentUserId) {
+    const defaults = {
+      employee:     { name: "Employé",        role: "employee",     team: "magasin" },
+      manager:      { name: "Responsable Tech", role: "manager",    team: "technique" },
+      collaborator: { name: "Collaborateur",   role: "collaborator", team: "technique" },
+    };
+    const def = defaults[pageConfig.role];
+    if (def) {
+      const autoUser = { id: nextUserId(), ...def };
+      state.users.push(autoUser);
+      state.currentUserId = autoUser.id;
+    }
   }
 }
 
