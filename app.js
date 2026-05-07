@@ -1,5 +1,41 @@
 const STORAGE_KEY = "famiflora-flow-desk-v4";
 const RESET_MARKER_KEY = "__flowdesk_reset_done_v1";
+const TREE_CONFIG_KEY = "famiflora-tree-config-v1";
+
+const DEFAULT_TREE = [
+  {
+    label: "Technique",
+    value: "technique",
+    children: [
+      { label: "Electricite", value: "electricite", children: [
+        { label: "Eclairage defaillant", value: "eclairage_defaillant" },
+        { label: "Prise ou disjoncteur", value: "prise_disjoncteur" },
+      ]},
+      { label: "Plomberie", value: "plomberie", children: [
+        { label: "Fuite", value: "fuite" },
+        { label: "Bouchon / evacuation", value: "bouchon" },
+      ]},
+      { label: "Materiel / equipement", value: "materiel", children: [
+        { label: "Panne machine", value: "panne_machine" },
+        { label: "Remplacement piece", value: "remplacement_piece" },
+      ]},
+    ],
+  },
+  {
+    label: "Decoration",
+    value: "decoration",
+    children: [
+      { label: "Mise en scene", value: "mise_en_scene", children: [
+        { label: "Nouvelle vitrine", value: "vitrine" },
+        { label: "Reamenagement rayon", value: "rayon" },
+      ]},
+      { label: "Signalisation", value: "signalisation", children: [
+        { label: "Affiche / panneau", value: "affiche" },
+        { label: "Etiquetage", value: "etiquetage" },
+      ]},
+    ],
+  },
+];
 
 const STATUS_LABELS = {
   nouveau: "Nouveau",
@@ -119,6 +155,13 @@ function enforcePageUserRole() {
   const preferredId = state.currentUserByRole[pageConfig.role];
   const preferred = users.find((user) => user.id === preferredId);
   state.currentUserId = preferred ? preferred.id : users[0]?.id || "";
+
+  // Pour la page employe, creer un profil generique si aucun n'existe
+  if (pageConfig.role === "employee" && !state.currentUserId) {
+    const autoUser = { id: nextUserId(), name: "Employe", role: "employee", team: "magasin" };
+    state.users.push(autoUser);
+    state.currentUserId = autoUser.id;
+  }
 }
 
 function persistState() {
@@ -371,79 +414,176 @@ function renderCurrentPage() {
   renderEmployeePage();
 }
 
+function loadTree() {
+  try {
+    const raw = localStorage.getItem(TREE_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return DEFAULT_TREE;
+}
+
+function saveTree(tree) {
+  localStorage.setItem(TREE_CONFIG_KEY, JSON.stringify(tree));
+}
+
 function renderEmployeePage() {
   const currentUser = getCurrentUser();
-  const tickets = state.tickets
-    .filter((ticket) => ticket.createdBy === currentUser.id)
-    .sort(sortByUpdatedDesc);
+  const tickets = currentUser
+    ? state.tickets.filter((t) => t.createdBy === currentUser.id).sort(sortByUpdatedDesc)
+    : [];
 
   refs.mainView.innerHTML = `
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>Creer une demande</h2>
-          <p class="subtle">Technique pour une panne, Decoration pour une inspiration ou une mise en scene.</p>
+          <h2>Nouvelle demande</h2>
+          <p class="subtle">Suivez les etapes pour qualifier votre demande d'intervention.</p>
         </div>
       </div>
       <form id="ticketForm" class="form-grid">
-        <div class="field">
-          <label for="department">Service concerne</label>
-          <select id="department" name="department" required>
-            <option value="technique">Technique</option>
-            <option value="decoration">Decoration</option>
-          </select>
+        <div class="field full" id="treeStepsContainer"></div>
+        <div class="field full hidden" id="commentField">
+          <label for="ticketComment">Commentaire (optionnel)</label>
+          <textarea id="ticketComment" name="comment" placeholder="Decris l'emplacement, le contexte, l'urgence..."></textarea>
         </div>
-        <div class="field">
-          <label for="desiredDate">Date souhaitee</label>
-          <input id="desiredDate" name="desiredDate" type="date" required />
+        <div class="field full hidden" id="photoField">
+          <label for="ticketPhoto">Photo (optionnelle)</label>
+          <input id="ticketPhoto" name="photo" type="file" accept="image/*" />
         </div>
-        <div class="field full">
-          <label for="title">Titre court</label>
-          <input id="title" name="title" type="text" maxlength="80" placeholder="Exemple: Remplacer un spot dans le rayon plantes" required />
-        </div>
-        <div class="field full">
-          <label for="description">Description</label>
-          <textarea id="description" name="description" placeholder="Decris le besoin, l'emplacement, l'impact et le rendu attendu." required></textarea>
-        </div>
-        <div class="field full">
-          <label for="photo">Photo optionnelle</label>
-          <input id="photo" name="photo" type="file" accept="image/*" />
-        </div>
-        <div class="field full">
+        <div class="field full hidden" id="submitField">
           <button class="button" type="submit">Envoyer la demande</button>
         </div>
       </form>
     </section>
-
     <section class="card">
-      <div class="section-head">
-        <div>
-          <h2>Mes demandes</h2>
-          <p class="subtle">Suivi des demandes creees depuis ce profil.</p>
-        </div>
-      </div>
+      <div class="section-head"><div>
+        <h2>Mes demandes</h2>
+        <p class="subtle">Suivi des demandes creees depuis ce profil.</p>
+      </div></div>
       <div class="ticket-list" id="employeeTicketList"></div>
     </section>
   `;
 
   const form = refs.mainView.querySelector("#ticketForm");
-  form.desiredDate.value = today();
+  const stepsContainer = form.querySelector("#treeStepsContainer");
+  const commentField = form.querySelector("#commentField");
+  const photoField = form.querySelector("#photoField");
+  const submitField = form.querySelector("#submitField");
+
+  const tree = loadTree();
+  let selections = [];
+
+  function getCurrentLevel() {
+    let nodes = tree;
+    for (const sel of selections) {
+      const found = nodes.find((n) => n.value === sel);
+      if (!found || !found.children || found.children.length === 0) {
+        return null;
+      }
+      nodes = found.children;
+    }
+    return nodes;
+  }
+
+  function rebuildSelects() {
+    stepsContainer.innerHTML = "";
+    selections.forEach((selValue, depth) => {
+      let nodes = tree;
+      for (let i = 0; i < depth; i++) {
+        const found = nodes.find((n) => n.value === selections[i]);
+        nodes = found?.children || [];
+      }
+      appendSelect(nodes, depth, selValue);
+    });
+
+    const nextLevel = getCurrentLevel();
+    if (nextLevel && nextLevel.length > 0) {
+      appendSelect(nextLevel, selections.length, "");
+    }
+
+    const isComplete = selections.length > 0 && (!getCurrentLevel() || getCurrentLevel() === null || getCurrentLevel()?.every === undefined);
+    const leafReached = selections.length > 0 && (getCurrentLevel() === null || !getCurrentLevel() || getCurrentLevel().length === 0);
+    if (leafReached) {
+      commentField.classList.remove("hidden");
+      photoField.classList.remove("hidden");
+      submitField.classList.remove("hidden");
+    } else {
+      commentField.classList.add("hidden");
+      photoField.classList.add("hidden");
+      submitField.classList.add("hidden");
+    }
+  }
+
+  function appendSelect(nodes, depth, selectedValue) {
+    const label = depth === 0 ? "Categorie" : depth === 1 ? "Sous-categorie" : `Precision ${depth}`;
+    const wrapper = document.createElement("div");
+    wrapper.className = "field full tree-step";
+    wrapper.dataset.depth = depth;
+    wrapper.innerHTML = `
+      <label>${label}</label>
+      <select data-tree-depth="${depth}">
+        <option value="">-- Choisir --</option>
+        ${nodes.map((n) => `<option value="${n.value}" ${n.value === selectedValue ? "selected" : ""}>${n.label}</option>`).join("")}
+      </select>
+    `;
+    wrapper.querySelector("select").addEventListener("change", (e) => {
+      const val = e.target.value;
+      selections = selections.slice(0, depth);
+      if (val) {
+        selections.push(val);
+      }
+      rebuildSelects();
+    });
+    stepsContainer.appendChild(wrapper);
+  }
+
+  rebuildSelects();
+
+  function buildTitle() {
+    let nodes = tree;
+    const labels = [];
+    for (const sel of selections) {
+      const found = nodes.find((n) => n.value === sel);
+      if (found) {
+        labels.push(found.label);
+        nodes = found.children || [];
+      }
+    }
+    return labels.join(" > ");
+  }
+
+  function buildDepartment() {
+    const root = tree.find((n) => n.value === selections[0]);
+    return root?.value || "technique";
+  }
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (selections.length === 0) {
+      return;
+    }
     const formData = new FormData(form);
     const photo = formData.get("photo");
     const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
+    const comment = String(formData.get("comment") || "").trim();
+    const title = buildTitle();
+    const department = buildDepartment();
 
     state.tickets.unshift({
       id: nextTicketId(),
-      title: String(formData.get("title")).trim(),
-      description: String(formData.get("description")).trim(),
-      department: String(formData.get("department")),
-      createdBy: currentUser.id,
-      desiredDate: String(formData.get("desiredDate")),
-      plannedDate: String(formData.get("desiredDate")),
+      title,
+      description: comment,
+      department,
+      createdBy: currentUser?.id || "",
+      desiredDate: today(),
+      plannedDate: today(),
       assignedTo: "",
-      managerId: managerIdForDepartment(String(formData.get("department"))),
+      managerId: managerIdForDepartment(department),
       priority: "moyenne",
       status: "nouveau",
       photoDataUrl,
@@ -451,8 +591,9 @@ function renderEmployeePage() {
       updatedAt: new Date().toISOString(),
     });
 
+    selections = [];
     form.reset();
-    form.desiredDate.value = today();
+    rebuildSelects();
     render();
     toast("Demande envoyee.");
   });
@@ -486,6 +627,15 @@ function renderManagerPage() {
       </div>
       <div class="ticket-list" id="managerTicketList"></div>
     </section>
+    <section class="card">
+      <div class="section-head">
+        <div>
+          <h2>Parametrer les categories</h2>
+          <p class="subtle">Definissez l'arbre decisionnel affiche aux employes lors de la creation d'une demande.</p>
+        </div>
+      </div>
+      <div id="treeEditor"></div>
+    </section>
   `;
 
   renderManagerLanes(refs.mainView.querySelector("#managerLanes"), tickets);
@@ -493,6 +643,118 @@ function renderManagerPage() {
     mode: "manage",
     collaborators,
   });
+  renderTreeEditor(refs.mainView.querySelector("#treeEditor"));
+}
+
+function renderTreeEditor(container) {
+  const tree = loadTree();
+
+  function nodeToHtml(node, path) {
+    const pathKey = path.join(".");
+    const hasChildren = node.children && node.children.length > 0;
+    return `
+      <div class="tree-node" data-path="${pathKey}">
+        <div class="tree-node-row">
+          <input class="tree-node-label" type="text" value="${escHtml(node.label)}" data-path="${pathKey}" data-field="label" placeholder="Libelle" />
+          <input class="tree-node-value" type="text" value="${escHtml(node.value)}" data-path="${pathKey}" data-field="value" placeholder="Valeur (sans espace)" />
+          <button class="button ghost tree-btn" type="button" data-action="add-child" data-path="${pathKey}">+ Sous-niveau</button>
+          <button class="button danger-ghost tree-btn" type="button" data-action="delete-node" data-path="${pathKey}">Supprimer</button>
+        </div>
+        ${hasChildren ? `<div class="tree-children">${node.children.map((child, i) => nodeToHtml(child, [...path, "children", i])).join("")}</div>` : ""}
+      </div>
+    `;
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  }
+
+  function getNodeAtPath(treeData, pathParts) {
+    let current = treeData;
+    for (let i = 0; i < pathParts.length; i++) {
+      const part = pathParts[i];
+      if (typeof part === "number") {
+        current = current[part];
+      } else {
+        current = current[part];
+      }
+    }
+    return current;
+  }
+
+  function renderEditor() {
+    const currentTree = loadTree();
+    container.innerHTML = `
+      <div class="tree-editor-wrap">
+        <div id="treeNodes">${currentTree.map((node, i) => nodeToHtml(node, [i])).join("")}</div>
+        <div class="tree-editor-actions">
+          <button class="button ghost" type="button" id="addRootNode">+ Ajouter une categorie racine</button>
+          <button class="button" type="button" id="saveTree">Enregistrer</button>
+          <button class="button ghost" type="button" id="resetTree">Restaurer par defaut</button>
+        </div>
+      </div>
+    `;
+
+    container.querySelector("#addRootNode").addEventListener("click", () => {
+      const t = loadTree();
+      t.push({ label: "Nouvelle categorie", value: `cat_${Date.now()}`, children: [] });
+      saveTree(t);
+      renderEditor();
+    });
+
+    container.querySelector("#resetTree").addEventListener("click", () => {
+      saveTree(DEFAULT_TREE);
+      renderEditor();
+      toast("Arbre restaure par defaut.");
+    });
+
+    container.querySelector("#saveTree").addEventListener("click", () => {
+      const t = loadTree();
+      container.querySelectorAll("[data-path][data-field]").forEach((input) => {
+        const pathParts = input.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
+        const field = input.dataset.field;
+        const node = getNodeAtPath(t, pathParts);
+        if (node && typeof node === "object") {
+          node[field] = input.value.trim();
+        }
+      });
+      saveTree(t);
+      renderEditor();
+      toast("Categories enregistrees.");
+    });
+
+    container.querySelectorAll("[data-action='add-child']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const t = loadTree();
+        const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
+        const node = getNodeAtPath(t, pathParts);
+        if (node) {
+          node.children = node.children || [];
+          node.children.push({ label: "Nouveau", value: `item_${Date.now()}`, children: [] });
+          saveTree(t);
+          renderEditor();
+        }
+      });
+    });
+
+    container.querySelectorAll("[data-action='delete-node']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const t = loadTree();
+        const pathParts = btn.dataset.path.split(".").map((p) => isNaN(p) ? p : Number(p));
+        const parentPath = pathParts.slice(0, -1);
+        const index = pathParts[pathParts.length - 1];
+        const parent = parentPath.length === 0 ? { children: t } : getNodeAtPath(t, parentPath);
+        if (parent && Array.isArray(parent.children || parent)) {
+          const arr = parentPath.length === 0 ? t : parent.children || parent;
+          arr.splice(index, 1);
+          saveTree(t);
+          renderEditor();
+        }
+      });
+    });
+  }
+
+  renderEditor();
 }
 
 function renderCollaboratorPage() {
