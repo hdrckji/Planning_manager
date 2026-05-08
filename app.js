@@ -2,6 +2,7 @@ const STORAGE_KEY = "famiflora-flow-desk-v4";
 const RESET_MARKER_KEY = "__flowdesk_reset_done_v1";
 const TREE_CONFIG_KEY = "famiflora-tree-config-v1";
 const PREST_KEY = "famiflora-prestataires-v1";
+const SPECIALTY_CATALOG_KEY = "famiflora-specialties-v1";
 
 function loadPrestataires() {
   try { return JSON.parse(localStorage.getItem(PREST_KEY) || "[]"); } catch { return []; }
@@ -62,12 +63,62 @@ const DEFAULT_TREE = [
 const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
 const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
 const TEAM_KEYS     = ["magasin", "technique", "decoration"];
-const SPECIALTY_KEYS = ["general", "electricite", "plomberie", "equipement", "mise_en_scene", "signalisation"];
+const DEFAULT_SPECIALTIES = [
+  { key: "general", i18nKey: "skill.general", teams: ["technique", "decoration"], defaultHours: 2 },
+  { key: "electricite", i18nKey: "skill.electricite", teams: ["technique"], defaultHours: 2 },
+  { key: "plomberie", i18nKey: "skill.plomberie", teams: ["technique"], defaultHours: 2.5 },
+  { key: "equipement", i18nKey: "skill.equipement", teams: ["technique"], defaultHours: 2 },
+  { key: "mise_en_scene", i18nKey: "skill.mise_en_scene", teams: ["decoration"], defaultHours: 3 },
+  { key: "signalisation", i18nKey: "skill.signalisation", teams: ["decoration"], defaultHours: 1.5 },
+];
+
+function loadCustomSpecialties() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SPECIALTY_CATALOG_KEY) || "[]");
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw
+      .map((item) => ({
+        key: String(item.key || "").trim(),
+        label: String(item.label || "").trim(),
+        teams: Array.isArray(item.teams) ? item.teams.filter((team) => ["technique", "decoration"].includes(team)) : ["technique"],
+        defaultHours: normalizeHours(item.defaultHours, 2),
+      }))
+      .filter((item) => item.key && item.label);
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomSpecialties(list) {
+  localStorage.setItem(SPECIALTY_CATALOG_KEY, JSON.stringify(list));
+}
+
+function getSpecialtyDefinitions() {
+  const custom = loadCustomSpecialties();
+  const used = new Set(DEFAULT_SPECIALTIES.map((item) => item.key));
+  const merged = [...DEFAULT_SPECIALTIES];
+  custom.forEach((item) => {
+    if (!used.has(item.key)) {
+      merged.push(item);
+      used.add(item.key);
+    }
+  });
+  return merged;
+}
+
+function getSpecialtyKeys() {
+  return getSpecialtyDefinitions().map((item) => item.key);
+}
+
+function getSpecialtyDefinition(key) {
+  return getSpecialtyDefinitions().find((item) => item.key === key) || null;
+}
 
 function STATUS_LABELS() { return { nouveau: t("status.nouveau"), en_attente: t("status.en_attente"), planifie: t("status.planifie"), en_cours: t("status.en_cours"), termine: t("status.termine") }; }
 function PRIORITY_LABELS() { return { basse: t("priority.basse"), moyenne: t("priority.moyenne"), haute: t("priority.haute") }; }
 function TEAM_LABELS_MAP() { return { magasin: t("team.magasin"), technique: t("team.technique"), decoration: t("team.decoration") }; }
-function SPECIALTY_LABELS() { return { general: t("skill.general"), electricite: t("skill.electricite"), plomberie: t("skill.plomberie"), equipement: t("skill.equipement"), mise_en_scene: t("skill.mise_en_scene"), signalisation: t("skill.signalisation") }; }
 
 const PAGE_CONFIG = {
   employee: {
@@ -119,15 +170,8 @@ function normalizeHours(value, fallback = 2) {
 }
 
 function defaultHoursForSpecialty(specialty) {
-  const defaults = {
-    general: 2,
-    electricite: 2,
-    plomberie: 2.5,
-    equipement: 2,
-    mise_en_scene: 3,
-    signalisation: 1.5,
-  };
-  return defaults[specialty] || 2;
+  const definition = getSpecialtyDefinition(specialty);
+  return normalizeHours(definition?.defaultHours, 2);
 }
 
 function inferSpecialtyFromValue(value) {
@@ -141,10 +185,11 @@ function inferSpecialtyFromValue(value) {
 }
 
 function specialtyOptionsForTeam(team) {
-  if (team === "decoration") {
-    return ["general", "mise_en_scene", "signalisation"];
-  }
-  return ["general", "electricite", "plomberie", "equipement"];
+  const allowedTeams = team === "decoration" ? ["decoration"] : ["technique"];
+  const options = getSpecialtyDefinitions()
+    .filter((item) => item.key === "general" || item.teams.some((itemTeam) => allowedTeams.includes(itemTeam)))
+    .map((item) => item.key);
+  return options.length > 0 ? options : ["general"];
 }
 
 function normalizeSpecialties(specialties, team) {
@@ -160,7 +205,14 @@ function normalizeSpecialties(specialties, team) {
 }
 
 function specialtyLabel(specialty) {
-  return SPECIALTY_LABELS()[specialty] || SPECIALTY_LABELS().general;
+  const definition = getSpecialtyDefinition(specialty);
+  if (!definition) {
+    return t("skill.general");
+  }
+  if (definition.i18nKey) {
+    return t(definition.i18nKey);
+  }
+  return definition.label || definition.key;
 }
 
 function specialtiesSummary(user) {
@@ -185,7 +237,7 @@ function buildNodeValue(label, fallbackPrefix = "item") {
 
 function createTreeNode(seed = {}) {
   const team = normalizeTeamKey(seed.team || "technique");
-  const specialty = seed.suggestedSpecialty && SPECIALTY_KEYS.includes(seed.suggestedSpecialty)
+  const specialty = seed.suggestedSpecialty && getSpecialtyKeys().includes(seed.suggestedSpecialty)
     ? seed.suggestedSpecialty
     : specialtyOptionsForTeam(team).find((item) => item !== "general") || "general";
   return {
@@ -202,7 +254,7 @@ function createTreeNode(seed = {}) {
 function normalizeTreeNode(node, inherited = {}) {
   const team = normalizeTeamKey(node.team || inherited.team || (node.value === "decoration" ? "decoration" : "technique"));
   const inferredSpecialty = inferSpecialtyFromValue(node.value || node.label);
-  const specialty = SPECIALTY_KEYS.includes(node.suggestedSpecialty)
+  const specialty = getSpecialtyKeys().includes(node.suggestedSpecialty)
     ? node.suggestedSpecialty
     : (inferredSpecialty !== "general" ? inferredSpecialty : (inherited.suggestedSpecialty || "general"));
   const children = Array.isArray(node.children)
@@ -240,7 +292,7 @@ function normalizeUser(user) {
 }
 
 function normalizeTicket(ticket) {
-  const suggestedSpecialty = SPECIALTY_KEYS.includes(ticket.suggestedSpecialty)
+  const suggestedSpecialty = getSpecialtyKeys().includes(ticket.suggestedSpecialty)
     ? ticket.suggestedSpecialty
     : inferSpecialtyFromValue(ticket.categoryValue || ticket.title);
   return {
@@ -908,7 +960,7 @@ function renderManagerPrestataires(container) {
             <div class="field full">
               <label>${t("prest.skills")}</label>
               <div id="pSkills" class="specialty-checks">
-                ${SPECIALTY_KEYS.map((opt) => `
+                ${getSpecialtyKeys().map((opt) => `
                   <label class="skill-chip">
                     <input type="checkbox" name="pSkill" value="${opt}" />
                     <span>${specialtyLabel(opt)}</span>
@@ -1077,6 +1129,52 @@ function renderManagerUtilisateurs(container) {
           </div>
         </div>
         <div class="add-user-block">
+          <h3>${t("users.skills.catalog")}</h3>
+          <form id="addSkillForm" class="form-grid">
+            <div class="field">
+              <label for="nsLabel">${t("users.skills.label")}</label>
+              <input id="nsLabel" name="label" type="text" placeholder="${t("users.skills.label.ph")}" required />
+            </div>
+            <div class="field">
+              <label for="nsHours">${t("users.skills.hours")}</label>
+              <input id="nsHours" name="defaultHours" type="number" min="0.5" step="0.5" value="2" />
+            </div>
+            <div class="field full">
+              <label>${t("users.skills.teams")}</label>
+              <div class="specialty-checks">
+                <label class="skill-chip">
+                  <input type="checkbox" name="skillTeam" value="technique" checked />
+                  <span>${t("dept.technique")}</span>
+                </label>
+                <label class="skill-chip">
+                  <input type="checkbox" name="skillTeam" value="decoration" />
+                  <span>${t("dept.decoration")}</span>
+                </label>
+              </div>
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">${t("users.skills.create")}</button>
+            </div>
+          </form>
+          <div class="user-group-list">
+            ${getSpecialtyDefinitions().map((spec) => {
+              const canDelete = !DEFAULT_SPECIALTIES.some((def) => def.key === spec.key);
+              const teamBadges = (spec.teams || []).map((team) => `<span class="badge badge-muted">${teamLabel(team)}</span>`).join("");
+              return `
+                <div class="user-item">
+                  <div class="user-item-info">
+                    <strong>${escHtml(specialtyLabel(spec.key))}</strong>
+                    <span class="badge badge-muted">${escHtml(spec.key)}</span>
+                    ${teamBadges}
+                    <span class="badge badge-muted">${formatHours(spec.defaultHours || 2)}</span>
+                  </div>
+                  ${canDelete ? `<button class="button danger-ghost tree-btn" type="button" data-action="del-skill" data-skill="${spec.key}">${t("users.delete")}</button>` : ""}
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+        <div class="add-user-block">
           <h3>${t("users.new")}</h3>
           <form id="addUserForm" class="form-grid">
             <div class="field">
@@ -1180,9 +1278,64 @@ function renderManagerUtilisateurs(container) {
       toast(t("users.created"));
     });
 
+    container.querySelector("#addSkillForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const label = String(fd.get("label") || "").trim();
+      const key = buildNodeValue(label, "skill");
+      const defaultHours = normalizeHours(fd.get("defaultHours"), 2);
+      const teams = Array.from(container.querySelectorAll("input[name='skillTeam']:checked")).map((input) => input.value);
+      if (!label) {
+        return;
+      }
+      if (getSpecialtyKeys().includes(key)) {
+        toast(t("users.skills.exists"));
+        return;
+      }
+      if (teams.length === 0) {
+        toast(t("users.skills.team.required"));
+        return;
+      }
+
+      const custom = loadCustomSpecialties();
+      custom.push({ key, label, teams, defaultHours });
+      saveCustomSpecialties(custom);
+      renderContent();
+      toast(t("users.skills.created"));
+    });
+
     container.querySelectorAll("[data-action='del-user']").forEach((btn) => {
       btn.addEventListener("click", () => {
         removeUser(btn.dataset.uid);
+      });
+    });
+
+    container.querySelectorAll("[data-action='del-skill']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.skill;
+        const usedByUsers = state.users.some((user) => Array.isArray(user.specialties) && user.specialties.includes(key));
+        const tree = loadTree();
+        const stack = [...tree];
+        let usedByTree = false;
+        while (stack.length > 0) {
+          const node = stack.pop();
+          if (!node) continue;
+          if (node.suggestedSpecialty === key) {
+            usedByTree = true;
+            break;
+          }
+          if (Array.isArray(node.children)) {
+            stack.push(...node.children);
+          }
+        }
+        if (usedByUsers || usedByTree) {
+          toast(t("users.skills.in.use"));
+          return;
+        }
+        const filtered = loadCustomSpecialties().filter((item) => item.key !== key);
+        saveCustomSpecialties(filtered);
+        renderContent();
+        toast(t("users.skills.deleted"));
       });
     });
 
@@ -1476,7 +1629,7 @@ function renderTreeEditor(container) {
       current.label = label;
       current.value = valueInput || buildNodeValue(label, "cat");
       current.team = team;
-      current.suggestedSpecialty = SPECIALTY_KEYS.includes(suggestedSpecialty) ? suggestedSpecialty : "general";
+      current.suggestedSpecialty = getSpecialtyKeys().includes(suggestedSpecialty) ? suggestedSpecialty : "general";
       current.linkedExternalId = linkedExternalId;
       current.estimatedHours = normalizeHours(data.get("estimatedHours"), defaultHoursForSpecialty(current.suggestedSpecialty));
       saveAndRefresh();
