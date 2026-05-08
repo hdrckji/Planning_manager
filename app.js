@@ -1028,6 +1028,8 @@ function renderManagerDemandes(container, tickets, collaborators) {
 }
 
 function renderManagerUtilisateurs(container) {
+  let editingSkillsUserId = "";
+
   function renderContent() {
     const managers = state.users.filter((u) => u.role === "manager");
     const collabs = state.users.filter((u) => u.role === "collaborator");
@@ -1044,7 +1046,24 @@ function renderManagerUtilisateurs(container) {
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
             ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
           </div>
-          <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
+          <div class="user-item-actions">
+            ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
+            <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
+          </div>
+          ${u.role === "collaborator" && editingSkillsUserId === u.id ? `
+            <form class="user-skill-editor" data-action="save-skills" data-uid="${u.id}">
+              <label>${t("users.skills")}</label>
+              <div class="specialty-checks">
+                ${specialtyOptionsForTeam(u.team).map((opt) => `
+                  <label class="skill-chip">
+                    <input type="checkbox" name="editSkill" value="${opt}" ${normalizeSpecialties(u.specialties, u.team).includes(opt) ? "checked" : ""} />
+                    <span>${specialtyLabel(opt)}</span>
+                  </label>
+                `).join("")}
+              </div>
+              <button class="button" type="submit">${t("users.skills.save")}</button>
+            </form>
+          ` : ""}
         </div>
       `).join("");
     };
@@ -1164,6 +1183,30 @@ function renderManagerUtilisateurs(container) {
     container.querySelectorAll("[data-action='del-user']").forEach((btn) => {
       btn.addEventListener("click", () => {
         removeUser(btn.dataset.uid);
+      });
+    });
+
+    container.querySelectorAll("[data-action='edit-skills']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingSkillsUserId = editingSkillsUserId === btn.dataset.uid ? "" : btn.dataset.uid;
+        renderContent();
+      });
+    });
+
+    container.querySelectorAll("form[data-action='save-skills']").forEach((formEl) => {
+      formEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const uid = formEl.dataset.uid;
+        const user = state.users.find((u) => u.id === uid && u.role === "collaborator");
+        if (!user) {
+          return;
+        }
+        const picked = Array.from(formEl.querySelectorAll("input[name='editSkill']:checked")).map((input) => input.value);
+        user.specialties = normalizeSpecialties(picked, user.team);
+        editingSkillsUserId = "";
+        persistState();
+        renderContent();
+        toast(t("users.skills.saved"));
       });
     });
   }

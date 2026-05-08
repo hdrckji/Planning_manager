@@ -942,49 +942,65 @@ textarea {
 }
 
 .user-item {
-  /* ── Attribution interne / externe ───────────────────────────────────── */
-  .assign-toggle {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 4px;
-  }
-
-  .assign-toggle-opt {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    border: 1px solid var(--line);
-    border-radius: 20px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.15s, border-color 0.15s;
-  }
-
-  .assign-toggle-opt:has(input:checked) {
-    background: rgba(47, 125, 59, 0.1);
-    border-color: var(--green);
-    font-weight: 600;
-  }
-
-  .assign-toggle-opt input[type="radio"] {
-    accent-color: var(--green);
-  }
-
-  /* ── Section cachée ───────────────────────────────────────────────────── */
-  .hidden {
-    display: none !important;
-  }
-
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 14px;
   background: rgba(248, 242, 231, 0.82);
   border: 1px solid rgba(68, 53, 36, 0.07);
+}
+
+.user-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.user-skill-editor {
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(68, 53, 36, 0.18);
+}
+
+/* ── Attribution interne / externe ───────────────────────────────────── */
+.assign-toggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.assign-toggle-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.assign-toggle-opt:has(input:checked) {
+  background: rgba(47, 125, 59, 0.1);
+  border-color: var(--green);
+  font-weight: 600;
+}
+
+.assign-toggle-opt input[type="radio"] {
+  accent-color: var(--green);
+}
+
+/* ── Section cachée ───────────────────────────────────────────────────── */
+.hidden {
+  display: none !important;
 }
 
 .user-item-info {
