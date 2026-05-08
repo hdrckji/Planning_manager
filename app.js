@@ -1,14 +1,14 @@
-const STORAGE_KEY = "famiflora-flow-desk-v4";
-const RESET_MARKER_KEY = "__flowdesk_reset_done_v1";
-const TREE_CONFIG_KEY = "famiflora-tree-config-v1";
-const PREST_KEY = "famiflora-prestataires-v1";
+// Clés conservées pour la compatibilité (migration localStorage → API)
+const STORAGE_KEY          = "famiflora-flow-desk-v4";
+const PREST_KEY            = "famiflora-prestataires-v1";
 const SPECIALTY_CATALOG_KEY = "famiflora-specialties-v1";
+const TREE_CONFIG_KEY      = "famiflora-tree-config-v1";
 
 function loadPrestataires() {
-  try { return JSON.parse(localStorage.getItem(PREST_KEY) || "[]"); } catch { return []; }
+  return window.FlowDeskApi?.getPrestataires() ?? [];
 }
 function savePrestataires(list) {
-  localStorage.setItem(PREST_KEY, JSON.stringify(list));
+  window.FlowDeskApi?.savePrestataires(list);
 }
 function nextPrestId() {
   const list = loadPrestataires();
@@ -75,10 +75,8 @@ const DEFAULT_SPECIALTIES = [
 
 function loadCustomSpecialties() {
   try {
-    const raw = JSON.parse(localStorage.getItem(SPECIALTY_CATALOG_KEY) || "[]");
-    if (!Array.isArray(raw)) {
-      return [];
-    }
+    const raw = window.FlowDeskApi?.getSpecialties() ?? [];
+    if (!Array.isArray(raw)) return [];
     return raw
       .map((item) => ({
         key: String(item.key || "").trim(),
@@ -92,7 +90,7 @@ function loadCustomSpecialties() {
 }
 
 function saveCustomSpecialties(list) {
-  localStorage.setItem(SPECIALTY_CATALOG_KEY, JSON.stringify(list));
+  window.FlowDeskApi?.saveSpecialties(list);
 }
 
 function getSpecialtyDefinitions() {
@@ -337,10 +335,15 @@ const refs = {
   profileList: document.querySelector("#profileList"),
 };
 
-bootstrap();
+bootstrap().catch(console.error);
 
-function bootstrap() {
-  hardResetDataOnce();
+async function bootstrap() {
+  showLoadingOverlay(true);
+  try {
+    await window.FlowDeskApi.ready();
+  } finally {
+    showLoadingOverlay(false);
+  }
   loadState();
   enforcePageUserRole();
   bindGlobalEvents();
@@ -349,33 +352,33 @@ function bootstrap() {
   render();
 }
 
-function hardResetDataOnce() {
-  if (localStorage.getItem(RESET_MARKER_KEY) === "1") {
-    return;
+function showLoadingOverlay(visible) {
+  let overlay = document.getElementById("flowdesk-loading");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "flowdesk-loading";
+    overlay.innerHTML = `<div class="flowdesk-spinner"></div>`;
+    document.body.appendChild(overlay);
   }
-  // Migration marker only: do not clear existing local data.
-  localStorage.setItem(RESET_MARKER_KEY, "1");
+  overlay.hidden = !visible;
 }
 
 function loadState() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return;
-  }
+  const saved = window.FlowDeskApi?.getCachedState();
+  if (!saved) return;
 
   try {
-    const saved = JSON.parse(raw);
-    state.users = Array.isArray(saved.users) ? saved.users.map((user) => normalizeUser(user)) : [];
+    state.users   = Array.isArray(saved.users)   ? saved.users.map((user)     => normalizeUser(user))     : [];
     state.tickets = Array.isArray(saved.tickets) ? saved.tickets.map((ticket) => normalizeTicket(ticket)) : [];
 
     const savedByRole = saved.currentUserByRole || {};
     state.currentUserByRole = {
-      employee: typeof savedByRole.employee === "string" ? savedByRole.employee : "",
-      manager: typeof savedByRole.manager === "string" ? savedByRole.manager : "",
+      employee:     typeof savedByRole.employee     === "string" ? savedByRole.employee     : "",
+      manager:      typeof savedByRole.manager      === "string" ? savedByRole.manager      : "",
       collaborator: typeof savedByRole.collaborator === "string" ? savedByRole.collaborator : "",
     };
   } catch {
-    state.users = [];
+    state.users   = [];
     state.tickets = [];
   }
 }
@@ -416,14 +419,11 @@ function enforcePageUserRole() {
 
 function persistState() {
   state.currentUserByRole[pageConfig.role] = state.currentUserId || "";
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      users: state.users,
-      tickets: state.tickets,
-      currentUserByRole: state.currentUserByRole,
-    }),
-  );
+  window.FlowDeskApi?.saveState({
+    users: state.users,
+    tickets: state.tickets,
+    currentUserByRole: state.currentUserByRole,
+  });
 }
 
 function bindGlobalEvents() {
@@ -669,19 +669,16 @@ function renderCurrentPage() {
 
 function loadTree() {
   try {
-    const raw = localStorage.getItem(TREE_CONFIG_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return normalizeTree(parsed);
-      }
+    const parsed = window.FlowDeskApi?.getTree();
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return normalizeTree(parsed);
     }
   } catch {}
   return normalizeTree(DEFAULT_TREE);
 }
 
 function saveTree(tree) {
-  localStorage.setItem(TREE_CONFIG_KEY, JSON.stringify(normalizeTree(tree)));
+  window.FlowDeskApi?.saveTree(normalizeTree(tree));
 }
 
 function renderEmployeePage() {
@@ -2261,10 +2258,6 @@ function renderDetails(ticket) {
     detailItem(t("ticket.manager"),   manager),
     detailItem(t("ticket.updated"),   formatDateTime(ticket.updatedAt)),
   ];
-
-  if (ticketInfoThread(ticket).length > 0) {
-    items.push(`<div class="return-note-banner"><dt>${t("chat.history")}</dt><dd>${renderInfoThreadHtml(ticket)}</dd></div>`);
-  }
 
   return items.join("");
 }

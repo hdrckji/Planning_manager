@@ -5,17 +5,16 @@ const AUTH_CONFIG = {
 };
 
 const AUTH_SESSION_PREFIX = "flowdesk-auth-session:";
-const AUTH_STORAGE_KEY    = "famiflora-flow-desk-v4";
 
 function authSessionKey(role) {
   return `${AUTH_SESSION_PREFIX}${role}`;
 }
 
 function _authLoadUsers() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "{}");
-    return Array.isArray(raw.users) ? raw.users : [];
-  } catch { return []; }
+  // Priorité : cache FlowDeskApi (chargé depuis PostgreSQL)
+  const apiState = window.FlowDeskApi?.getCachedState?.();
+  if (apiState && Array.isArray(apiState.users)) return apiState.users;
+  return [];
 }
 
 function _roleHasPasswords(role) {
@@ -171,9 +170,11 @@ function setupPortalLogin() {
     }
   });
 
-  form?.addEventListener("submit", (event) => {
+  form?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const role = roleInput.value;
+    // Attendre que FlowDeskApi ait chargé les utilisateurs
+    await window.FlowDeskApi?.ready?.();
+    const role    = roleInput.value;
     const nameVal = loginInput ? loginInput.value : "";
     const passVal = passwordInput.value;
     if (!login(role, nameVal, passVal)) {
@@ -182,7 +183,6 @@ function setupPortalLogin() {
       passwordInput.reportValidity();
       return;
     }
-
     passwordInput.setCustomValidity("");
     window.location.href = AUTH_CONFIG[role].path;
   });
