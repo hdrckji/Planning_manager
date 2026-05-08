@@ -18,7 +18,13 @@ function _authLoadUsers() {
   } catch { return []; }
 }
 
+function _roleHasPasswords(role) {
+  return _authLoadUsers().some((u) => u.role === role && typeof u.password === "string" && u.password.length > 0);
+}
+
 function isAuthenticated(role) {
+  // Mode migration : si aucun utilisateur du rôle n'a de mot de passe, l'accès est libre
+  if (!_roleHasPasswords(role)) return true;
   const val = sessionStorage.getItem(authSessionKey(role));
   return !!val && val !== "" && val !== "1";
 }
@@ -36,6 +42,7 @@ function login(role, loginInput, passwordInput) {
     const identifier = String(u.login || u.name || "").trim().toLowerCase();
     return identifier === needle;
   });
+  // N'accepter que les utilisateurs qui ont un mot de passe défini
   if (!user || !user.password || user.password !== String(passwordInput)) return false;
   sessionStorage.setItem(authSessionKey(role), user.id);
   return true;
@@ -143,6 +150,12 @@ function setupPortalLogin() {
 
       event.preventDefault();
       if (isAuthenticated(role)) {
+        window.location.href = AUTH_CONFIG[role].path;
+        return;
+      }
+
+      // Mode migration : accès direct si aucun mot de passe configuré pour ce rôle
+      if (!_roleHasPasswords(role)) {
         window.location.href = AUTH_CONFIG[role].path;
         return;
       }
