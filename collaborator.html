@@ -24,51 +24,15 @@
           </p>
         </div>
 
-        <div class="hero-panel card">
-          <label for="currentUser">Profil connecte</label>
-          <select id="currentUser"></select>
-          <div class="current-user-meta">
-            <span id="currentRoleBadge" class="badge"></span>
-            <span id="currentTeamBadge" class="badge badge-muted"></span>
-          </div>
-          <p class="hint">
-            Version MVP autonome: donnees stockees localement dans le navigateur.
-          </p>
+        <div class="hero-panel card" style="display:none">
+          <select id="currentUser" style="display:none"></select>
+          <span id="currentRoleBadge" class="badge" style="display:none"></span>
+          <span id="currentTeamBadge" class="badge badge-muted" style="display:none"></span>
         </div>
       </header>
 
       <main class="layout">
-        <aside class="left-rail">
-          <section class="card summary-card">
-            <h2>Vue rapide</h2>
-            <div class="stats-grid" id="statsGrid"></div>
-          </section>
-
-          <section class="card section-nav">
-            <h2>Espaces</h2>
-            <a class="nav-link" href="index.html">Portail</a>
-            <a class="nav-link" data-nav-page="employee" href="employee.html">Espace employe</a>
-            <a class="nav-link" data-nav-page="manager" href="manager.html">Espace responsable</a>
-            <a class="nav-link" data-nav-page="collaborator" href="collaborator.html">Espace collaborateur</a>
-          </section>
-
-          <section class="card" id="profileAdminCard">
-            <h2>Profils collaborateurs</h2>
-            <form id="profileForm" class="field">
-              <label for="profileName">Nom du profil</label>
-              <input id="profileName" name="profileName" type="text" placeholder="Ex: Sam - Technicien" required />
-              <label for="profileTeam">Departement</label>
-              <select id="profileTeam" name="profileTeam" required>
-                <option value="technique">Technique</option>
-                <option value="decoration">Decoration</option>
-              </select>
-              <button class="button" type="submit">Ajouter</button>
-            </form>
-            <div id="profileList" class="profile-list"></div>
-          </section>
-        </aside>
-
-        <section class="main-column">
+        <section class="main-column" style="max-width:100%">
           <section class="card">
             <div class="section-head">
               <div>
