@@ -35,6 +35,10 @@ const TRANSLATIONS = {
     "auth.submit":        "Se connecter",
     "auth.wrong":         "Identifiant ou mot de passe incorrect.",
     "auth.no.account":    "Identifiant ou mot de passe incorrect.",
+    "chat.history":       "Échanges complémentaires",
+    "chat.manager":       "Responsable",
+    "chat.employee":      "Employé",
+    "chat.empty":         "Aucun message complémentaire.",
 
     // ── Headers pages ──────────────────────────────────────────────────────
     "page.employee.hero": "Demandes d'intervention et d'aménagement pour les services Technique et Décoration.",
@@ -324,6 +328,10 @@ const TRANSLATIONS = {
     "auth.submit":        "Aanmelden",
     "auth.wrong":         "Gebruikersnaam of wachtwoord onjuist.",
     "auth.no.account":    "Gebruikersnaam of wachtwoord onjuist.",
+    "chat.history":       "Aanvullende uitwisseling",
+    "chat.manager":       "Verantwoordelijke",
+    "chat.employee":      "Medewerker",
+    "chat.empty":         "Geen aanvullende berichten.",
 
     // ── Headers pages ──────────────────────────────────────────────────────
     "page.employee.hero": "Interventie- en inrichtingsaanvragen voor de diensten Techniek en Decoratie.",

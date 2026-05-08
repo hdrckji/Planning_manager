@@ -311,6 +311,9 @@ function normalizeTicket(ticket) {
     assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
     suggestedExternalId: typeof ticket.suggestedExternalId === "string" ? ticket.suggestedExternalId : "",
     interventionDelay: normalizeInterventionDelay(ticket.interventionDelay),
+    employeeReply: typeof ticket.employeeReply === "string" ? ticket.employeeReply : "",
+    employeeReplyAt: typeof ticket.employeeReplyAt === "string" ? ticket.employeeReplyAt : "",
+    infoThread: normalizeInfoThread(ticket.infoThread),
     categoryValue: String(ticket.categoryValue || ""),
     categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
   };
@@ -882,6 +885,7 @@ function renderEmployeePage() {
       suggestedSpecialty,
       estimatedHours,
       status: "nouveau",
+      infoThread: [],
       photoDataUrl,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -938,11 +942,14 @@ function renderEmployeeTicketTable(container, tickets) {
                     <p>${escHtml(ticket.description || "-")}</p>
                     <p>${t("ticket.desired")}: ${formatDate(ticket.desiredDate)}</p>
                     <p>${t("ticket.validated")}: ${formatDate(ticket.plannedDate)}</p>
-                    ${ticket.returnNote ? `<div class="return-note-banner"><dt>${t("ticket.return.note")}</dt><dd>${escHtml(ticket.returnNote)}</dd></div>` : ""}
+                    <div class="info-thread-box">
+                      <h4>${t("chat.history")}</h4>
+                      ${renderInfoThreadHtml(ticket)}
+                    </div>
                     ${ticket.status === "en_attente" ? `
                       <form class="employee-reply-form" data-action="employee-reply" data-ticket-id="${ticket.id}">
                         <label>${t("emp.reply.label")}</label>
-                        <textarea name="employeeReply" placeholder="${t("emp.reply.ph")}">${escHtml(ticket.employeeReply || "")}</textarea>
+                        <textarea name="employeeReply" placeholder="${t("emp.reply.ph")}"></textarea>
                         <button class="button" type="submit">${t("emp.reply.send")}</button>
                       </form>
                     ` : ""}
@@ -973,7 +980,9 @@ function renderEmployeeTicketTable(container, tickets) {
         return;
       }
 
+      const ticket = tickets.find((item) => item.id === ticketId) || {};
       updateTicket(ticketId, {
+        infoThread: appendInfoMessage(ticket, "employee", reply),
         employeeReply: reply,
         employeeReplyAt: new Date().toISOString(),
         status: "nouveau",
@@ -2045,6 +2054,10 @@ function renderManagerForm(ticket, collaborators) {
       <label>${t("mgr.return.msg")}</label>
       <textarea name="returnNote" placeholder="${t("mgr.return.ph")}">${escHtml(ticket.returnNote || "")}</textarea>
     </div>
+    <div class="field full info-thread-box">
+      <h4>${t("chat.history")}</h4>
+      ${renderInfoThreadHtml(ticket)}
+    </div>
     <div class="field full">
       <button class="button secondary" type="button" id="mgrSaveBtn">${t("mgr.save")}</button>
       <button class="button ghost" type="button" data-action="ask-info">${t("mgr.ask.info")}</button>
@@ -2196,6 +2209,7 @@ function renderManagerForm(ticket, collaborators) {
     const modeVal = wrapper.querySelector("[name='assignMode']:checked")?.value || "interne";
     const isExterne = modeVal === "externe";
     updateTicket(ticket.id, {
+      infoThread: appendInfoMessage(ticket, "manager", note),
       assignedTo: isExterne ? "" : String(wrapper.querySelector("[name='assignedTo']")?.value || ""),
       assignedToExternal: isExterne ? String(prestSelect?.value || "") : "",
       suggestedAssigneeId: suggested?.id || "",
@@ -2248,8 +2262,8 @@ function renderDetails(ticket) {
     detailItem(t("ticket.updated"),   formatDateTime(ticket.updatedAt)),
   ];
 
-  if (ticket.status === "en_attente" && ticket.returnNote) {
-    items.push(`<div class="return-note-banner"><dt>${t("ticket.return.note")}</dt><dd>${escHtml(ticket.returnNote)}</dd></div>`);
+  if (ticketInfoThread(ticket).length > 0) {
+    items.push(`<div class="return-note-banner"><dt>${t("chat.history")}</dt><dd>${renderInfoThreadHtml(ticket)}</dd></div>`);
   }
 
   return items.join("");
@@ -2418,6 +2432,81 @@ function interventionDelayLabel(delayKey) {
 
 function detailItem(label, value) {
   return `<div><dt>${label}</dt><dd>${value}</dd></div>`;
+}
+
+function normalizeInfoThread(messages) {
+  if (!Array.isArray(messages)) {
+    return [];
+  }
+  return messages
+    .map((item, index) => ({
+      id: String(item?.id || `m-${index + 1}`),
+      authorRole: ["manager", "employee"].includes(item?.authorRole) ? item.authorRole : "manager",
+      text: String(item?.text || "").trim(),
+      at: String(item?.at || ""),
+    }))
+    .filter((item) => item.text);
+}
+
+function ticketInfoThread(ticket) {
+  const normalized = normalizeInfoThread(ticket.infoThread);
+  if (normalized.length > 0) {
+    return normalized;
+  }
+
+  const legacy = [];
+  if (ticket.returnNote) {
+    legacy.push({
+      id: `legacy-mgr-${ticket.id}`,
+      authorRole: "manager",
+      text: String(ticket.returnNote),
+      at: ticket.updatedAt || ticket.createdAt || new Date().toISOString(),
+    });
+  }
+  if (ticket.employeeReply) {
+    legacy.push({
+      id: `legacy-emp-${ticket.id}`,
+      authorRole: "employee",
+      text: String(ticket.employeeReply),
+      at: ticket.employeeReplyAt || ticket.updatedAt || ticket.createdAt || new Date().toISOString(),
+    });
+  }
+  return legacy;
+}
+
+function appendInfoMessage(ticket, authorRole, text) {
+  const cleanText = String(text || "").trim();
+  if (!cleanText) {
+    return ticketInfoThread(ticket);
+  }
+  const current = ticketInfoThread(ticket);
+  current.push({
+    id: `m-${Date.now()}`,
+    authorRole,
+    text: cleanText,
+    at: new Date().toISOString(),
+  });
+  return current;
+}
+
+function renderInfoThreadHtml(ticket) {
+  const messages = ticketInfoThread(ticket);
+  if (messages.length === 0) {
+    return `<p class="subtle">${t("chat.empty")}</p>`;
+  }
+  return `
+    <div class="info-thread-list">
+      ${messages.map((message) => {
+        const byManager = message.authorRole === "manager";
+        return `
+          <div class="info-thread-item ${byManager ? "from-manager" : "from-employee"}">
+            <div class="info-thread-meta">${byManager ? t("chat.manager") : t("chat.employee")} · ${formatDateTime(message.at)}</div>
+            <div class="info-thread-text">${escHtml(message.text)}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
 }
 
 function groupBy(items, makeKey) {
