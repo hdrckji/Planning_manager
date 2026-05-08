@@ -601,6 +601,7 @@ function removeUser(userId) {
 }
 
 function renderStats() {
+  if (!refs.statsGrid) return;
   const currentUser = getCurrentUser();
 
   const sectorRows = ["technique", "decoration"].map((dept) => {
