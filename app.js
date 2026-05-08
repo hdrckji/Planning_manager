@@ -344,6 +344,9 @@ async function bootstrap() {
   } finally {
     showLoadingOverlay(false);
   }
+  if (window.FlowDeskApi?.isReadOnly?.()) {
+    toast("Serveur indisponible: mode lecture seule actif.");
+  }
   loadState();
   enforcePageUserRole();
   bindGlobalEvents();
@@ -418,6 +421,9 @@ function enforcePageUserRole() {
 }
 
 function persistState() {
+  if (window.FlowDeskApi?.isReadOnly?.()) {
+    return;
+  }
   state.currentUserByRole[pageConfig.role] = state.currentUserId || "";
   window.FlowDeskApi?.saveState({
     users: state.users,

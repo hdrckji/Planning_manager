@@ -8,6 +8,7 @@
 
   const BASE = (window.FLOW_DESK_API_BASE ?? "").replace(/\/$/, "");
   const isFileProtocol = window.location.protocol === "file:";
+  const isHttpProtocol = window.location.protocol === "http:" || window.location.protocol === "https:";
   const STORAGE_KEYS = {
     state: "famiflora-flow-desk-v4",
     prestataires: "famiflora-prestataires-v1",
@@ -20,6 +21,7 @@
   let _cachedPrestataires = null;
   let _cachedSpecialties  = null;
   let _cachedTree         = null;
+  let _readOnlyReason = "";
 
   function readLocalJson(key, fallbackValue) {
     try {
@@ -53,22 +55,25 @@
   }
 
   // ── Primitives HTTP ──────────────────────────────────────────────────────
-  async function kvGet(key) {
+  async function kvGetDetailed(key) {
     if (isFileProtocol) {
-      return null;
+      return { status: "local", value: null };
     }
     try {
       const res = await fetch(`${BASE}/api/kv/${encodeURIComponent(key)}`);
-      if (!res.ok) return null;
+      if (!res.ok) return { status: "missing", value: null };
       const data = await res.json();
-      return data.value ?? null;
+      return { status: "ok", value: data.value ?? null };
     } catch {
-      return null;
+      return { status: "error", value: null };
     }
   }
 
   function kvSet(key, value) {
     if (isFileProtocol) {
+      return;
+    }
+    if (_readOnlyReason) {
       return;
     }
     fetch(`${BASE}/api/kv/${encodeURIComponent(key)}`, {
@@ -84,32 +89,57 @@
   function loadAll() {
     if (_loadAllPromise) return _loadAllPromise;
     if (isFileProtocol) {
+      _readOnlyReason = "";
       _loadAllPromise = Promise.resolve(loadLocalSnapshot()).then((snapshot) => {
         applySnapshot(snapshot);
         return snapshot;
       });
       return _loadAllPromise;
     }
+
     _loadAllPromise = Promise.all([
-      kvGet("flowdesk-state"),
-      kvGet("flowdesk-prestataires"),
-      kvGet("flowdesk-specialties"),
-      kvGet("flowdesk-tree"),
-    ]).then(([state, prest, spec, tree]) => {
+      kvGetDetailed("flowdesk-state"),
+      kvGetDetailed("flowdesk-prestataires"),
+      kvGetDetailed("flowdesk-specialties"),
+      kvGetDetailed("flowdesk-tree"),
+    ]).then(([stateRes, prestRes, specRes, treeRes]) => {
+      const hadRemoteError = [stateRes, prestRes, specRes, treeRes].some((item) => item.status === "error");
+      if (hadRemoteError && isHttpProtocol) {
+        _readOnlyReason = "remote_unavailable";
+        const emptySnapshot = {
+          state: null,
+          prestataires: [],
+          specialties: [],
+          tree: null,
+        };
+        applySnapshot(emptySnapshot);
+        return emptySnapshot;
+      }
+
+      _readOnlyReason = "";
       const snapshot = {
-        state,
-        prestataires: Array.isArray(prest) ? prest : [],
-        specialties: Array.isArray(spec) ? spec : [],
-        tree,
+        state: stateRes.value,
+        prestataires: Array.isArray(prestRes.value) ? prestRes.value : [],
+        specialties: Array.isArray(specRes.value) ? specRes.value : [],
+        tree: treeRes.value,
       };
-      const hasRemoteData = snapshot.state !== null || snapshot.prestataires.length > 0 || snapshot.specialties.length > 0 || snapshot.tree !== null;
-      const finalSnapshot = hasRemoteData ? snapshot : loadLocalSnapshot();
-      applySnapshot(finalSnapshot);
-      return finalSnapshot;
-    }).catch(() => {
-      const snapshot = loadLocalSnapshot();
       applySnapshot(snapshot);
       return snapshot;
+    }).catch(() => {
+      if (isHttpProtocol) {
+        _readOnlyReason = "remote_unavailable";
+        const emptySnapshot = {
+          state: null,
+          prestataires: [],
+          specialties: [],
+          tree: null,
+        };
+        applySnapshot(emptySnapshot);
+        return emptySnapshot;
+      }
+      const localSnapshot = loadLocalSnapshot();
+      applySnapshot(localSnapshot);
+      return localSnapshot;
     });
     return _loadAllPromise;
   }
@@ -121,6 +151,8 @@
   window.FlowDeskApi = {
     /** Attend que le chargement initial soit terminé */
     ready: () => loadAll(),
+    isReadOnly: () => !!_readOnlyReason,
+    readOnlyReason: () => _readOnlyReason,
 
     // ── State principal (users + tickets) ─────────────────────────────────
     getCachedState:  ()  => _cachedState,
