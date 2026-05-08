@@ -51,6 +51,7 @@ const TRANSLATIONS = {
     "tab.users":          "Utilisateurs",
     "tab.categories":     "Catégories",
     "tab.planning":       "Planning",
+  "tab.prestataires":   "Prestataires",
 
     // ── Tableau de bord ────────────────────────────────────────────────────
     "dash.title":         "Tableau de bord",
@@ -125,6 +126,10 @@ const TRANSLATIONS = {
     "mgr.suggest.for":    "Compétence ciblée",
     "mgr.suggest.proposal":"Proposition",
     "mgr.suggest.none":   "Aucun collaborateur adapté actuellement",
+  "mgr.assign.type":    "Type d'attribution",
+  "mgr.assign.internal":"Collaborateur interne",
+  "mgr.assign.external":"Prestataire externe",
+  "mgr.mail.btn":       "📧 Envoyer par mail au prestataire",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Demande par",
@@ -209,6 +214,22 @@ const TRANSLATIONS = {
 
     // ── Divers ─────────────────────────────────────────────────────────────
     "misc.no.profile":    "Aucun profil pour ce rôle.",
+      // ── Prestataires ───────────────────────────────────────────────────────
+      "prest.title":        "Prestataires externes",
+      "prest.sub":          "Gérez vos partenaires et sous-traitants externes.",
+      "prest.new":          "Nouveau prestataire",
+      "prest.name":         "Nom",
+      "prest.company":      "Société",
+      "prest.email":        "Email",
+      "prest.phone":        "Téléphone",
+      "prest.skills":       "Spécialités",
+      "prest.create":       "Ajouter le prestataire",
+      "prest.created":      "Prestataire ajouté.",
+      "prest.delete":       "Supprimer",
+      "prest.deleted":      "Prestataire supprimé.",
+      "prest.none":         "Aucun prestataire externe enregistré.",
+      "prest.list":         "Prestataires enregistrés",
+
     "misc.no.profile.selector": "Aucun profil créé",
     "misc.add.profile":   "Ajoutez d'abord un profil dans le panneau de gauche.",
     "misc.empty":         "Aucune demande.",
@@ -268,6 +289,7 @@ const TRANSLATIONS = {
     "tab.requests":       "Aanvragen",
     "tab.users":          "Gebruikers",
     "tab.categories":     "Categorieën",
+      "tab.prestataires":   "Aannemers",
     "tab.planning":       "Planning",
 
     // ── Tableau de bord ────────────────────────────────────────────────────
@@ -343,6 +365,10 @@ const TRANSLATIONS = {
     "mgr.suggest.for":    "Gerichte vaardigheid",
     "mgr.suggest.proposal":"Voorstel",
     "mgr.suggest.none":   "Momenteel geen geschikte medewerker",
+  "mgr.assign.type":    "Type toewijzing",
+  "mgr.assign.internal":"Interne medewerker",
+  "mgr.assign.external":"Externe aannemer",
+  "mgr.mail.btn":       "📧 Mail sturen naar aannemer",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Aangevraagd door",
@@ -427,6 +453,22 @@ const TRANSLATIONS = {
 
     // ── Divers ─────────────────────────────────────────────────────────────
     "misc.no.profile":    "Geen profiel voor deze rol.",
+      // ── Aannemers ──────────────────────────────────────────────────────────
+      "prest.title":        "Externe aannemers",
+      "prest.sub":          "Beheer uw externe partners en onderaannemers.",
+      "prest.new":          "Nieuwe aannemer",
+      "prest.name":         "Naam",
+      "prest.company":      "Bedrijf",
+      "prest.email":        "E-mail",
+      "prest.phone":        "Telefoon",
+      "prest.skills":       "Vaardigheden",
+      "prest.create":       "Aannemer toevoegen",
+      "prest.created":      "Aannemer toegevoegd.",
+      "prest.delete":       "Verwijderen",
+      "prest.deleted":      "Aannemer verwijderd.",
+      "prest.none":         "Geen externe aannemers geregistreerd.",
+      "prest.list":         "Geregistreerde aannemers",
+
     "misc.no.profile.selector": "Geen profiel aangemaakt",
     "misc.add.profile":   "Voeg eerst een profiel toe in het linkerpaneel.",
     "misc.empty":         "Geen aanvragen.",

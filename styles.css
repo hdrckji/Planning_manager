@@ -942,6 +942,41 @@ textarea {
 }
 
 .user-item {
+  /* ── Attribution interne / externe ───────────────────────────────────── */
+  .assign-toggle {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+
+  .assign-toggle-opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .assign-toggle-opt:has(input:checked) {
+    background: rgba(47, 125, 59, 0.1);
+    border-color: var(--green);
+    font-weight: 600;
+  }
+
+  .assign-toggle-opt input[type="radio"] {
+    accent-color: var(--green);
+  }
+
+  /* ── Section cachée ───────────────────────────────────────────────────── */
+  .hidden {
+    display: none !important;
+  }
+
   display: flex;
   justify-content: space-between;
   align-items: center;

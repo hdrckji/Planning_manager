@@ -1,6 +1,22 @@
 const STORAGE_KEY = "famiflora-flow-desk-v4";
 const RESET_MARKER_KEY = "__flowdesk_reset_done_v1";
 const TREE_CONFIG_KEY = "famiflora-tree-config-v1";
+const PREST_KEY = "famiflora-prestataires-v1";
+
+function loadPrestataires() {
+  try { return JSON.parse(localStorage.getItem(PREST_KEY) || "[]"); } catch { return []; }
+}
+function savePrestataires(list) {
+  localStorage.setItem(PREST_KEY, JSON.stringify(list));
+}
+function nextPrestId() {
+  const list = loadPrestataires();
+  const last = list.map((p) => Number(p.id.replace("p-", ""))).filter((n) => !isNaN(n)).sort((a, b) => b - a)[0] || 0;
+  return `p-${last + 1}`;
+}
+function findPrestataire(id) {
+  return loadPrestataires().find((p) => p.id === id) || null;
+}
 
 const DEFAULT_TREE = [
   {
@@ -267,14 +283,15 @@ function bootstrap() {
 
 function hardResetDataOnce() {
   if (localStorage.getItem(RESET_MARKER_KEY) === "1") {
-    return;
-  }
-
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith("famiflora-"))
-    .forEach((key) => localStorage.removeItem(key));
-
-  localStorage.setItem(RESET_MARKER_KEY, "1");
+    return {
+      ...ticket,
+      estimatedHours: normalizeHours(ticket.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty)),
+      suggestedSpecialty,
+      suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
+      assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
+      categoryValue: String(ticket.categoryValue || ""),
+      categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
+    };
 }
 
 function loadState() {
@@ -815,6 +832,7 @@ function renderManagerPage() {
       <button class="manager-tab ${managerSubPage === "utilisateurs" ? "active" : ""}" data-subpage="utilisateurs">${t("tab.users")}</button>
       <button class="manager-tab ${managerSubPage === "categories"   ? "active" : ""}" data-subpage="categories">${t("tab.categories")}</button>
       <button class="manager-tab ${managerSubPage === "planning"     ? "active" : ""}" data-subpage="planning">${t("tab.planning")}</button>
+      <button class="manager-tab ${managerSubPage === "prestataires" ? "active" : ""}" data-subpage="prestataires">${t("tab.prestataires")}</button>
     </nav>
     <div id="managerContent" class="manager-content"></div>
   `;
@@ -833,7 +851,104 @@ function renderManagerPage() {
     case "utilisateurs": return renderManagerUtilisateurs(content);
     case "categories":   return renderTreeEditor(content);
     case "planning":     return renderManagerPlanning(content, collaborators);
+    case "prestataires": return renderManagerPrestataires(content);
   }
+}
+
+function renderManagerPrestataires(container) {
+  function renderContent() {
+    const list = loadPrestataires();
+
+    const listHtml = list.length === 0
+      ? `<p class="subtle" style="padding:6px 0">${t("prest.none")}</p>`
+      : list.map((p) => `
+          <div class="user-item">
+            <div class="user-item-info">
+              <strong>${escHtml(p.name)}</strong>
+              ${p.company ? `<span class="badge badge-muted">${escHtml(p.company)}</span>` : ""}
+              <span class="badge badge-muted">${escHtml(p.email)}</span>
+              ${p.phone ? `<span class="badge badge-muted">${escHtml(p.phone)}</span>` : ""}
+              ${p.specialties && p.specialties.length > 0 ? `<span class="badge badge-muted">${p.specialties.map(specialtyLabel).join(", ")}</span>` : ""}
+            </div>
+            <button class="button danger-ghost tree-btn" type="button" data-action="del-prest" data-pid="${p.id}">${t("prest.delete")}</button>
+          </div>`).join("");
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>${t("prest.title")}</h2>
+            <p class="subtle">${t("prest.sub")}</p>
+          </div>
+        </div>
+        <div class="add-user-block">
+          <h3>${t("prest.new")}</h3>
+          <form id="addPrestForm" class="form-grid">
+            <div class="field">
+              <label for="pName">${t("prest.name")}</label>
+              <input id="pName" name="name" type="text" placeholder="${t("prest.name")}" required />
+            </div>
+            <div class="field">
+              <label for="pCompany">${t("prest.company")}</label>
+              <input id="pCompany" name="company" type="text" placeholder="${t("prest.company")}" />
+            </div>
+            <div class="field">
+              <label for="pEmail">${t("prest.email")}</label>
+              <input id="pEmail" name="email" type="email" placeholder="contact@exemple.be" required />
+            </div>
+            <div class="field">
+              <label for="pPhone">${t("prest.phone")}</label>
+              <input id="pPhone" name="phone" type="tel" placeholder="+32 4xx xx xx xx" />
+            </div>
+            <div class="field full">
+              <label>${t("prest.skills")}</label>
+              <div id="pSkills" class="specialty-checks">
+                ${SPECIALTY_KEYS.map((opt) => `
+                  <label class="skill-chip">
+                    <input type="checkbox" name="pSkill" value="${opt}" />
+                    <span>${specialtyLabel(opt)}</span>
+                  </label>`).join("")}
+              </div>
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">${t("prest.create")}</button>
+            </div>
+          </form>
+        </div>
+        <div class="user-group">
+          <h3>${t("prest.list")} <span class="badge badge-muted">${list.length}</span></h3>
+          <div class="user-group-list" id="prestList">${listHtml}</div>
+        </div>
+      </section>
+    `;
+
+    container.querySelector("#addPrestForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = String(fd.get("name") || "").trim();
+      const company = String(fd.get("company") || "").trim();
+      const email = String(fd.get("email") || "").trim();
+      const phone = String(fd.get("phone") || "").trim();
+      const pickedSkills = Array.from(container.querySelectorAll("input[name='pSkill']:checked")).map((i) => i.value);
+      if (!name || !email) return;
+      const updated = loadPrestataires();
+      updated.push({ id: nextPrestId(), name, company, email, phone, specialties: pickedSkills });
+      savePrestataires(updated);
+      toast(t("prest.created"));
+      renderContent();
+    });
+
+    container.querySelectorAll("[data-action='del-prest']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const updated = loadPrestataires().filter((p) => p.id !== btn.dataset.pid);
+        savePrestataires(updated);
+        toast(t("prest.deleted"));
+        renderContent();
+      });
+    });
+  }
+
+  renderContent();
 }
 
 function renderManagerDashboard(container, tickets) {
@@ -1240,10 +1355,7 @@ function renderTreeEditor(container) {
                 <label for="catLabel">${t("tree.label")}</label>
                 <input id="catLabel" name="label" type="text" value="${escHtml(selectedNode.label)}" required />
               </div>
-              <div class="field full">
-                <label for="catValue">${t("tree.value")}</label>
-                <input id="catValue" name="value" type="text" value="${escHtml(selectedNode.value)}" />
-              </div>
+              <input type="hidden" name="value" value="${escHtml(selectedNode.value)}" />
               <div class="field">
                 <label for="catTeam">${t("tree.team")}</label>
                 <select id="catTeam" name="team">
@@ -1491,7 +1603,7 @@ function renderTicketCards(container, tickets, options) {
 }
 
 function renderManagerForm(ticket, collaborators) {
-  const wrapper = document.createElement("form");
+  const wrapper = document.createElement("div");
   wrapper.className = "manager-grid";
   const isWaiting = ticket.status === "en_attente";
   const suggested = suggestAssignee(ticket, collaborators);
@@ -1499,6 +1611,10 @@ function renderManagerForm(ticket, collaborators) {
     ? `${escHtml(suggested.name)} (${specialtyLabel(ticket.suggestedSpecialty || "general")})`
     : t("mgr.suggest.none");
   const selectedAssignee = ticket.assignedTo || ticket.suggestedAssigneeId || suggested?.id || "";
+  const initMode = ticket.assignedToExternal ? "externe" : "interne";
+  const prestataires = loadPrestataires();
+  const selectedPrest = ticket.assignedToExternal || "";
+
   wrapper.innerHTML = `
     <div class="field full">
       <div class="suggestion-box">
@@ -1507,12 +1623,36 @@ function renderManagerForm(ticket, collaborators) {
         <p>${t("mgr.suggest.proposal")}: ${suggestedLabel}</p>
       </div>
     </div>
-    <div class="field">
+    <div class="field full">
+      <label>${t("mgr.assign.type")}</label>
+      <div class="assign-toggle">
+        <label class="assign-toggle-opt">
+          <input type="radio" name="assignMode" value="interne" ${initMode === "interne" ? "checked" : ""} />
+          <span>${t("mgr.assign.internal")}</span>
+        </label>
+        <label class="assign-toggle-opt">
+          <input type="radio" name="assignMode" value="externe" ${initMode === "externe" ? "checked" : ""} />
+          <span>${t("mgr.assign.external")}</span>
+        </label>
+      </div>
+    </div>
+    <div class="field assign-interne-block${initMode === "externe" ? " hidden" : ""}">
       <label>${t("mgr.assign")}</label>
       <select name="assignedTo">
         <option value="">${t("mgr.unassigned")}</option>
         ${collaborators.map((u) => `<option value="${u.id}" ${selectedAssignee === u.id ? "selected" : ""}>${escHtml(u.name)} - ${escHtml(specialtiesSummary(u))}</option>`).join("")}
       </select>
+    </div>
+    <div class="field assign-externe-block${initMode === "interne" ? " hidden" : ""}">
+      <label>${t("mgr.assign.external")}</label>
+      <select name="assignedToExternal">
+        <option value="">${t("mgr.unassigned")}</option>
+        ${prestataires.map((p) => `<option value="${p.id}" ${selectedPrest === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
+      </select>
+    </div>
+    <div class="field assign-externe-block${initMode === "interne" ? " hidden" : ""}">
+      <label>${t("mgr.mail.btn")}</label>
+      <a id="mailtoBtn" class="button ghost" href="#" target="_blank">${t("mgr.mail.btn")}</a>
     </div>
     <div class="field">
       <label>${t("mgr.priority")}</label>
@@ -1539,17 +1679,57 @@ function renderManagerForm(ticket, collaborators) {
       <textarea name="returnNote" placeholder="${t("mgr.return.ph")}">${escHtml(ticket.returnNote || "")}</textarea>
     </div>
     <div class="field full">
-      <button class="button secondary" type="submit">${t("mgr.save")}</button>
+      <button class="button secondary" type="button" id="mgrSaveBtn">${t("mgr.save")}</button>
       ${!isWaiting ? `<button class="button ghost" type="button" data-action="quick-return">${t("mgr.return.btn")}</button>` : ""}
     </div>
   `;
 
   const statusSel = wrapper.querySelector(".status-select");
   const noteField = wrapper.querySelector(".return-note-field");
+  const interneBlock = wrapper.querySelectorAll(".assign-interne-block");
+  const externeBlocks = wrapper.querySelectorAll(".assign-externe-block");
+  const mailtoBtn = wrapper.querySelector("#mailtoBtn");
+  const prestSelect = wrapper.querySelector("[name='assignedToExternal']");
+
+  function buildMailtoHref(prestId) {
+    const p = prestataires.find((x) => x.id === prestId);
+    if (!p || !p.email) return "#";
+    const subject = encodeURIComponent(`[Flow Desk] ${ticket.id} - ${ticket.title}`);
+    const body = encodeURIComponent([
+      `Référence : ${ticket.id}`,
+      `Catégorie : ${ticket.categoryPath.join(" > ") || ticket.categoryValue || "-"}`,
+      `Description : ${ticket.description}`,
+      `Date souhaitée : ${ticket.desiredDate || "-"}`,
+      `Date planifiée : ${ticket.plannedDate || "-"}`,
+      `Durée estimée : ${formatHours(ticket.estimatedHours || 0)}`,
+      `Compétence requise : ${specialtyLabel(ticket.suggestedSpecialty || "general")}`,
+      "",
+      "Merci de prendre contact pour confirmer l'intervention.",
+      "— Flow Desk / Famiflora",
+    ].join("\n"));
+    return `mailto:${p.email}?subject=${subject}&body=${body}`;
+  }
+
+  function refreshMailto() {
+    if (mailtoBtn) mailtoBtn.href = buildMailtoHref(prestSelect?.value || "");
+  }
 
   statusSel.addEventListener("change", () => {
     noteField.classList.toggle("hidden", statusSel.value !== "en_attente");
   });
+
+  wrapper.querySelectorAll("[name='assignMode']").forEach((radio) => {
+    radio.addEventListener("change", () => {
+      const isExterne = radio.value === "externe";
+      interneBlock.forEach((el) => el.classList.toggle("hidden", isExterne));
+      externeBlocks.forEach((el) => el.classList.toggle("hidden", !isExterne));
+    });
+  });
+
+  if (prestSelect) {
+    prestSelect.addEventListener("change", refreshMailto);
+    refreshMailto();
+  }
 
   wrapper.querySelector("[data-action='quick-return']")?.addEventListener("click", () => {
     statusSel.value = "en_attente";
@@ -1557,17 +1737,18 @@ function renderManagerForm(ticket, collaborators) {
     noteField.querySelector("textarea")?.focus();
   });
 
-  wrapper.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const formData = new FormData(wrapper);
+  wrapper.querySelector("#mgrSaveBtn").addEventListener("click", () => {
+    const modeVal = wrapper.querySelector("[name='assignMode']:checked")?.value || "interne";
+    const isExterne = modeVal === "externe";
     updateTicket(ticket.id, {
-      assignedTo: String(formData.get("assignedTo")),
+      assignedTo: isExterne ? "" : String(wrapper.querySelector("[name='assignedTo']")?.value || ""),
+      assignedToExternal: isExterne ? String(prestSelect?.value || "") : "",
       suggestedAssigneeId: suggested?.id || "",
-      priority: String(formData.get("priority")),
-      estimatedHours: normalizeHours(formData.get("estimatedHours"), normalizeHours(ticket.estimatedHours, 2)),
-      plannedDate: String(formData.get("plannedDate")),
-      status: String(formData.get("status")),
-      returnNote: String(formData.get("returnNote") || ""),
+      priority: String(wrapper.querySelector("[name='priority']")?.value || "basse"),
+      estimatedHours: normalizeHours(wrapper.querySelector("[name='estimatedHours']")?.value, normalizeHours(ticket.estimatedHours, 2)),
+      plannedDate: String(wrapper.querySelector("[name='plannedDate']")?.value || ""),
+      status: String(wrapper.querySelector("[name='status']")?.value || ticket.status),
+      returnNote: String(wrapper.querySelector("[name='returnNote']")?.value || ""),
     });
     toast(t("mgr.saved"));
   });
