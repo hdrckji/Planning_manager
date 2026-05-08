@@ -350,11 +350,7 @@ function hardResetDataOnce() {
   if (localStorage.getItem(RESET_MARKER_KEY) === "1") {
     return;
   }
-
-  Object.keys(localStorage)
-    .filter((key) => key.startsWith("famiflora-"))
-    .forEach((key) => localStorage.removeItem(key));
-
+  // Migration marker only: do not clear existing local data.
   localStorage.setItem(RESET_MARKER_KEY, "1");
 }
 
