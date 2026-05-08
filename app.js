@@ -890,6 +890,7 @@ function renderEmployeePage() {
       suggestedSpecialty,
       estimatedHours,
       status: "nouveau",
+      seenByManager: false,
       infoThread: [],
       photoDataUrl,
       createdAt: new Date().toISOString(),
@@ -991,6 +992,7 @@ function renderEmployeeTicketTable(container, tickets) {
         employeeReply: reply,
         employeeReplyAt: new Date().toISOString(),
         status: "nouveau",
+        seenByManager: false,
       });
       toast(t("emp.reply.sent"));
     });
@@ -1005,7 +1007,7 @@ function renderManagerPage() {
   const collaborators = state.users.filter(
     (u) => u.role === "collaborator" && u.team === currentUser.team,
   );
-  const alertCount = teamTickets.filter((t_) => t_.status === "nouveau" || t_.status === "en_attente").length;
+  const alertCount = teamTickets.filter((t_) => t_.seenByManager === false).length;
 
   refs.mainView.innerHTML = `
     <nav class="manager-tabs">
@@ -1275,8 +1277,10 @@ function renderManagerTicketTable(container, tickets, collaborators) {
       const opening = managerExpandedTicketId !== ticketId;
       managerExpandedTicketId = opening ? ticketId : "";
 
-      if (opening && ticket.status === "nouveau") {
-        updateTicket(ticketId, { status: "en_attente" });
+      if (opening) {
+        const updates = { seenByManager: true };
+        if (ticket.status === "nouveau") updates.status = "en_attente";
+        updateTicket(ticketId, updates);
         return;
       }
 
@@ -2347,6 +2351,7 @@ function renderManagerForm(ticket, collaborators) {
       estimatedHours: normalizeHours(wrapper.querySelector("[name='estimatedHours']")?.value, normalizeHours(ticket.estimatedHours, 2)),
       plannedDate: String(wrapper.querySelector("[name='plannedDate']")?.value || ""),
       status: "en_attente",
+      seenByManager: true,
       returnNote: note,
     });
     toast(t("mgr.ask.info.sent"));
@@ -2369,6 +2374,7 @@ function renderManagerForm(ticket, collaborators) {
       estimatedHours: normalizeHours(wrapper.querySelector("[name='estimatedHours']")?.value, normalizeHours(ticket.estimatedHours, 2)),
       plannedDate: String(wrapper.querySelector("[name='plannedDate']")?.value || ""),
       status: nextStatus,
+      seenByManager: true,
       returnNote: String(wrapper.querySelector("[name='returnNote']")?.value || ""),
     });
     toast(t("mgr.saved"));
