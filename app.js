@@ -193,6 +193,7 @@ function createTreeNode(seed = {}) {
     value: seed.value || buildNodeValue(seed.label || t("tree.new.node"), "cat"),
     team,
     suggestedSpecialty: specialty,
+    linkedExternalId: typeof seed.linkedExternalId === "string" ? seed.linkedExternalId : "",
     estimatedHours: normalizeHours(seed.estimatedHours, defaultHoursForSpecialty(specialty)),
     children: Array.isArray(seed.children) ? seed.children : [],
   };
@@ -213,6 +214,7 @@ function normalizeTreeNode(node, inherited = {}) {
     value: String(node.value || buildNodeValue(node.label || t("tree.new.node"), "cat")).trim() || buildNodeValue(node.label || t("tree.new.node"), "cat"),
     team,
     suggestedSpecialty: specialty,
+    linkedExternalId: typeof node.linkedExternalId === "string" ? node.linkedExternalId : "",
     estimatedHours: normalizeHours(node.estimatedHours, inherited.estimatedHours || defaultHoursForSpecialty(specialty)),
     children,
   };
@@ -247,6 +249,7 @@ function normalizeTicket(ticket) {
     suggestedSpecialty,
     suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
     assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
+    suggestedExternalId: typeof ticket.suggestedExternalId === "string" ? ticket.suggestedExternalId : "",
     categoryValue: String(ticket.categoryValue || ""),
     categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
   };
@@ -791,6 +794,8 @@ function renderEmployeePage() {
       desiredDate: today(),
       plannedDate: today(),
       assignedTo: "",
+      assignedToExternal: "",
+      suggestedExternalId: selectedNode?.linkedExternalId || "",
       suggestedAssigneeId: "",
       managerId: managerIdForDepartment(department),
       priority: "moyenne",
@@ -1329,6 +1334,7 @@ function renderTreeEditor(container) {
       return;
     }
     const specialtyOptions = specialtyOptionsForTeam(selectedNode.team);
+    const prestataires = loadPrestataires();
 
     container.innerHTML = `
       <div class="tree-editor-wrap tree-editor-v2">
@@ -1371,6 +1377,13 @@ function renderTreeEditor(container) {
               <div class="field">
                 <label for="catHours">${t("tree.estimated")}</label>
                 <input id="catHours" name="estimatedHours" type="number" min="0.5" step="0.5" value="${normalizeHours(selectedNode.estimatedHours, 2)}" />
+              </div>
+              <div class="field full">
+                <label for="catExternal">${t("tree.external")}</label>
+                <select id="catExternal" name="linkedExternalId">
+                  <option value="">${t("tree.external.none")}</option>
+                  ${prestataires.map((p) => `<option value="${p.id}" ${selectedNode.linkedExternalId === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
+                </select>
               </div>
               <div class="field full category-detail-actions">
                 <button class="button ghost" type="button" data-action="add-child">${t("tree.add.child")}</button>
@@ -1416,10 +1429,12 @@ function renderTreeEditor(container) {
       const team = normalizeTeamKey(String(data.get("team") || "technique"));
       const valueInput = String(data.get("value") || "").trim();
       const suggestedSpecialty = String(data.get("suggestedSpecialty") || "general");
+      const linkedExternalId = String(data.get("linkedExternalId") || "");
       current.label = label;
       current.value = valueInput || buildNodeValue(label, "cat");
       current.team = team;
       current.suggestedSpecialty = SPECIALTY_KEYS.includes(suggestedSpecialty) ? suggestedSpecialty : "general";
+      current.linkedExternalId = linkedExternalId;
       current.estimatedHours = normalizeHours(data.get("estimatedHours"), defaultHoursForSpecialty(current.suggestedSpecialty));
       saveAndRefresh();
       toast(t("tree.saved"));
@@ -1435,6 +1450,7 @@ function renderTreeEditor(container) {
         label: t("tree.new.child"),
         team: current.team,
         suggestedSpecialty: current.suggestedSpecialty,
+        linkedExternalId: current.linkedExternalId,
         estimatedHours: current.estimatedHours,
       });
       current.children.push(child);
@@ -1611,9 +1627,10 @@ function renderManagerForm(ticket, collaborators) {
     ? `${escHtml(suggested.name)} (${specialtyLabel(ticket.suggestedSpecialty || "general")})`
     : t("mgr.suggest.none");
   const selectedAssignee = ticket.assignedTo || ticket.suggestedAssigneeId || suggested?.id || "";
-  const initMode = ticket.assignedToExternal ? "externe" : "interne";
+  const categoryLinkedExternalId = ticket.suggestedExternalId || linkedExternalForTicket(ticket);
+  const initMode = (ticket.assignedToExternal || categoryLinkedExternalId) ? "externe" : "interne";
   const prestataires = loadPrestataires();
-  const selectedPrest = ticket.assignedToExternal || "";
+  const selectedPrest = ticket.assignedToExternal || categoryLinkedExternalId || "";
 
   wrapper.innerHTML = `
     <div class="field full">
@@ -1758,7 +1775,9 @@ function renderManagerForm(ticket, collaborators) {
 
 function renderDetails(ticket) {
   const createdBy = findUser(ticket.createdBy)?.name || t("ticket.unknown");
-  const assignedTo = findUser(ticket.assignedTo)?.name || t("mgr.unassigned");
+  const assignedTo = ticket.assignedToExternal
+    ? (findPrestataire(ticket.assignedToExternal)?.name || t("mgr.unassigned"))
+    : (findUser(ticket.assignedTo)?.name || t("mgr.unassigned"));
   const manager = findUser(ticket.managerId)?.name || t("ticket.no.manager");
 
   const items = [
@@ -1852,6 +1871,65 @@ function suggestAssignee(ticket, collaborators) {
     .filter((entry) => entry.score >= 0)
     .sort((left, right) => right.score - left.score);
   return ranked[0]?.user || null;
+}
+
+function linkedExternalForTicket(ticket) {
+  const tree = loadTree();
+  const path = Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [];
+  let nodes = tree;
+  let current = null;
+  let inheritedLinkedExternalId = "";
+
+  for (const value of path) {
+    current = nodes.find((n) => n.value === value) || null;
+    if (!current) {
+      break;
+    }
+    if (current.linkedExternalId) {
+      inheritedLinkedExternalId = current.linkedExternalId;
+    }
+    nodes = current.children || [];
+  }
+
+  if (inheritedLinkedExternalId) {
+    return inheritedLinkedExternalId;
+  }
+
+  if (ticket.categoryValue) {
+    const stack = [...tree];
+    while (stack.length > 0) {
+      const node = stack.pop();
+      if (!node) continue;
+      if (node.value === ticket.categoryValue && node.linkedExternalId) {
+        return node.linkedExternalId;
+      }
+      if (Array.isArray(node.children) && node.children.length > 0) {
+        stack.push(...node.children);
+      }
+    }
+  }
+
+  const titleParts = String(ticket.title || "").split(" > ").map((part) => String(part || "").trim()).filter(Boolean);
+  if (titleParts.length > 0) {
+    const norm = (value) => String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    let titleNodes = tree;
+    let titleInheritedLinked = "";
+    for (const part of titleParts) {
+      const found = titleNodes.find((node) => norm(node.label) === norm(part) || norm(node.value) === norm(part));
+      if (!found) {
+        break;
+      }
+      if (found.linkedExternalId) {
+        titleInheritedLinked = found.linkedExternalId;
+      }
+      titleNodes = found.children || [];
+    }
+    if (titleInheritedLinked) {
+      return titleInheritedLinked;
+    }
+  }
+
+  return "";
 }
 
 function normalizeTeam(team) {
