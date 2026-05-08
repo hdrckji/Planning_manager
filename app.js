@@ -246,6 +246,7 @@ function normalizeTicket(ticket) {
     estimatedHours: normalizeHours(ticket.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty)),
     suggestedSpecialty,
     suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
+    assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
     categoryValue: String(ticket.categoryValue || ""),
     categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
   };
@@ -283,15 +284,14 @@ function bootstrap() {
 
 function hardResetDataOnce() {
   if (localStorage.getItem(RESET_MARKER_KEY) === "1") {
-    return {
-      ...ticket,
-      estimatedHours: normalizeHours(ticket.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty)),
-      suggestedSpecialty,
-      suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
-      assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
-      categoryValue: String(ticket.categoryValue || ""),
-      categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
-    };
+    return;
+  }
+
+  Object.keys(localStorage)
+    .filter((key) => key.startsWith("famiflora-"))
+    .forEach((key) => localStorage.removeItem(key));
+
+  localStorage.setItem(RESET_MARKER_KEY, "1");
 }
 
 function loadState() {
