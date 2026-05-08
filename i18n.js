@@ -48,9 +48,11 @@ const TRANSLATIONS = {
     // ── Stats rapide ───────────────────────────────────────────────────────
     "stats.title":        "Vue rapide",
     "stats.total":        "Demandes totales",
-    "stats.pending":      "À traiter",
-    "stats.high":         "Haute priorité",
-    "stats.planning":     "Mon planning",
+    "stats.pending":      "À compléter",
+    "stats.sector.title": "Tâches par secteur",
+    "stats.sector.planned": "Planifié",
+    "stats.sector.ongoing": "En cours",
+    "stats.sector.done":    "Terminé",
 
     // ── Onglets manager ────────────────────────────────────────────────────
     "tab.dashboard":      "Tableau de bord",
@@ -345,9 +347,11 @@ const TRANSLATIONS = {
     // ── Stats rapide ───────────────────────────────────────────────────────
     "stats.title":        "Snel overzicht",
     "stats.total":        "Totale aanvragen",
-    "stats.pending":      "Te behandelen",
-    "stats.high":         "Hoge prioriteit",
-    "stats.planning":     "Mijn planning",
+    "stats.pending":      "Te vervolledigen",
+    "stats.sector.title": "Taken per sector",
+    "stats.sector.planned": "Gepland",
+    "stats.sector.ongoing": "Bezig",
+    "stats.sector.done":    "Afgerond",
 
     // ── Onglets manager ────────────────────────────────────────────────────
     "tab.dashboard":      "Dashboard",

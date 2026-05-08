@@ -603,50 +603,39 @@ function removeUser(userId) {
 function renderStats() {
   const currentUser = getCurrentUser();
 
-  if (!currentUser) {
-    const zeroStats = [
-      { label: t("stats.total"),    value: 0 },
-      { label: t("stats.pending"),  value: 0 },
-      { label: t("stats.high"),     value: 0 },
-      { label: t("stats.planning"), value: 0 },
-    ];
+  const sectorRows = ["technique", "decoration"].map((dept) => {
+    const deptTickets = state.tickets.filter((tk) => tk.department === dept);
+    const planned  = deptTickets.filter((tk) => tk.status === "planifie").length;
+    const ongoing  = deptTickets.filter((tk) => tk.status === "en_cours").length;
+    const done     = deptTickets.filter((tk) => tk.status === "termine").length;
+    const label    = t(`dept.${dept}`);
+    return `<tr><td class="sector-name">${label}</td><td>${planned}</td><td>${ongoing}</td><td>${done}</td></tr>`;
+  }).join("");
 
-    refs.statsGrid.innerHTML = zeroStats
-      .map(
-        (stat) => `
-          <article class="stat-card">
-            <span class="stat-value">${stat.value}</span>
-            <span class="stat-label">${stat.label}</span>
-          </article>
-        `,
-      )
-      .join("");
+  const sectorTable = `
+    <h3 class="sector-table-title">${t("stats.sector.title")}</h3>
+    <table class="sector-table">
+      <thead><tr><th></th><th>${t("stats.sector.planned")}</th><th>${t("stats.sector.ongoing")}</th><th>${t("stats.sector.done")}</th></tr></thead>
+      <tbody>${sectorRows}</tbody>
+    </table>`;
+
+  if (!currentUser) {
+    refs.statsGrid.innerHTML = `
+      <article class="stat-card"><span class="stat-value">0</span><span class="stat-label">${t("stats.total")}</span></article>
+      <article class="stat-card"><span class="stat-value">0</span><span class="stat-label">${t("stats.pending")}</span></article>
+      ${sectorTable}`;
     return;
   }
 
   const ticketsForTeam = currentUser.team === "magasin"
     ? state.tickets
     : state.tickets.filter((ticket) => ticket.department === currentUser.team);
-  const assignedTickets = state.tickets.filter((ticket) => ticket.assignedTo === currentUser.id);
-  const pending = ticketsForTeam.filter((ticket) => ticket.status !== "termine");
+  const toComplete = ticketsForTeam.filter((ticket) => ticket.status === "en_attente" && ticket.createdBy === currentUser.id);
 
-  const stats = [
-    { label: t("stats.total"),    value: ticketsForTeam.length },
-    { label: t("stats.pending"),  value: pending.length },
-    { label: t("stats.high"),     value: ticketsForTeam.filter((ticket) => ticket.priority === "haute").length },
-    { label: t("stats.planning"), value: assignedTickets.length },
-  ];
-
-  refs.statsGrid.innerHTML = stats
-    .map(
-      (stat) => `
-        <article class="stat-card">
-          <span class="stat-value">${stat.value}</span>
-          <span class="stat-label">${stat.label}</span>
-        </article>
-      `,
-    )
-    .join("");
+  refs.statsGrid.innerHTML = `
+    <article class="stat-card"><span class="stat-value">${ticketsForTeam.length}</span><span class="stat-label">${t("stats.total")}</span></article>
+    <article class="stat-card"><span class="stat-value">${toComplete.length}</span><span class="stat-label">${t("stats.pending")}</span></article>
+    ${sectorTable}`;
 }
 
 function renderActiveNavigation() {

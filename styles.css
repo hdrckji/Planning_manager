@@ -234,6 +234,45 @@ h1 {
   color: var(--muted);
 }
 
+.sector-table-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 16px 0 6px;
+  grid-column: 1 / -1;
+}
+
+.sector-table {
+  grid-column: 1 / -1;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.sector-table thead th {
+  text-align: center;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px 6px;
+  font-size: 0.8rem;
+}
+
+.sector-table thead th:first-child { text-align: left; }
+
+.sector-table tbody td {
+  text-align: center;
+  padding: 6px 6px;
+  border-top: 1px solid rgba(68, 53, 36, 0.07);
+}
+
+.sector-table tbody td.sector-name {
+  text-align: left;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
 ul {
   margin: 0;
   padding-left: 18px;
