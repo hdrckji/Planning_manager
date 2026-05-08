@@ -1954,6 +1954,22 @@ function renderTicketCards(container, tickets, options) {
 
     details.innerHTML = renderDetails(ticket);
 
+    // Garde-fou anti-doublon: en mode manager, l'historique doit rester
+    // uniquement dans le formulaire d'action, jamais dans le résumé détails.
+    if (options.mode === "manage") {
+      const detailRows = Array.from(details.querySelectorAll("div"));
+      detailRows.forEach((row) => {
+        const dt = row.querySelector("dt");
+        if (!dt) {
+          return;
+        }
+        const label = dt.textContent?.trim().toLowerCase() || "";
+        if (label === t("chat.history").trim().toLowerCase() || row.querySelector(".info-thread-list")) {
+          row.remove();
+        }
+      });
+    }
+
     if (ticket.photoDataUrl) {
       photoWrap.classList.remove("hidden");
       photo.src = ticket.photoDataUrl;
