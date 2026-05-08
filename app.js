@@ -1942,20 +1942,19 @@ function renderCollaboratorPage() {
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
 
     refs.mainView.innerHTML = `
-      <section class="card">
-        <div class="section-head">
-          <div>
-            <h2>${t("collab.planning")}</h2>
-            <p class="subtle">${t("collab.planning.sub")}</p>
-          </div>
-          <div class="planning-controls">
-            <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
-            <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
-            <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
-          </div>
+      <div class="section-head">
+        <div>
+          <h2>${t("collab.planning")}</h2>
+          <p class="subtle">${t("collab.planning.sub")}</p>
         </div>
-        <p class="subtle">${weekLabel}</p>
-        ${tickets.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
+        <div class="planning-controls">
+          <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
+          <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
+          <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
+        </div>
+      </div>
+      <p class="subtle">${weekLabel}</p>
+      ${tickets.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
         <div class="cal-week">
           ${days.map((day) => {
             const dateStr = day.toISOString().slice(0, 10);
@@ -1990,7 +1989,7 @@ function renderCollaboratorPage() {
             `;
           }).join("")}
         </div>
-      </section>
+      </div>
     `;
 
     refs.mainView.querySelector("#collabPrevWeek")?.addEventListener("click", () => {
