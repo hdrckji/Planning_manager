@@ -64,12 +64,12 @@ const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"
 const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
 const TEAM_KEYS     = ["magasin", "technique", "decoration"];
 const DEFAULT_SPECIALTIES = [
-  { key: "general", i18nKey: "skill.general", teams: ["technique", "decoration"], defaultHours: 2 },
-  { key: "electricite", i18nKey: "skill.electricite", teams: ["technique"], defaultHours: 2 },
-  { key: "plomberie", i18nKey: "skill.plomberie", teams: ["technique"], defaultHours: 2.5 },
-  { key: "equipement", i18nKey: "skill.equipement", teams: ["technique"], defaultHours: 2 },
-  { key: "mise_en_scene", i18nKey: "skill.mise_en_scene", teams: ["decoration"], defaultHours: 3 },
-  { key: "signalisation", i18nKey: "skill.signalisation", teams: ["decoration"], defaultHours: 1.5 },
+  { key: "general", i18nKey: "skill.general", teams: ["technique", "decoration"] },
+  { key: "electricite", i18nKey: "skill.electricite", teams: ["technique"] },
+  { key: "plomberie", i18nKey: "skill.plomberie", teams: ["technique"] },
+  { key: "equipement", i18nKey: "skill.equipement", teams: ["technique"] },
+  { key: "mise_en_scene", i18nKey: "skill.mise_en_scene", teams: ["decoration"] },
+  { key: "signalisation", i18nKey: "skill.signalisation", teams: ["decoration"] },
 ];
 
 function loadCustomSpecialties() {
@@ -83,7 +83,6 @@ function loadCustomSpecialties() {
         key: String(item.key || "").trim(),
         label: String(item.label || "").trim(),
         teams: Array.isArray(item.teams) ? item.teams.filter((team) => ["technique", "decoration"].includes(team)) : ["technique"],
-        defaultHours: normalizeHours(item.defaultHours, 2),
       }))
       .filter((item) => item.key && item.label);
   } catch {
@@ -169,9 +168,9 @@ function normalizeHours(value, fallback = 2) {
   return Math.round(num * 2) / 2;
 }
 
-function defaultHoursForSpecialty(specialty) {
-  const definition = getSpecialtyDefinition(specialty);
-  return normalizeHours(definition?.defaultHours, 2);
+function defaultHoursForSpecialty() {
+  // La durée dépend de la tâche/catégorie, pas de la compétence.
+  return 2;
 }
 
 function inferSpecialtyFromValue(value) {
@@ -1081,6 +1080,7 @@ function renderManagerDemandes(container, tickets, collaborators) {
 
 function renderManagerUtilisateurs(container) {
   let editingSkillsUserId = "";
+  let showSkillsCatalog = false;
 
   function renderContent() {
     const managers = state.users.filter((u) => u.role === "manager");
@@ -1127,17 +1127,15 @@ function renderManagerUtilisateurs(container) {
             <h2>${t("users.title")}</h2>
             <p class="subtle">${t("users.sub")}</p>
           </div>
+          <button class="button ghost" type="button" id="toggleSkillsCatalogBtn">${showSkillsCatalog ? t("users.skills.hide") : t("users.skills.show")}</button>
         </div>
+        ${showSkillsCatalog ? `
         <div class="add-user-block">
           <h3>${t("users.skills.catalog")}</h3>
           <form id="addSkillForm" class="form-grid">
             <div class="field">
               <label for="nsLabel">${t("users.skills.label")}</label>
               <input id="nsLabel" name="label" type="text" placeholder="${t("users.skills.label.ph")}" required />
-            </div>
-            <div class="field">
-              <label for="nsHours">${t("users.skills.hours")}</label>
-              <input id="nsHours" name="defaultHours" type="number" min="0.5" step="0.5" value="2" />
             </div>
             <div class="field full">
               <label>${t("users.skills.teams")}</label>
@@ -1166,7 +1164,6 @@ function renderManagerUtilisateurs(container) {
                     <strong>${escHtml(specialtyLabel(spec.key))}</strong>
                     <span class="badge badge-muted">${escHtml(spec.key)}</span>
                     ${teamBadges}
-                    <span class="badge badge-muted">${formatHours(spec.defaultHours || 2)}</span>
                   </div>
                   ${canDelete ? `<button class="button danger-ghost tree-btn" type="button" data-action="del-skill" data-skill="${spec.key}">${t("users.delete")}</button>` : ""}
                 </div>
@@ -1174,6 +1171,7 @@ function renderManagerUtilisateurs(container) {
             }).join("")}
           </div>
         </div>
+        ` : ""}
         <div class="add-user-block">
           <h3>${t("users.new")}</h3>
           <form id="addUserForm" class="form-grid">
@@ -1278,12 +1276,16 @@ function renderManagerUtilisateurs(container) {
       toast(t("users.created"));
     });
 
+    container.querySelector("#toggleSkillsCatalogBtn")?.addEventListener("click", () => {
+      showSkillsCatalog = !showSkillsCatalog;
+      renderContent();
+    });
+
     container.querySelector("#addSkillForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
       const label = String(fd.get("label") || "").trim();
       const key = buildNodeValue(label, "skill");
-      const defaultHours = normalizeHours(fd.get("defaultHours"), 2);
       const teams = Array.from(container.querySelectorAll("input[name='skillTeam']:checked")).map((input) => input.value);
       if (!label) {
         return;
@@ -1298,7 +1300,7 @@ function renderManagerUtilisateurs(container) {
       }
 
       const custom = loadCustomSpecialties();
-      custom.push({ key, label, teams, defaultHours });
+      custom.push({ key, label, teams });
       saveCustomSpecialties(custom);
       renderContent();
       toast(t("users.skills.created"));
