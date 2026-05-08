@@ -486,6 +486,21 @@ textarea {
   margin: 0;
 }
 
+.employee-reply-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.employee-reply-form label {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.employee-reply-form textarea {
+  min-height: 84px;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

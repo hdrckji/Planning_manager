@@ -939,6 +939,13 @@ function renderEmployeeTicketTable(container, tickets) {
                     <p>${t("ticket.desired")}: ${formatDate(ticket.desiredDate)}</p>
                     <p>${t("ticket.validated")}: ${formatDate(ticket.plannedDate)}</p>
                     ${ticket.returnNote ? `<div class="return-note-banner"><dt>${t("ticket.return.note")}</dt><dd>${escHtml(ticket.returnNote)}</dd></div>` : ""}
+                    ${ticket.status === "en_attente" ? `
+                      <form class="employee-reply-form" data-action="employee-reply" data-ticket-id="${ticket.id}">
+                        <label>${t("emp.reply.label")}</label>
+                        <textarea name="employeeReply" placeholder="${t("emp.reply.ph")}">${escHtml(ticket.employeeReply || "")}</textarea>
+                        <button class="button" type="submit">${t("emp.reply.send")}</button>
+                      </form>
+                    ` : ""}
                   </div>
                 </td>
               </tr>
@@ -954,6 +961,24 @@ function renderEmployeeTicketTable(container, tickets) {
       const ticketId = row.dataset.ticketRow;
       employeeExpandedTicketId = employeeExpandedTicketId === ticketId ? "" : ticketId;
       renderEmployeeTicketTable(container, tickets);
+    });
+  });
+
+  container.querySelectorAll("form[data-action='employee-reply']").forEach((formEl) => {
+    formEl.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const ticketId = formEl.dataset.ticketId;
+      const reply = String(formEl.querySelector("textarea[name='employeeReply']")?.value || "").trim();
+      if (!reply) {
+        return;
+      }
+
+      updateTicket(ticketId, {
+        employeeReply: reply,
+        employeeReplyAt: new Date().toISOString(),
+        status: "nouveau",
+      });
+      toast(t("emp.reply.sent"));
     });
   });
 }
