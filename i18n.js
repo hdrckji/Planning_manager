@@ -74,6 +74,11 @@ const TRANSLATIONS = {
     "priority.moyenne":   "Moyenne",
     "priority.haute":     "Haute",
 
+    "delay.asap":         "Le plus vite possible",
+    "delay.h48":          "Dans les 48h",
+    "delay.week":         "Dans la semaine",
+    "delay.month":        "Dans le mois",
+
     // ── Équipes ────────────────────────────────────────────────────────────
     "team.magasin":       "Magasin",
     "team.technique":     "Technique",
@@ -99,6 +104,11 @@ const TRANSLATIONS = {
     "emp.waiting.sub":    "Le responsable a besoin de précisions supplémentaires sur ces demandes.",
     "emp.myrequests":     "Mes demandes",
     "emp.myrequests.sub": "Suivi des demandes créées depuis ce profil.",
+    "emp.delay.label":    "Délai d'intervention souhaité",
+    "emp.table.by":       "Demandé par",
+    "emp.table.created":  "Créée le",
+    "emp.table.delay":    "Délai souhaité",
+    "emp.table.status":   "Statut",
     "emp.cat":            "Catégorie",
     "emp.subcat":         "Sous-catégorie",
     "emp.precision":      "Précision",
@@ -133,6 +143,11 @@ const TRANSLATIONS = {
   "mgr.assign.internal":"Collaborateur interne",
   "mgr.assign.external":"Prestataire externe",
   "mgr.mail.btn":       "📧 Envoyer par mail au prestataire",
+  "mgr.assign.week":    "Planifier dans l'agenda (semaine)",
+  "mgr.assign.week.none":"Choisissez d'abord un collaborateur pour voir son agenda.",
+  "mgr.ask.info":       "Demander info complémentaire",
+  "mgr.ask.info.note.required":"Ajoutez un message pour demander un complément d'information.",
+  "mgr.ask.info.sent":  "Demande d'information envoyée à l'employé.",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Demande par",
@@ -143,6 +158,7 @@ const TRANSLATIONS = {
     "ticket.updated":     "Mis à jour",
     "ticket.estimated":   "Durée estimée",
     "ticket.specialty":   "Compétence requise",
+    "ticket.intervention.delay": "Délai d'intervention souhaité",
     "ticket.return.note": "Message du responsable",
     "ticket.photo":       "Photo",
     "ticket.unknown":     "Inconnu",
@@ -342,6 +358,11 @@ const TRANSLATIONS = {
     "priority.moyenne":   "Gemiddeld",
     "priority.haute":     "Hoog",
 
+    "delay.asap":         "Zo snel mogelijk",
+    "delay.h48":          "Binnen 48 uur",
+    "delay.week":         "Binnen de week",
+    "delay.month":        "Binnen de maand",
+
     // ── Équipes ────────────────────────────────────────────────────────────
     "team.magasin":       "Winkel",
     "team.technique":     "Techniek",
@@ -367,6 +388,11 @@ const TRANSLATIONS = {
     "emp.waiting.sub":    "De verantwoordelijke heeft aanvullende informatie nodig voor deze aanvragen.",
     "emp.myrequests":     "Mijn aanvragen",
     "emp.myrequests.sub": "Opvolging van aanvragen aangemaakt vanuit dit profiel.",
+    "emp.delay.label":    "Gewenste interventietermijn",
+    "emp.table.by":       "Aangevraagd door",
+    "emp.table.created":  "Aangemaakt op",
+    "emp.table.delay":    "Gewenste termijn",
+    "emp.table.status":   "Status",
     "emp.cat":            "Categorie",
     "emp.subcat":         "Subcategorie",
     "emp.precision":      "Precisering",
@@ -401,6 +427,11 @@ const TRANSLATIONS = {
   "mgr.assign.internal":"Interne medewerker",
   "mgr.assign.external":"Externe aannemer",
   "mgr.mail.btn":       "📧 Mail sturen naar aannemer",
+  "mgr.assign.week":    "Plannen in agenda (week)",
+  "mgr.assign.week.none":"Kies eerst een medewerker om de agenda te zien.",
+  "mgr.ask.info":       "Aanvullende info vragen",
+  "mgr.ask.info.note.required":"Voeg een bericht toe om extra informatie te vragen.",
+  "mgr.ask.info.sent":  "Informatieverzoek naar medewerker verstuurd.",
 
     // ── Détails ticket ─────────────────────────────────────────────────────
     "ticket.by":          "Aangevraagd door",
@@ -411,6 +442,7 @@ const TRANSLATIONS = {
     "ticket.updated":     "Bijgewerkt",
     "ticket.estimated":   "Geschatte duur",
     "ticket.specialty":   "Vereiste vaardigheid",
+    "ticket.intervention.delay": "Gewenste interventietermijn",
     "ticket.return.note": "Bericht van de verantwoordelijke",
     "ticket.photo":       "Foto",
     "ticket.unknown":     "Onbekend",

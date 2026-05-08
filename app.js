@@ -63,6 +63,7 @@ const DEFAULT_TREE = [
 const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
 const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
 const TEAM_KEYS     = ["magasin", "technique", "decoration"];
+const INTERVENTION_DELAY_KEYS = ["asap", "h48", "week", "month"];
 const DEFAULT_SPECIALTIES = [
   { key: "general", i18nKey: "skill.general", teams: ["technique", "decoration"] },
   { key: "electricite", i18nKey: "skill.electricite", teams: ["technique"] },
@@ -151,6 +152,7 @@ const state = {
 let managerSubPage = "dashboard";
 let planningWeekOffset = 0;
 let planningFilterCollab = "";
+let employeeExpandedTicketId = "";
 
 function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -303,6 +305,7 @@ function normalizeTicket(ticket) {
     suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
     assignedToExternal: typeof ticket.assignedToExternal === "string" ? ticket.assignedToExternal : "",
     suggestedExternalId: typeof ticket.suggestedExternalId === "string" ? ticket.suggestedExternalId : "",
+    interventionDelay: normalizeInterventionDelay(ticket.interventionDelay),
     categoryValue: String(ticket.categoryValue || ""),
     categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
   };
@@ -705,6 +708,12 @@ function renderEmployeePage() {
       </div>
       <form id="ticketForm" class="form-grid">
         <div class="field full" id="treeStepsContainer"></div>
+        <div class="field full hidden" id="delayField">
+          <label for="ticketInterventionDelay">${t("emp.delay.label")}</label>
+          <select id="ticketInterventionDelay" name="interventionDelay">
+            ${INTERVENTION_DELAY_KEYS.map((key) => `<option value="${key}" ${key === "h48" ? "selected" : ""}>${interventionDelayLabel(key)}</option>`).join("")}
+          </select>
+        </div>
         <div class="field full hidden" id="commentField">
           <label for="ticketComment">${t("emp.comment")}</label>
           <textarea id="ticketComment" name="comment" placeholder="${t("emp.comment.ph")}"></textarea>
@@ -723,12 +732,13 @@ function renderEmployeePage() {
         <h2>${t("emp.myrequests")}</h2>
         <p class="subtle">${t("emp.myrequests.sub")}</p>
       </div></div>
-      <div class="ticket-list" id="employeeTicketList"></div>
+      <div id="employeeTicketTable"></div>
     </section>
   `;
 
   const form = refs.mainView.querySelector("#ticketForm");
   const stepsContainer = form.querySelector("#treeStepsContainer");
+  const delayField = form.querySelector("#delayField");
   const commentField = form.querySelector("#commentField");
   const photoField = form.querySelector("#photoField");
   const submitField = form.querySelector("#submitField");
@@ -767,10 +777,12 @@ function renderEmployeePage() {
     const isComplete = selections.length > 0 && (!getCurrentLevel() || getCurrentLevel() === null || getCurrentLevel()?.every === undefined);
     const leafReached = selections.length > 0 && (getCurrentLevel() === null || !getCurrentLevel() || getCurrentLevel().length === 0);
     if (leafReached) {
+      delayField.classList.remove("hidden");
       commentField.classList.remove("hidden");
       photoField.classList.remove("hidden");
       submitField.classList.remove("hidden");
     } else {
+      delayField.classList.add("hidden");
       commentField.classList.add("hidden");
       photoField.classList.add("hidden");
       submitField.classList.add("hidden");
@@ -842,6 +854,7 @@ function renderEmployeePage() {
     const photo = formData.get("photo");
     const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
     const comment = String(formData.get("comment") || "").trim();
+    const interventionDelay = normalizeInterventionDelay(formData.get("interventionDelay"));
     const title = buildTitle();
     const department = buildDepartment();
     const selectedNode = findSelectedNode();
@@ -862,6 +875,7 @@ function renderEmployeePage() {
       assignedToExternal: "",
       suggestedExternalId: selectedNode?.linkedExternalId || "",
       suggestedAssigneeId: "",
+      interventionDelay,
       managerId: managerIdForDepartment(department),
       priority: "moyenne",
       suggestedSpecialty,
@@ -882,7 +896,65 @@ function renderEmployeePage() {
   if (enAttenteTickets.length > 0) {
     renderTicketCards(refs.mainView.querySelector("#waitingTicketList"), enAttenteTickets, { mode: "read" });
   }
-  renderTicketCards(refs.mainView.querySelector("#employeeTicketList"), tickets, { mode: "read" });
+  renderEmployeeTicketTable(refs.mainView.querySelector("#employeeTicketTable"), tickets);
+}
+
+function renderEmployeeTicketTable(container, tickets) {
+  if (!container) {
+    return;
+  }
+  if (!Array.isArray(tickets) || tickets.length === 0) {
+    container.innerHTML = `<div class="empty-state">${t("ticket.empty")}</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="employee-requests-wrap">
+      <table class="employee-requests-table">
+        <thead>
+          <tr>
+            <th>${t("emp.table.by")}</th>
+            <th>${t("emp.table.created")}</th>
+            <th>${t("emp.table.delay")}</th>
+            <th>${t("emp.table.status")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tickets.map((ticket) => {
+            const createdBy = findUser(ticket.createdBy)?.name || t("ticket.unknown");
+            const isOpen = employeeExpandedTicketId === ticket.id;
+            return `
+              <tr class="employee-request-row${isOpen ? " is-open" : ""}" data-ticket-row="${ticket.id}">
+                <td>${escHtml(createdBy)}</td>
+                <td>${formatDate(ticket.createdAt)}</td>
+                <td>${interventionDelayLabel(ticket.interventionDelay)}</td>
+                <td><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
+              </tr>
+              <tr class="employee-request-detail${isOpen ? "" : " hidden"}" data-ticket-detail="${ticket.id}">
+                <td colspan="4">
+                  <div class="employee-request-detail-grid">
+                    <p><strong>${escHtml(ticket.title)}</strong></p>
+                    <p>${escHtml(ticket.description || "-")}</p>
+                    <p>${t("ticket.desired")}: ${formatDate(ticket.desiredDate)}</p>
+                    <p>${t("ticket.validated")}: ${formatDate(ticket.plannedDate)}</p>
+                    ${ticket.returnNote ? `<div class="return-note-banner"><dt>${t("ticket.return.note")}</dt><dd>${escHtml(ticket.returnNote)}</dd></div>` : ""}
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  container.querySelectorAll("[data-ticket-row]").forEach((row) => {
+    row.addEventListener("click", () => {
+      const ticketId = row.dataset.ticketRow;
+      employeeExpandedTicketId = employeeExpandedTicketId === ticketId ? "" : ticketId;
+      renderEmployeeTicketTable(container, tickets);
+    });
+  });
 }
 
 function renderManagerPage() {
@@ -1877,6 +1949,7 @@ function renderManagerForm(ticket, collaborators) {
   const initMode = (ticket.assignedToExternal || categoryLinkedExternalId) ? "externe" : "interne";
   const prestataires = loadPrestataires();
   const selectedPrest = ticket.assignedToExternal || categoryLinkedExternalId || "";
+  let assignWeekOffset = 0;
 
   wrapper.innerHTML = `
     <div class="field full">
@@ -1884,6 +1957,7 @@ function renderManagerForm(ticket, collaborators) {
         <strong>${t("mgr.suggest.title")}</strong>
         <p class="subtle">${t("mgr.suggest.for")}: ${specialtyLabel(ticket.suggestedSpecialty || "general")} · ${formatHours(ticket.estimatedHours || 0)}</p>
         <p>${t("mgr.suggest.proposal")}: ${suggestedLabel}</p>
+        <p>${t("ticket.intervention.delay")}: ${interventionDelayLabel(ticket.interventionDelay)}</p>
       </div>
     </div>
     <div class="field full">
@@ -1931,6 +2005,10 @@ function renderManagerForm(ticket, collaborators) {
       <label>${t("mgr.date.validated")}</label>
       <input name="plannedDate" type="date" value="${ticket.plannedDate || ticket.desiredDate || today()}" />
     </div>
+    <div class="field full assign-interne-block${initMode === "externe" ? " hidden" : ""}">
+      <label>${t("mgr.assign.week")}</label>
+      <div id="assignWeekPicker" class="assign-week-picker"></div>
+    </div>
     <div class="field">
       <label>${t("mgr.status")}</label>
       <select name="status" class="status-select">
@@ -1943,7 +2021,7 @@ function renderManagerForm(ticket, collaborators) {
     </div>
     <div class="field full">
       <button class="button secondary" type="button" id="mgrSaveBtn">${t("mgr.save")}</button>
-      ${!isWaiting ? `<button class="button ghost" type="button" data-action="quick-return">${t("mgr.return.btn")}</button>` : ""}
+      <button class="button ghost" type="button" data-action="ask-info">${t("mgr.ask.info")}</button>
     </div>
   `;
 
@@ -1963,6 +2041,7 @@ function renderManagerForm(ticket, collaborators) {
       `Catégorie : ${ticket.categoryPath.join(" > ") || ticket.categoryValue || "-"}`,
       `Description : ${ticket.description}`,
       `Date souhaitée : ${ticket.desiredDate || "-"}`,
+      `Délai demandé : ${interventionDelayLabel(ticket.interventionDelay)}`,
       `Date planifiée : ${ticket.plannedDate || "-"}`,
       `Durée estimée : ${formatHours(ticket.estimatedHours || 0)}`,
       `Compétence requise : ${specialtyLabel(ticket.suggestedSpecialty || "general")}`,
@@ -1977,6 +2056,82 @@ function renderManagerForm(ticket, collaborators) {
     if (mailtoBtn) mailtoBtn.href = buildMailtoHref(prestSelect?.value || "");
   }
 
+  function mondayForOffset(offset) {
+    const now = new Date();
+    const day = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((day === 0 ? 7 : day) - 1) + offset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  }
+
+  function renderAssignWeekPicker() {
+    if (!assignWeekPicker) {
+      return;
+    }
+    const isExterne = (wrapper.querySelector("[name='assignMode']:checked")?.value || "interne") === "externe";
+    const assigneeId = assigneeSelect?.value || "";
+
+    if (isExterne) {
+      assignWeekPicker.innerHTML = "";
+      return;
+    }
+    if (!assigneeId) {
+      assignWeekPicker.innerHTML = `<p class="subtle">${t("mgr.assign.week.none")}</p>`;
+      return;
+    }
+
+    const monday = mondayForOffset(assignWeekOffset);
+    const days = Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(monday);
+      day.setDate(monday.getDate() + i);
+      return day;
+    });
+    const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
+
+    assignWeekPicker.innerHTML = `
+      <div class="assign-week-controls">
+        <button type="button" class="button ghost tree-btn" data-week-nav="prev">${t("plan.prev")}</button>
+        <span class="subtle">${weekLabel}</span>
+        <button type="button" class="button ghost tree-btn" data-week-nav="next">${t("plan.next")}</button>
+      </div>
+      <div class="assign-week-grid">
+        ${days.map((day) => {
+          const dateStr = day.toISOString().slice(0, 10);
+          const load = state.tickets
+            .filter((t_) => t_.id !== ticket.id && t_.assignedTo === assigneeId && (t_.plannedDate || t_.desiredDate) === dateStr && t_.status !== "termine")
+            .reduce((sum, t_) => sum + normalizeHours(t_.estimatedHours, 0), 0);
+          const selected = plannedDateInput?.value === dateStr;
+          const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
+          const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+          return `
+            <button type="button" class="assign-week-day${selected ? " is-selected" : ""}" data-day="${dateStr}">
+              <span>${dayName} ${dayNum}</span>
+              <strong>${load > 0 ? `${String(load).replace(".", ",")}h` : "Libre"}</strong>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+
+    assignWeekPicker.querySelector("[data-week-nav='prev']")?.addEventListener("click", () => {
+      assignWeekOffset -= 1;
+      renderAssignWeekPicker();
+    });
+    assignWeekPicker.querySelector("[data-week-nav='next']")?.addEventListener("click", () => {
+      assignWeekOffset += 1;
+      renderAssignWeekPicker();
+    });
+    assignWeekPicker.querySelectorAll("[data-day]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (plannedDateInput) {
+          plannedDateInput.value = button.dataset.day;
+        }
+        renderAssignWeekPicker();
+      });
+    });
+  }
+
   statusSel.addEventListener("change", () => {
     noteField.classList.toggle("hidden", statusSel.value !== "en_attente");
   });
@@ -1986,7 +2141,12 @@ function renderManagerForm(ticket, collaborators) {
       const isExterne = radio.value === "externe";
       interneBlock.forEach((el) => el.classList.toggle("hidden", isExterne));
       externeBlocks.forEach((el) => el.classList.toggle("hidden", !isExterne));
+      renderAssignWeekPicker();
     });
+  });
+
+  assigneeSelect?.addEventListener("change", () => {
+    renderAssignWeekPicker();
   });
 
   if (prestSelect) {
@@ -1994,10 +2154,29 @@ function renderManagerForm(ticket, collaborators) {
     refreshMailto();
   }
 
-  wrapper.querySelector("[data-action='quick-return']")?.addEventListener("click", () => {
-    statusSel.value = "en_attente";
-    noteField.classList.remove("hidden");
-    noteField.querySelector("textarea")?.focus();
+  wrapper.querySelector("[data-action='ask-info']")?.addEventListener("click", () => {
+    const note = String(wrapper.querySelector("[name='returnNote']")?.value || "").trim();
+    if (!note) {
+      toast(t("mgr.ask.info.note.required"));
+      statusSel.value = "en_attente";
+      noteField.classList.remove("hidden");
+      noteField.querySelector("textarea")?.focus();
+      return;
+    }
+
+    const modeVal = wrapper.querySelector("[name='assignMode']:checked")?.value || "interne";
+    const isExterne = modeVal === "externe";
+    updateTicket(ticket.id, {
+      assignedTo: isExterne ? "" : String(wrapper.querySelector("[name='assignedTo']")?.value || ""),
+      assignedToExternal: isExterne ? String(prestSelect?.value || "") : "",
+      suggestedAssigneeId: suggested?.id || "",
+      priority: String(wrapper.querySelector("[name='priority']")?.value || "basse"),
+      estimatedHours: normalizeHours(wrapper.querySelector("[name='estimatedHours']")?.value, normalizeHours(ticket.estimatedHours, 2)),
+      plannedDate: String(wrapper.querySelector("[name='plannedDate']")?.value || ""),
+      status: "en_attente",
+      returnNote: note,
+    });
+    toast(t("mgr.ask.info.sent"));
   });
 
   wrapper.querySelector("#mgrSaveBtn").addEventListener("click", () => {
@@ -2016,6 +2195,8 @@ function renderManagerForm(ticket, collaborators) {
     toast(t("mgr.saved"));
   });
 
+  renderAssignWeekPicker();
+
   return wrapper;
 }
 
@@ -2029,6 +2210,7 @@ function renderDetails(ticket) {
   const items = [
     detailItem(t("ticket.by"),        createdBy),
     detailItem(t("ticket.desired"),   formatDate(ticket.desiredDate)),
+    detailItem(t("ticket.intervention.delay"), interventionDelayLabel(ticket.interventionDelay)),
     detailItem(t("ticket.validated"), formatDate(ticket.plannedDate)),
     detailItem(t("ticket.estimated"), formatHours(ticket.estimatedHours || 0)),
     detailItem(t("ticket.specialty"), specialtyLabel(ticket.suggestedSpecialty || "general")),
@@ -2199,6 +2381,10 @@ function priorityLabel(priority) {
 
 function statusLabel(status) {
   return STATUS_LABELS()[status] || t("status.nouveau");
+}
+
+function interventionDelayLabel(delayKey) {
+  return t(`delay.${normalizeInterventionDelay(delayKey)}`);
 }
 
 function detailItem(label, value) {
