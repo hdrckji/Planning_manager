@@ -2032,6 +2032,9 @@ function renderManagerForm(ticket, collaborators) {
   const externeBlocks = wrapper.querySelectorAll(".assign-externe-block");
   const mailtoBtn = wrapper.querySelector("#mailtoBtn");
   const prestSelect = wrapper.querySelector("[name='assignedToExternal']");
+  const plannedDateInput = wrapper.querySelector("[name='plannedDate']");
+  const assigneeSelect = wrapper.querySelector("[name='assignedTo']");
+  const assignWeekPicker = wrapper.querySelector("#assignWeekPicker");
 
   function buildMailtoHref(prestId) {
     const p = prestataires.find((x) => x.id === prestId);
