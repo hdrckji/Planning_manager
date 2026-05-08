@@ -1,38 +1,43 @@
 const AUTH_CONFIG = {
-  employee: {
-    password: "employe123",
-    label: "Espace employe",
-    path: "employee.html",
-  },
-  manager: {
-    password: "manager123",
-    label: "Espace manager",
-    path: "manager.html",
-  },
-  collaborator: {
-    password: "collab123",
-    label: "Espace collaborateur",
-    path: "collaborator.html",
-  },
+  employee:     { label: "Espace employe",     path: "employee.html" },
+  manager:      { label: "Espace manager",      path: "manager.html" },
+  collaborator: { label: "Espace collaborateur", path: "collaborator.html" },
 };
 
 const AUTH_SESSION_PREFIX = "flowdesk-auth-session:";
+const AUTH_STORAGE_KEY    = "famiflora-flow-desk-v4";
 
 function authSessionKey(role) {
   return `${AUTH_SESSION_PREFIX}${role}`;
 }
 
-function isAuthenticated(role) {
-  return sessionStorage.getItem(authSessionKey(role)) === "1";
+function _authLoadUsers() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "{}");
+    return Array.isArray(raw.users) ? raw.users : [];
+  } catch { return []; }
 }
 
-function login(role, password) {
-  const config = AUTH_CONFIG[role];
-  if (!config || password !== config.password) {
-    return false;
-  }
+function isAuthenticated(role) {
+  const val = sessionStorage.getItem(authSessionKey(role));
+  return !!val && val !== "" && val !== "1";
+}
 
-  sessionStorage.setItem(authSessionKey(role), "1");
+function getAuthenticatedUserId(role) {
+  const val = sessionStorage.getItem(authSessionKey(role));
+  return (!val || val === "1") ? "" : val;
+}
+
+function login(role, loginInput, passwordInput) {
+  if (!AUTH_CONFIG[role]) return false;
+  const users = _authLoadUsers().filter((u) => u.role === role);
+  const needle = String(loginInput || "").trim().toLowerCase();
+  const user = users.find((u) => {
+    const identifier = String(u.login || u.name || "").trim().toLowerCase();
+    return identifier === needle;
+  });
+  if (!user || !user.password || user.password !== String(passwordInput)) return false;
+  sessionStorage.setItem(authSessionKey(role), user.id);
   return true;
 }
 
@@ -57,26 +62,38 @@ function protectCurrentPage() {
 }
 
 function injectLogoutButton(role) {
-  const panel = document.querySelector(".hero-panel");
-  if (!panel || panel.querySelector("[data-auth-logout]")) {
+  const heroCopy = document.querySelector(".hero-copy");
+  if (!heroCopy || heroCopy.querySelector("[data-auth-logout]")) {
     return;
   }
 
-  const info = document.createElement("p");
-  info.className = "hint auth-note";
-  info.textContent = typeof t === "function" ? t("misc.session.active") : "Session active pour cet espace.";
+  const userId = getAuthenticatedUserId(role);
+  const users = _authLoadUsers().filter((u) => u.role === role);
+  const user = users.find((u) => u.id === userId);
+  const userName = user ? (user.name || "") : "";
+
+  const wrap = document.createElement("div");
+  wrap.className = "auth-bar";
+
+  if (userName) {
+    const info = document.createElement("span");
+    info.className = "auth-bar__name";
+    info.textContent = userName;
+    wrap.append(info);
+  }
 
   const button = document.createElement("button");
   button.type = "button";
   button.className = "button ghost auth-logout-button";
   button.dataset.authLogout = "true";
-  button.textContent = typeof t === "function" ? t("misc.logout") : "Se deconnecter";
+  button.textContent = typeof t === "function" ? t("misc.logout") : "Se déconnecter";
   button.addEventListener("click", () => {
     logout(role);
     window.location.replace("index.html");
   });
 
-  panel.append(info, button);
+  wrap.append(button);
+  heroCopy.append(wrap);
 }
 
 function setupPortalLogin() {
@@ -89,6 +106,7 @@ function setupPortalLogin() {
   const form = document.querySelector("#authForm");
   const title = document.querySelector("#authTitle");
   const message = document.querySelector("#authMessage");
+  const loginInput = document.querySelector("#authLogin");
   const passwordInput = document.querySelector("#authPassword");
   const cancel = document.querySelector("#authCancel");
   const roleInput = document.querySelector("#authRole");
@@ -102,12 +120,13 @@ function setupPortalLogin() {
 
     roleInput.value = role;
     title.textContent = typeof t === "function" ? t("auth.protected") : config.label;
-    message.textContent = typeof t === "function" ? `${t("auth.password")} — ${config.label}` : `Entrez le mot de passe pour acceder a ${config.label.toLowerCase()}.`;
+    message.textContent = config.label;
+    if (loginInput) { loginInput.value = ""; loginInput.setCustomValidity(""); }
     passwordInput.value = "";
     passwordInput.setCustomValidity("");
     modal.hidden = false;
     document.body.classList.add("auth-modal-open");
-    passwordInput.focus();
+    (loginInput || passwordInput).focus();
   }
 
   function hideModal() {
@@ -142,9 +161,11 @@ function setupPortalLogin() {
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
     const role = roleInput.value;
-    const password = passwordInput.value;
-    if (!login(role, password)) {
-      passwordInput.setCustomValidity(typeof t === "function" ? t("auth.wrong") : "Mot de passe incorrect.");
+    const nameVal = loginInput ? loginInput.value : "";
+    const passVal = passwordInput.value;
+    if (!login(role, nameVal, passVal)) {
+      const errMsg = typeof t === "function" ? t("auth.no.account") : "Identifiant ou mot de passe incorrect.";
+      passwordInput.setCustomValidity(errMsg);
       passwordInput.reportValidity();
       return;
     }
@@ -161,6 +182,7 @@ function setupPortalLogin() {
 window.FlowDeskAuth = {
   protectCurrentPage,
   isAuthenticated,
+  getAuthenticatedUserId,
   login,
   logout,
   setupPortalLogin,

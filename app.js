@@ -287,6 +287,8 @@ function normalizeUser(user) {
     role,
     team,
     specialties: role === "collaborator" ? normalizeSpecialties(user.specialties, team) : [],
+    login: typeof user.login === "string" ? user.login.trim() : "",
+    password: typeof user.password === "string" ? user.password : "",
   };
 }
 
@@ -373,6 +375,18 @@ function loadState() {
 
 function enforcePageUserRole() {
   const users = usersForCurrentPage();
+
+  // Si un utilisateur est authentifié via login individuel, on le fixe comme actif
+  const authUserId = window.FlowDeskAuth?.getAuthenticatedUserId(pageConfig.role) || "";
+  if (authUserId) {
+    const authUser = users.find((u) => u.id === authUserId);
+    if (authUser) {
+      state.currentUserId = authUser.id;
+      state.currentUserByRole[pageConfig.role] = authUser.id;
+      return;
+    }
+  }
+
   const preferredId = state.currentUserByRole[pageConfig.role];
   const preferred = users.find((user) => user.id === preferredId);
   state.currentUserId = preferred ? preferred.id : users[0]?.id || "";
@@ -1080,6 +1094,7 @@ function renderManagerDemandes(container, tickets, collaborators) {
 
 function renderManagerUtilisateurs(container) {
   let editingSkillsUserId = "";
+  let editingPasswordUserId = "";
   let showSkillsCatalog = false;
 
   function renderContent() {
@@ -1097,11 +1112,20 @@ function renderManagerUtilisateurs(container) {
             <strong>${escHtml(u.name)}</strong>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
             ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
+            ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
           </div>
           <div class="user-item-actions">
             ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
+            <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
             <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
           </div>
+          ${editingPasswordUserId === u.id ? `
+            <form class="user-skill-editor" data-action="save-password" data-uid="${u.id}">
+              <label>${t("users.password.label")}</label>
+              <input type="password" name="newPassword" placeholder="${t("users.password.ph")}" required minlength="4" autocomplete="new-password" style="border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;max-width:260px" />
+              <button class="button" type="submit">${t("users.password.save")}</button>
+            </form>
+          ` : ""}
           ${u.role === "collaborator" && editingSkillsUserId === u.id ? `
             <form class="user-skill-editor" data-action="save-skills" data-uid="${u.id}">
               <label>${t("users.skills")}</label>
@@ -1345,6 +1369,30 @@ function renderManagerUtilisateurs(container) {
       btn.addEventListener("click", () => {
         editingSkillsUserId = editingSkillsUserId === btn.dataset.uid ? "" : btn.dataset.uid;
         renderContent();
+      });
+    });
+
+    container.querySelectorAll("[data-action='edit-password']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingPasswordUserId = editingPasswordUserId === btn.dataset.uid ? "" : btn.dataset.uid;
+        editingSkillsUserId = "";
+        renderContent();
+      });
+    });
+
+    container.querySelectorAll("form[data-action='save-password']").forEach((formEl) => {
+      formEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const uid = formEl.dataset.uid;
+        const user = state.users.find((u) => u.id === uid);
+        if (!user) return;
+        const pwd = String(formEl.querySelector("input[name='newPassword']")?.value || "").trim();
+        if (!pwd) return;
+        user.password = pwd;
+        editingPasswordUserId = "";
+        persistState();
+        renderContent();
+        toast(t("users.password.saved"));
       });
     });
 

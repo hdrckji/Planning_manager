@@ -122,8 +122,21 @@ h1 {
   margin: 0;
 }
 
+.auth-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.auth-bar__name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 .auth-logout-button {
-  width: 100%;
+  width: auto;
 }
 
 .current-user-meta,
@@ -437,6 +450,16 @@ textarea {
 .badge-muted {
   background: rgba(68, 53, 36, 0.08);
   color: var(--muted);
+}
+
+.badge-ok {
+  background: rgba(42, 122, 59, 0.12);
+  color: #1a5228;
+}
+
+.badge-warn {
+  background: rgba(212, 130, 10, 0.14);
+  color: #8a5f0d;
 }
 
 .badge-priority[data-priority="haute"] {

@@ -411,7 +411,11 @@
         <form id="authForm" class="auth-form">
           <input id="authRole" name="authRole" type="hidden" />
           <div>
-            <label for="authPassword">Mot de passe</label>
+            <label for="authLogin" data-i18n="auth.login">Identifiant</label>
+            <input id="authLogin" name="authLogin" type="text" autocomplete="username" data-i18n-placeholder="auth.login.ph" required />
+          </div>
+          <div>
+            <label for="authPassword" data-i18n="auth.password">Mot de passe</label>
             <input id="authPassword" name="authPassword" type="password" autocomplete="current-password" required />
           </div>
           <div class="auth-actions">

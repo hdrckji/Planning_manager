@@ -28,10 +28,13 @@ const TRANSLATIONS = {
 
     // ── Auth modal ─────────────────────────────────────────────────────────
     "auth.protected":     "Accès protégé",
+    "auth.login":         "Identifiant",
+    "auth.login.ph":      "Votre nom (ex: Alice Dupont)",
     "auth.password":      "Mot de passe",
     "auth.cancel":        "Annuler",
-    "auth.submit":        "Entrer",
-    "auth.wrong":         "Mot de passe incorrect.",
+    "auth.submit":        "Se connecter",
+    "auth.wrong":         "Identifiant ou mot de passe incorrect.",
+    "auth.no.account":    "Identifiant ou mot de passe incorrect.",
 
     // ── Headers pages ──────────────────────────────────────────────────────
     "page.employee.hero": "Demandes d'intervention et d'aménagement pour les services Technique et Décoration.",
@@ -173,6 +176,14 @@ const TRANSLATIONS = {
     "users.skills.exists":"Cette compétence existe déjà.",
     "users.skills.in.use":"Impossible de supprimer: compétence déjà utilisée.",
     "users.skills.team.required":"Sélectionnez au moins une équipe.",
+    "users.password.set":  "Définir mot de passe",
+    "users.password.change":"Changer mot de passe",
+    "users.password.cancel":"Annuler",
+    "users.password.label":"Nouveau mot de passe",
+    "users.password.ph":   "Minimum 4 caractères",
+    "users.password.save": "Enregistrer",
+    "users.password.saved":"Mot de passe enregistré.",
+    "users.password.none": "Sans mot de passe",
     "users.create":       "Créer l'utilisateur",
     "users.created":      "Utilisateur créé.",
     "users.deleted":      "Profil supprimé.",
@@ -285,10 +296,13 @@ const TRANSLATIONS = {
 
     // ── Auth modal ─────────────────────────────────────────────────────────
     "auth.protected":     "Beveiligde toegang",
+    "auth.login":         "Gebruikersnaam",
+    "auth.login.ph":      "Uw naam (bijv. Alice Dupont)",
     "auth.password":      "Wachtwoord",
     "auth.cancel":        "Annuleren",
-    "auth.submit":        "Inloggen",
-    "auth.wrong":         "Onjuist wachtwoord.",
+    "auth.submit":        "Aanmelden",
+    "auth.wrong":         "Gebruikersnaam of wachtwoord onjuist.",
+    "auth.no.account":    "Gebruikersnaam of wachtwoord onjuist.",
 
     // ── Headers pages ──────────────────────────────────────────────────────
     "page.employee.hero": "Interventie- en inrichtingsaanvragen voor de diensten Techniek en Decoratie.",
@@ -430,6 +444,14 @@ const TRANSLATIONS = {
     "users.skills.exists":"Deze vaardigheid bestaat al.",
     "users.skills.in.use":"Kan niet verwijderen: vaardigheid wordt gebruikt.",
     "users.skills.team.required":"Selecteer minstens één team.",
+    "users.password.set":  "Wachtwoord instellen",
+    "users.password.change":"Wachtwoord wijzigen",
+    "users.password.cancel":"Annuleren",
+    "users.password.label":"Nieuw wachtwoord",
+    "users.password.ph":   "Minimaal 4 tekens",
+    "users.password.save": "Opslaan",
+    "users.password.saved":"Wachtwoord opgeslagen.",
+    "users.password.none": "Geen wachtwoord",
     "users.create":       "Gebruiker aanmaken",
     "users.created":      "Gebruiker aangemaakt.",
     "users.deleted":      "Profiel verwijderd.",
