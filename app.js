@@ -170,6 +170,11 @@ function normalizeHours(value, fallback = 2) {
   return Math.round(num * 2) / 2;
 }
 
+function normalizeInterventionDelay(value) {
+  const key = String(value || "").trim();
+  return INTERVENTION_DELAY_KEYS.includes(key) ? key : "asap";
+}
+
 function defaultHoursForSpecialty() {
   // La durée dépend de la tâche/catégorie, pas de la compétence.
   return 2;
