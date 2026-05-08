@@ -486,6 +486,34 @@ textarea {
   margin: 0;
 }
 
+.manager-requests-table td:first-child {
+  max-width: 560px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.manager-request-row.is-open {
+  background: rgba(47, 125, 59, 0.1);
+}
+
+.manager-request-detail td {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.manager-request-detail-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.manager-request-detail-grid p {
+  margin: 0;
+}
+
+.manager-request-detail-grid .ticket-details {
+  margin: 0;
+}
+
 .employee-reply-form {
   display: grid;
   gap: 8px;
@@ -621,6 +649,18 @@ textarea {
 
 .manager-grid {
   align-items: start;
+}
+
+.manager-assign-type-field {
+  grid-column: 1 / 2;
+}
+
+.manager-suggestion-field {
+  grid-column: 2 / 3;
+}
+
+.manager-suggestion-field .suggestion-box {
+  height: 100%;
 }
 
 .lane-list {

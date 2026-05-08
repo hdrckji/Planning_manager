@@ -263,6 +263,10 @@ const TRANSLATIONS = {
     "collab.planning.sub":"Vue chronologique des tâches affectées à ce collaborateur.",
     "collab.task.none":   "Aucune tâche affectée pour le moment.",
     "collab.task.count":  "tâche(s)",
+    "collab.start":       "Passer en cours",
+    "collab.started":     "Tâche passée en cours.",
+    "collab.finish":      "Passer en terminé",
+    "collab.finished":    "Tâche terminée.",
     "collab.done":        "Marquer terminé",
     "collab.marked":      "Tâche marquée comme terminée.",
 
@@ -556,6 +560,10 @@ const TRANSLATIONS = {
     "collab.planning.sub":"Chronologisch overzicht van taken toegewezen aan deze medewerker.",
     "collab.task.none":   "Geen taken toegewezen voor het moment.",
     "collab.task.count":  "taak/taken",
+    "collab.start":       "Naar in uitvoering",
+    "collab.started":     "Taak naar in uitvoering gezet.",
+    "collab.finish":      "Naar voltooid",
+    "collab.finished":    "Taak voltooid.",
     "collab.done":        "Markeren als voltooid",
     "collab.marked":      "Taak gemarkeerd als voltooid.",
 
