@@ -375,11 +375,20 @@ input,
 select,
 textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid rgba(68, 53, 36, 0.12);
   border-radius: 14px;
   padding: 12px 13px;
   background: rgba(255, 255, 255, 0.9);
   color: var(--text);
+}
+
+select {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 textarea {
@@ -391,6 +400,7 @@ textarea {
 .field.full {
   display: grid;
   gap: 8px;
+  min-width: 0;
 }
 
 .profile-list {
@@ -412,6 +422,14 @@ textarea {
 .form-grid,
 .manager-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+#treeStepsContainer,
+.tree-step,
+.tree-step select {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .field.full,
@@ -1154,6 +1172,15 @@ textarea {
   html, body {
     overflow-x: hidden;
     width: 100%;
+  }
+
+  #ticketForm,
+  #treeStepsContainer,
+  .tree-step,
+  .tree-step select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
   }
 
   .page-shell {
