@@ -539,6 +539,77 @@ textarea {
   margin: 0;
 }
 
+@media (max-width: 720px) {
+  .employee-requests-wrap {
+    overflow-x: visible;
+  }
+
+  .employee-requests-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .employee-requests-table thead {
+    display: none;
+  }
+
+  .employee-requests-table tbody,
+  .employee-requests-table tr,
+  .employee-requests-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .employee-request-row {
+    margin-bottom: 10px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.78);
+    overflow: hidden;
+  }
+
+  .employee-request-row td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(43, 90, 52, 0.1);
+    white-space: normal;
+  }
+
+  .employee-request-row td:last-child {
+    border-bottom: none;
+  }
+
+  .employee-request-row td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex: 0 0 auto;
+  }
+
+  .employee-request-detail td {
+    border: none;
+    margin-top: -4px;
+    margin-bottom: 12px;
+    border-radius: 0 0 14px 14px;
+    padding: 12px;
+  }
+
+  .employee-request-detail td::before {
+    content: none;
+  }
+
+  .employee-request-detail-grid {
+    gap: 10px;
+  }
+}
+
 .manager-requests-table td:first-child {
   max-width: 560px;
   white-space: nowrap;

@@ -926,10 +926,10 @@ function renderEmployeeTicketTable(container, tickets) {
             const isOpen = employeeExpandedTicketId === ticket.id;
             return `
               <tr class="employee-request-row${isOpen ? " is-open" : ""}" data-ticket-row="${ticket.id}">
-                <td>${escHtml(createdBy)}</td>
-                <td>${formatDate(ticket.createdAt)}</td>
-                <td>${interventionDelayLabel(ticket.interventionDelay)}</td>
-                <td><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
+                <td data-label="${escHtml(t("emp.table.by"))}">${escHtml(createdBy)}</td>
+                <td data-label="${escHtml(t("emp.table.created"))}">${formatDate(ticket.createdAt)}</td>
+                <td data-label="${escHtml(t("emp.table.delay"))}">${interventionDelayLabel(ticket.interventionDelay)}</td>
+                <td data-label="${escHtml(t("emp.table.status"))}"><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
               </tr>
               <tr class="employee-request-detail${isOpen ? "" : " hidden"}" data-ticket-detail="${ticket.id}">
                 <td colspan="4">
