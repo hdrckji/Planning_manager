@@ -1939,27 +1939,99 @@ function renderCollaboratorPage() {
       date.setDate(monday.getDate() + i);
       return date;
     });
+    const weekStart = days[0].toISOString().slice(0, 10);
+    const weekEnd = days[6].toISOString().slice(0, 10);
+    const todayStr = today();
+    const weekTasks = tickets.filter((ticket) => {
+      const dateStr = ticket.plannedDate || ticket.desiredDate || "";
+      return dateStr >= weekStart && dateStr <= weekEnd;
+    });
+    const todayTasks = weekTasks.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === todayStr);
+    const weekHours = weekTasks.reduce((sum, ticket) => sum + normalizeHours(ticket.estimatedHours, 0), 0);
+    const weekPlanned = weekTasks.filter((ticket) => ticket.status === "planifie").length;
+    const weekInProgress = weekTasks.filter((ticket) => ticket.status === "en_cours").length;
+
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
 
     refs.mainView.innerHTML = `
-      <div class="section-head">
-        <div>
-          <h2>${t("collab.planning")}</h2>
-          <p class="subtle">${t("collab.planning.sub")}</p>
+      <div class="collab-planning">
+        <div class="section-head collab-planning-head">
+          <div>
+            <h2>${t("collab.planning")}</h2>
+            <p class="subtle">${t("collab.planning.sub")}</p>
+          </div>
+          <div class="planning-controls">
+            <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
+            <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
+            <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
+          </div>
         </div>
-        <div class="planning-controls">
-          <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
-          <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
-          <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
+
+        <p class="subtle">${weekLabel}</p>
+
+        <div class="collab-kpi-row">
+          <article class="collab-kpi-card">
+            <span class="collab-kpi-value">${weekTasks.length}</span>
+            <span class="collab-kpi-label">${t("collab.task.count")} (${t("tab.planning")})</span>
+          </article>
+          <article class="collab-kpi-card">
+            <span class="collab-kpi-value">${todayTasks.length}</span>
+            <span class="collab-kpi-label">${t("plan.today")}</span>
+          </article>
+          <article class="collab-kpi-card">
+            <span class="collab-kpi-value">${weekPlanned}</span>
+            <span class="collab-kpi-label">${statusLabel("planifie")}</span>
+          </article>
+          <article class="collab-kpi-card">
+            <span class="collab-kpi-value">${weekInProgress}</span>
+            <span class="collab-kpi-label">${statusLabel("en_cours")}</span>
+          </article>
+          <article class="collab-kpi-card collab-kpi-card--hours">
+            <span class="collab-kpi-value">${formatHours(weekHours)}</span>
+            <span class="collab-kpi-label">${t("ticket.estimated")}</span>
+          </article>
         </div>
-      </div>
-      <p class="subtle">${weekLabel}</p>
-      ${tickets.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
+
+        <section class="card collab-today-panel">
+          <div class="section-head compact">
+            <div>
+              <h3>${t("plan.today")}</h3>
+              <p class="subtle">${todayTasks.length > 0 ? `${todayTasks.length} ${t("collab.task.count")}` : t("collab.task.none")}</p>
+            </div>
+          </div>
+          ${todayTasks.length === 0 ? `
+            <div class="empty-state">${t("collab.task.none")}</div>
+          ` : `
+            <div class="collab-today-list">
+              ${todayTasks.map((ticket) => {
+                const actionButton = ticket.status === "planifie"
+                  ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${ticket.id}">${t("collab.start")}</button>`
+                  : ticket.status === "en_cours"
+                    ? `<button class="button" type="button" data-action="collab-finish" data-ticket-id="${ticket.id}">${t("collab.finish")}</button>`
+                    : "";
+                return `
+                  <article class="collab-today-item" data-priority="${ticket.priority}">
+                    <div class="collab-today-item__main">
+                      <strong>${escHtml(ticket.title)}</strong>
+                      <div class="collab-today-item__meta">
+                        <span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span>
+                        <span class="collab-today-item__hours">${formatHours(ticket.estimatedHours || 0)}</span>
+                      </div>
+                    </div>
+                    ${actionButton}
+                  </article>
+                `;
+              }).join("")}
+            </div>
+          `}
+        </section>
+
+        ${tickets.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
         <div class="cal-week">
           ${days.map((day) => {
             const dateStr = day.toISOString().slice(0, 10);
             const dayTasks = tickets.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === dateStr);
-            const isToday = dateStr === today();
+            const isToday = dateStr === todayStr;
             const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
             const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
             return `

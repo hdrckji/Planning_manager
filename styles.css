@@ -1997,6 +1997,110 @@ textarea {
   flex-wrap: wrap;
 }
 
+.collab-planning {
+  display: grid;
+  gap: 14px;
+}
+
+.collab-planning-head {
+  align-items: center;
+}
+
+.collab-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.collab-kpi-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(68, 53, 36, 0.09);
+}
+
+.collab-kpi-card--hours {
+  background: rgba(47, 125, 59, 0.08);
+  border-color: rgba(47, 125, 59, 0.22);
+}
+
+.collab-kpi-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+  font-family: "Fraunces", serif;
+}
+
+.collab-kpi-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.collab-today-panel {
+  padding: 16px;
+}
+
+.collab-today-list {
+  display: grid;
+  gap: 8px;
+}
+
+.collab-today-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 250, 241, 0.82);
+  border: 1px solid rgba(68, 53, 36, 0.1);
+}
+
+.collab-today-item[data-priority="haute"] {
+  border-left: 4px solid var(--warn);
+}
+
+.collab-today-item[data-priority="moyenne"] {
+  border-left: 4px solid var(--gold);
+}
+
+.collab-today-item__main {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.collab-today-item__main strong {
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.collab-today-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.collab-today-item__hours {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.collab-planning .cal-week {
+  grid-template-columns: repeat(7, minmax(170px, 1fr));
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 4px;
+}
+
+.collab-planning .cal-day {
+  scroll-snap-align: start;
+}
+
 .cal-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2012,6 +2116,24 @@ textarea {
 
   .cal-day {
     min-width: auto;
+  }
+
+  .collab-kpi-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .collab-today-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .collab-today-item .button {
+    width: auto;
+  }
+
+  .collab-planning .cal-week {
+    grid-template-columns: repeat(7, minmax(145px, 1fr));
+    gap: 8px;
   }
 }
 
@@ -2032,6 +2154,35 @@ textarea {
 
   .cal-day-date {
     font-size: 0.9rem;
+  }
+
+  .collab-kpi-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .collab-kpi-card {
+    padding: 10px;
+  }
+
+  .collab-kpi-value {
+    font-size: 1.1rem;
+  }
+
+  .collab-kpi-label {
+    font-size: 0.74rem;
+  }
+
+  .collab-planning .cal-week {
+    grid-template-columns: repeat(7, minmax(135px, 1fr));
+  }
+
+  .collab-today-item {
+    padding: 9px 10px;
+  }
+
+  .collab-today-item__main strong {
+    font-size: 0.86rem;
   }
 }
 
