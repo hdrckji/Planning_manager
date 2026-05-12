@@ -1057,6 +1057,9 @@ textarea {
   .employee-requests-table,
   .manager-requests-table {
     font-size: 0.8rem;
+  }
+
+  .manager-requests-table {
     min-width: 500px;
   }
 
@@ -1336,6 +1339,9 @@ textarea {
   .employee-requests-table,
   .manager-requests-table {
     font-size: 0.75rem;
+  }
+
+  .manager-requests-table {
     min-width: 480px;
   }
 
@@ -1343,8 +1349,8 @@ textarea {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     width: 100%;
-    margin: 0 -12px;
-    padding: 0 12px;
+    margin: 0;
+    padding: 0;
   }
 
   .employee-requests-table th,
