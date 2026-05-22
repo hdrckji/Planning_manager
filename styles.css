@@ -1768,6 +1768,68 @@ textarea {
   }
 }
 
+/* ── Tableau de bord : dossier le plus ancien par statut ── */
+.oldest-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.oldest-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+}
+
+.oldest-card.is-clickable {
+  cursor: pointer;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.oldest-card.is-clickable:hover,
+.oldest-card.is-clickable:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -16px rgba(0, 0, 0, 0.35);
+  outline: none;
+}
+
+.oldest-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.oldest-card-title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.oldest-card-meta {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.oldest-card-meta > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.oldest-card-meta dt {
+  font-weight: 600;
+  color: var(--muted, #6b7280);
+  margin: 0;
+}
+
+.oldest-card-meta dd {
+  margin: 0;
+}
+
 .kpi-card {
   display: grid;
   gap: 4px;

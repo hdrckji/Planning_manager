@@ -68,6 +68,11 @@ const TRANSLATIONS = {
     "dash.subtitle":      "Vue synthétique de l'activité de votre département.",
     "dash.lanes.title":   "Vue par statut",
     "dash.lanes.subtitle":"Aperçu rapide de toutes les demandes en cours.",
+    "dash.oldest.title":   "Dossier le plus ancien par statut",
+    "dash.oldest.subtitle":"Cliquez sur une demande pour ouvrir son détail.",
+    "dash.oldest.none":    "Aucune demande dans ce statut.",
+    "dash.oldest.created": "Créée le",
+    "dash.oldest.age":     "{n} j",
 
     // ── Statuts ────────────────────────────────────────────────────────────
     "status.nouveau":     "Nouveau",
@@ -386,6 +391,11 @@ const TRANSLATIONS = {
     "dash.subtitle":      "Beknopt overzicht van de activiteit van uw afdeling.",
     "dash.lanes.title":   "Overzicht per status",
     "dash.lanes.subtitle":"Snel overzicht van alle lopende aanvragen.",
+    "dash.oldest.title":   "Oudste dossier per status",
+    "dash.oldest.subtitle":"Klik op een aanvraag om het detail te openen.",
+    "dash.oldest.none":    "Geen aanvraag in deze status.",
+    "dash.oldest.created": "Aangemaakt op",
+    "dash.oldest.age":     "{n} d",
 
     // ── Statuts ────────────────────────────────────────────────────────────
     "status.nouveau":     "Nieuw",

@@ -1262,14 +1262,80 @@ function renderManagerDashboard(container, tickets) {
     </section>
     <section class="card">
       <div class="section-head"><div>
-        <h2>${t("dash.lanes.title")}</h2>
-        <p class="subtle">${t("dash.lanes.subtitle")}</p>
+        <h2>${t("dash.oldest.title")}</h2>
+        <p class="subtle">${t("dash.oldest.subtitle")}</p>
       </div></div>
-      <div class="lane-list" id="dashLanes"></div>
+      <div class="oldest-grid" id="dashOldest"></div>
     </section>
   `;
 
-  renderManagerLanes(container.querySelector("#dashLanes"), tickets);
+  renderManagerOldestByStatus(container.querySelector("#dashOldest"), tickets);
+}
+
+function renderManagerOldestByStatus(container, tickets) {
+  const STATUSES = ["nouveau", "en_attente", "planifie", "en_cours"];
+
+  const cardsHtml = STATUSES.map((status) => {
+    const oldest = tickets
+      .filter((tk) => tk.status === status)
+      .slice()
+      .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0))[0];
+
+    if (!oldest) {
+      return `
+        <article class="oldest-card card" data-status="${status}">
+          <header class="oldest-card-head">
+            <span class="badge badge-status" data-status="${status}">${statusLabel(status)}</span>
+          </header>
+          <p class="subtle" style="margin:8px 0 0">${t("dash.oldest.none")}</p>
+        </article>
+      `;
+    }
+
+    const createdBy = findUser(oldest.createdBy)?.name || t("ticket.unknown");
+    const site = oldest.siteId ? findSite(oldest.siteId) : null;
+    const siteLabel = site ? site.name : "";
+    const ageDays = Math.max(0, Math.floor((Date.now() - new Date(oldest.createdAt || Date.now()).getTime()) / 86400000));
+
+    return `
+      <article class="oldest-card card is-clickable" data-status="${status}" data-ticket-id="${escHtml(oldest.id)}" role="button" tabindex="0">
+        <header class="oldest-card-head">
+          <span class="badge badge-status" data-status="${status}">${statusLabel(status)}</span>
+          <span class="ticket-code">${escHtml(oldest.id)}</span>
+        </header>
+        <h3 class="oldest-card-title">${escHtml(oldest.title || "")}</h3>
+        <dl class="oldest-card-meta">
+          <div><dt>${t("ticket.by")}</dt><dd>${escHtml(createdBy)}</dd></div>
+          ${siteLabel ? `<div><dt>${t("ticket.site")}</dt><dd>${escHtml(siteLabel)}</dd></div>` : ""}
+          <div><dt>${t("dash.oldest.created")}</dt><dd>${formatDate(oldest.createdAt)} <span class="badge badge-muted">${t("dash.oldest.age").replace("{n}", String(ageDays))}</span></dd></div>
+        </dl>
+      </article>
+    `;
+  }).join("");
+
+  container.innerHTML = cardsHtml;
+
+  container.querySelectorAll(".oldest-card.is-clickable").forEach((card) => {
+    const openTicket = () => {
+      const ticketId = card.getAttribute("data-ticket-id") || "";
+      if (!ticketId) return;
+      managerSubPage = "demandes";
+      managerExpandedTicketId = ticketId;
+      const target = state.tickets.find((tk) => tk.id === ticketId);
+      if (target && target.seenByManager === false) {
+        updateTicket(ticketId, { seenByManager: true });
+        return;
+      }
+      renderManagerPage();
+    };
+    card.addEventListener("click", openTicket);
+    card.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        openTicket();
+      }
+    });
+  });
 }
 
 function renderManagerDemandes(container, tickets, collaborators) {
