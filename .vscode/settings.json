@@ -1,5 +1,6 @@
 {
     "chat.tools.terminal.autoApprove": {
-        "Get-Item": true
+        "Get-Item": true,
+        "Add-Content": true
     }
 }

@@ -15,6 +15,7 @@
     specialties: "famiflora-specialties-v1",
     tree: "famiflora-tree-config-v1",
     sites: "famiflora-sites-v1",
+    oncall: "famiflora-oncall-v1",
   };
 
   // ── Cache mémoire ────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@
   let _cachedSpecialties  = null;
   let _cachedTree         = null;
   let _cachedSites        = null;
+  let _cachedOnCall       = null;
   let _readOnlyReason = "";
 
   function readLocalJson(key, fallbackValue) {
@@ -47,6 +49,7 @@
       specialties: readLocalJson(STORAGE_KEYS.specialties, []),
       tree: readLocalJson(STORAGE_KEYS.tree, null),
       sites: readLocalJson(STORAGE_KEYS.sites, []),
+      oncall: readLocalJson(STORAGE_KEYS.oncall, null),
     };
   }
 
@@ -56,6 +59,7 @@
     _cachedSpecialties = Array.isArray(snapshot.specialties) ? snapshot.specialties : [];
     _cachedTree = snapshot.tree ?? null;
     _cachedSites = Array.isArray(snapshot.sites) ? snapshot.sites : [];
+    _cachedOnCall = snapshot.oncall ?? null;
   }
 
   // ── Primitives HTTP ──────────────────────────────────────────────────────
@@ -107,8 +111,9 @@
       kvGetDetailed("flowdesk-specialties"),
       kvGetDetailed("flowdesk-tree"),
       kvGetDetailed("flowdesk-sites"),
-    ]).then(([stateRes, prestRes, specRes, treeRes, sitesRes]) => {
-      const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes].some((item) => item.status === "error");
+      kvGetDetailed("flowdesk-oncall"),
+    ]).then(([stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes]) => {
+      const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes].some((item) => item.status === "error");
       if (hadRemoteError && isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
         const emptySnapshot = {
@@ -117,6 +122,7 @@
           specialties: [],
           tree: null,
           sites: [],
+          oncall: null,
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -129,6 +135,7 @@
         specialties: Array.isArray(specRes.value) ? specRes.value : [],
         tree: treeRes.value,
         sites: Array.isArray(sitesRes.value) ? sitesRes.value : [],
+        oncall: oncallRes.value ?? null,
       };
       applySnapshot(snapshot);
       return snapshot;
@@ -141,6 +148,7 @@
           specialties: [],
           tree: null,
           sites: [],
+          oncall: null,
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -200,6 +208,14 @@
       _cachedSites = v;
       writeLocalJson(STORAGE_KEYS.sites, v);
       kvSet("flowdesk-sites", v);
+    },
+
+    // ── Responsable de garde ──────────────────────────────────────────────
+    getOnCall:  ()  => _cachedOnCall ?? null,
+    saveOnCall: (v) => {
+      _cachedOnCall = v;
+      writeLocalJson(STORAGE_KEYS.oncall, v);
+      kvSet("flowdesk-oncall", v);
     },
   };
 })();

@@ -2473,3 +2473,50 @@ textarea {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* -- Bouton urgence employé -------------------------------- */
+.emergency-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  background: linear-gradient(135deg, rgba(254, 226, 226, 0.6), rgba(255, 255, 255, 1));
+}
+
+.emergency-card .emergency-info {
+  flex: 1 1 240px;
+}
+
+.emergency-card h2 {
+  margin: 0 0 4px;
+  color: #b91c1c;
+}
+
+.emergency-btn,
+.button.button-danger {
+  background: #dc2626;
+  color: #fff;
+  border: none;
+  font-weight: 700;
+  padding: 12px 18px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px -8px rgba(220, 38, 38, 0.6);
+}
+
+.emergency-btn:hover:not(:disabled),
+.button.button-danger:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
+.emergency-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.oncall-card {
+  border-left: 4px solid #dc2626;
+}

@@ -38,6 +38,17 @@ function findSite(id) {
   return loadSites().find((s) => s.id === id) || null;
 }
 
+// ── Responsable de garde ─────────────────────────────────────────────
+function loadOnCall() {
+  return window.FlowDeskApi?.getOnCall() ?? null;
+}
+function saveOnCall(payload) {
+  window.FlowDeskApi?.saveOnCall(payload);
+}
+function teamsCallUrl(email) {
+  return `https://teams.microsoft.com/l/call/0/0?users=${encodeURIComponent(email)}`;
+}
+
 const DEFAULT_TREE = [
   {
     label: "Technique",
@@ -706,6 +717,23 @@ function renderEmployeePage() {
   const enAttenteTickets = tickets.filter((t) => t.status === "en_attente");
 
   refs.mainView.innerHTML = `
+    ${(() => {
+      const oncall = loadOnCall();
+      const hasOnCall = oncall && oncall.email;
+      return `
+      <section class="card emergency-card">
+        <div class="emergency-info">
+          <h2>${t("emp.urgent.title")}</h2>
+          <p class="subtle">${hasOnCall
+            ? `${t("emp.urgent.oncall")} <strong>${escHtml(oncall.name || oncall.email)}</strong>${oncall.phone ? ` · <a href="tel:${escHtml(oncall.phone)}">${escHtml(oncall.phone)}</a>` : ""}`
+            : t("emp.urgent.none")}</p>
+        </div>
+        <button id="urgentCallBtn" class="button button-danger emergency-btn" type="button" ${hasOnCall ? "" : "disabled"}>
+          📞 ${t("emp.urgent.btn")}
+        </button>
+      </section>
+      `;
+    })()}
     ${enAttenteTickets.length > 0 ? `
     <section class="card alert-card">
       <div class="section-head">
@@ -932,6 +960,18 @@ function renderEmployeePage() {
     renderTicketCards(refs.mainView.querySelector("#waitingTicketList"), enAttenteTickets, { mode: "read" });
   }
   renderEmployeeTicketTable(refs.mainView.querySelector("#employeeTicketTable"), tickets);
+
+  const urgentBtn = refs.mainView.querySelector("#urgentCallBtn");
+  if (urgentBtn) {
+    urgentBtn.addEventListener("click", () => {
+      const oncall = loadOnCall();
+      if (!oncall || !oncall.email) {
+        toast(t("emp.urgent.none"));
+        return;
+      }
+      window.open(teamsCallUrl(oncall.email), "_blank", "noopener");
+    });
+  }
 }
 
 function renderEmployeeTicketTable(container, tickets) {
@@ -1242,8 +1282,35 @@ function renderManagerPrestataires(container) {
 function renderManagerDashboard(container, tickets) {
   const currentUser = getCurrentUser();
   const byStatus = (s) => tickets.filter((t_) => t_.status === s).length;
+  const oncall = loadOnCall() || { name: "", email: "", phone: "" };
 
   container.innerHTML = `
+    <section class="card oncall-card">
+      <div class="section-head">
+        <div>
+          <h2>${t("oncall.title")}</h2>
+          <p class="subtle">${t("oncall.sub")}</p>
+        </div>
+      </div>
+      <form id="oncallForm" class="form-grid">
+        <div class="field">
+          <label for="oncallName">${t("oncall.name")}</label>
+          <input id="oncallName" name="name" type="text" value="${escHtml(oncall.name || "")}" placeholder="Prénom Nom" />
+        </div>
+        <div class="field">
+          <label for="oncallEmail">${t("oncall.email")}</label>
+          <input id="oncallEmail" name="email" type="email" value="${escHtml(oncall.email || "")}" placeholder="prenom.nom@famiflora.be" required />
+        </div>
+        <div class="field">
+          <label for="oncallPhone">${t("oncall.phone")}</label>
+          <input id="oncallPhone" name="phone" type="tel" value="${escHtml(oncall.phone || "")}" placeholder="+32 4xx xx xx xx" />
+        </div>
+        <div class="field full" style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="button" type="submit">${t("oncall.save")}</button>
+          ${oncall.email ? `<button class="button ghost" type="button" id="oncallClearBtn">${t("oncall.clear")}</button>` : ""}
+        </div>
+      </form>
+    </section>
     <section class="card">
       <div class="section-head">
         <div>
@@ -1270,6 +1337,30 @@ function renderManagerDashboard(container, tickets) {
   `;
 
   renderManagerOldestByStatus(container.querySelector("#dashOldest"), tickets);
+
+  const oncallForm = container.querySelector("#oncallForm");
+  oncallForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(oncallForm);
+    const name = String(fd.get("name") || "").trim();
+    const email = String(fd.get("email") || "").trim();
+    const phone = String(fd.get("phone") || "").trim();
+    if (!email) {
+      toast(t("oncall.email.required"));
+      return;
+    }
+    saveOnCall({ name, email, phone, updatedAt: new Date().toISOString() });
+    toast(t("oncall.saved"));
+    renderManagerPage();
+  });
+  const clearBtn = container.querySelector("#oncallClearBtn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      saveOnCall(null);
+      toast(t("oncall.cleared"));
+      renderManagerPage();
+    });
+  }
 }
 
 function renderManagerOldestByStatus(container, tickets) {
