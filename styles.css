@@ -2520,3 +2520,49 @@ textarea {
 .oncall-card {
   border-left: 4px solid #dc2626;
 }
+
+/* -- Liste compacte des demandes en attente d'info ------- */
+.waiting-compact-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.waiting-compact-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.waiting-compact-item:hover {
+  background: #fff;
+  transform: translateX(2px);
+}
+
+.waiting-compact-title {
+  font-weight: 600;
+  flex: 1 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.waiting-compact-cat {
+  flex: 0 0 auto;
+  font-size: 0.85rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(192, 57, 43, 0.12);
+  color: #b91c1c;
+  white-space: nowrap;
+}

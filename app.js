@@ -957,7 +957,7 @@ function renderEmployeePage() {
   });
 
   if (enAttenteTickets.length > 0) {
-    renderTicketCards(refs.mainView.querySelector("#waitingTicketList"), enAttenteTickets, { mode: "read" });
+    renderWaitingTicketsCompact(refs.mainView.querySelector("#waitingTicketList"), enAttenteTickets);
   }
   renderEmployeeTicketTable(refs.mainView.querySelector("#employeeTicketTable"), tickets);
 
@@ -2389,6 +2389,43 @@ function renderManagerLanes(container, tickets) {
       `;
     })
     .join("");
+}
+
+function renderWaitingTicketsCompact(container, tickets) {
+  if (!container) return;
+  if (!Array.isArray(tickets) || tickets.length === 0) {
+    container.innerHTML = "";
+    return;
+  }
+  container.innerHTML = `
+    <ul class="waiting-compact-list">
+      ${tickets.map((ticket) => {
+        const category = (Array.isArray(ticket.categoryPath) && ticket.categoryPath.length > 0)
+          ? ticket.categoryPath.join(" › ")
+          : (ticket.categoryValue || "-");
+        return `
+          <li class="waiting-compact-item" data-ticket-id="${escHtml(ticket.id)}">
+            <span class="waiting-compact-title">${escHtml(ticket.title)}</span>
+            <span class="waiting-compact-cat">${escHtml(category)}</span>
+          </li>
+        `;
+      }).join("")}
+    </ul>
+  `;
+
+  container.querySelectorAll("[data-ticket-id]").forEach((item) => {
+    item.addEventListener("click", () => {
+      const ticketId = item.dataset.ticketId;
+      employeeExpandedTicketId = ticketId;
+      const table = refs.mainView.querySelector("#employeeTicketTable");
+      const tickets = state.tickets
+        .filter((t) => t.createdBy === getCurrentUser()?.id)
+        .sort(sortByUpdatedDesc);
+      renderEmployeeTicketTable(table, tickets);
+      const row = table?.querySelector(`[data-ticket-row="${ticketId}"]`);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  });
 }
 
 function renderTicketCards(container, tickets, options) {
