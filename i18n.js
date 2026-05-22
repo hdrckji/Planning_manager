@@ -56,6 +56,7 @@ const TRANSLATIONS = {
 
     // ── Onglets manager ────────────────────────────────────────────────────
     "tab.dashboard":      "Tableau de bord",
+    "tab.sites":          "Lieu de prestation",
     "tab.requests":       "Demandes",
     "tab.users":          "Utilisateurs",
     "tab.categories":     "Catégories",
@@ -290,6 +291,24 @@ const TRANSLATIONS = {
       "prest.none":         "Aucun prestataire externe enregistré.",
       "prest.list":         "Prestataires enregistrés",
 
+      // ── Lieux de prestation ───────────────────────────────────────
+      "sites.title":        "Lieux de prestation",
+      "sites.sub":          "Définissez les sites où les collaborateurs doivent intervenir.",
+      "sites.new":          "Nouveau lieu",
+      "sites.name":         "Nom du lieu",
+      "sites.address":      "Adresse",
+      "sites.notes":        "Notes / accès",
+      "sites.create":       "Ajouter le lieu",
+      "sites.created":      "Lieu de prestation ajouté.",
+      "sites.delete":       "Supprimer",
+      "sites.deleted":      "Lieu de prestation supprimé.",
+      "sites.none":         "Aucun lieu de prestation enregistré.",
+      "sites.list":         "Lieux enregistrés",
+      "emp.site":           "Lieu de prestation",
+      "emp.site.required":  "Le lieu de prestation est obligatoire.",
+      "emp.site.empty":     "Aucun lieu n'est encore défini. Demandez au responsable de créer un lieu de prestation.",
+      "ticket.site":        "Lieu de prestation",
+
     "misc.no.profile.selector": "Aucun profil créé",
     "misc.add.profile":   "Ajoutez d'abord un profil dans le panneau de gauche.",
     "misc.empty":         "Aucune demande.",
@@ -355,6 +374,7 @@ const TRANSLATIONS = {
 
     // ── Onglets manager ────────────────────────────────────────────────────
     "tab.dashboard":      "Dashboard",
+    "tab.sites":          "Werflocatie",
     "tab.requests":       "Aanvragen",
     "tab.users":          "Gebruikers",
     "tab.categories":     "Categorieën",
@@ -588,6 +608,24 @@ const TRANSLATIONS = {
       "prest.deleted":      "Aannemer verwijderd.",
       "prest.none":         "Geen externe aannemers geregistreerd.",
       "prest.list":         "Geregistreerde aannemers",
+
+      // ── Werflocaties ───────────────────────────────────────────────────────
+      "sites.title":        "Werflocaties",
+      "sites.sub":          "Definieer de locaties waar medewerkers moeten tussenkomen.",
+      "sites.new":          "Nieuwe locatie",
+      "sites.name":         "Naam van de locatie",
+      "sites.address":      "Adres",
+      "sites.notes":        "Notities / toegang",
+      "sites.create":       "Locatie toevoegen",
+      "sites.created":      "Werflocatie toegevoegd.",
+      "sites.delete":       "Verwijderen",
+      "sites.deleted":      "Werflocatie verwijderd.",
+      "sites.none":         "Geen werflocatie geregistreerd.",
+      "sites.list":         "Geregistreerde locaties",
+      "emp.site":           "Werflocatie",
+      "emp.site.required":  "De werflocatie is verplicht.",
+      "emp.site.empty":     "Er is nog geen locatie aangemaakt. Vraag de verantwoordelijke om een werflocatie aan te maken.",
+      "ticket.site":        "Werflocatie",
 
     "misc.no.profile.selector": "Geen profiel aangemaakt",
     "misc.add.profile":   "Voeg eerst een profiel toe in het linkerpaneel.",

@@ -19,6 +19,25 @@ function findPrestataire(id) {
   return loadPrestataires().find((p) => p.id === id) || null;
 }
 
+// ── Sites (lieux de prestation) ──────────────────────────────────────────
+function loadSites() {
+  return window.FlowDeskApi?.getSites() ?? [];
+}
+function saveSites(list) {
+  window.FlowDeskApi?.saveSites(list);
+}
+function nextSiteId() {
+  const list = loadSites();
+  const last = list
+    .map((s) => Number(String(s.id || "").replace("s-", "")))
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => b - a)[0] || 0;
+  return `s-${last + 1}`;
+}
+function findSite(id) {
+  return loadSites().find((s) => s.id === id) || null;
+}
+
 const DEFAULT_TREE = [
   {
     label: "Technique",
@@ -706,6 +725,14 @@ function renderEmployeePage() {
         </div>
       </div>
       <form id="ticketForm" class="form-grid">
+        <div class="field full" id="siteField">
+          <label for="ticketSite">${t("emp.site")} <span style="color:#c0392b">*</span></label>
+          <select id="ticketSite" name="siteId" required>
+            <option value="">${t("emp.choose")}</option>
+            ${loadSites().map((s) => `<option value="${escHtml(s.id)}">${escHtml(s.name)}${s.address ? ` — ${escHtml(s.address)}` : ""}</option>`).join("")}
+          </select>
+          ${loadSites().length === 0 ? `<p class="subtle" style="margin-top:6px">${t("emp.site.empty")}</p>` : ""}
+        </div>
         <div class="field full" id="treeStepsContainer"></div>
         <div class="field full hidden" id="delayField">
           <label for="ticketInterventionDelay">${t("emp.delay.label")}</label>
@@ -850,6 +877,12 @@ function renderEmployeePage() {
       return;
     }
     const formData = new FormData(form);
+    const siteId = String(formData.get("siteId") || "").trim();
+    if (!siteId) {
+      toast(t("emp.site.required"));
+      form.querySelector("#ticketSite")?.focus();
+      return;
+    }
     const photo = formData.get("photo");
     const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
     const comment = String(formData.get("comment") || "").trim();
@@ -865,6 +898,7 @@ function renderEmployeePage() {
       title,
       description: comment,
       department,
+      siteId,
       categoryValue: selectedNode?.value || "",
       categoryPath: [...selections],
       createdBy: currentUser?.id || "",
@@ -1002,6 +1036,7 @@ function renderManagerPage() {
   refs.mainView.innerHTML = `
     <nav class="manager-tabs">
       <button class="manager-tab ${managerSubPage === "dashboard"    ? "active" : ""}" data-subpage="dashboard">${t("tab.dashboard")}</button>
+      <button class="manager-tab ${managerSubPage === "sites"        ? "active" : ""}" data-subpage="sites">${t("tab.sites")}</button>
       <button class="manager-tab ${managerSubPage === "demandes"     ? "active" : ""}" data-subpage="demandes">${t("tab.requests")}${alertCount > 0 ? ` <span class="tab-badge">${alertCount}</span>` : ""}</button>
       <button class="manager-tab ${managerSubPage === "utilisateurs" ? "active" : ""}" data-subpage="utilisateurs">${t("tab.users")}</button>
       <button class="manager-tab ${managerSubPage === "categories"   ? "active" : ""}" data-subpage="categories">${t("tab.categories")}</button>
@@ -1021,12 +1056,91 @@ function renderManagerPage() {
   const content = refs.mainView.querySelector("#managerContent");
   switch (managerSubPage) {
     case "dashboard":    return renderManagerDashboard(content, teamTickets);
+    case "sites":        return renderManagerSites(content);
     case "demandes":     return renderManagerDemandes(content, teamTickets, collaborators);
     case "utilisateurs": return renderManagerUtilisateurs(content);
     case "categories":   return renderTreeEditor(content);
     case "planning":     return renderManagerPlanning(content, collaborators);
     case "prestataires": return renderManagerPrestataires(content);
   }
+}
+
+function renderManagerSites(container) {
+  function renderContent() {
+    const list = loadSites();
+
+    const listHtml = list.length === 0
+      ? `<p class="subtle" style="padding:6px 0">${t("sites.none")}</p>`
+      : list.map((s) => `
+          <div class="user-item">
+            <div class="user-item-info">
+              <strong>${escHtml(s.name)}</strong>
+              ${s.address ? `<span class="badge badge-muted">${escHtml(s.address)}</span>` : ""}
+              ${s.notes ? `<span class="badge badge-muted">${escHtml(s.notes)}</span>` : ""}
+            </div>
+            <button class="button danger-ghost tree-btn" type="button" data-action="del-site" data-sid="${s.id}">${t("sites.delete")}</button>
+          </div>`).join("");
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>${t("sites.title")}</h2>
+            <p class="subtle">${t("sites.sub")}</p>
+          </div>
+        </div>
+        <div class="add-user-block">
+          <h3>${t("sites.new")}</h3>
+          <form id="addSiteForm" class="form-grid">
+            <div class="field">
+              <label for="sName">${t("sites.name")}</label>
+              <input id="sName" name="name" type="text" placeholder="${t("sites.name")}" required />
+            </div>
+            <div class="field">
+              <label for="sAddress">${t("sites.address")}</label>
+              <input id="sAddress" name="address" type="text" placeholder="${t("sites.address")}" />
+            </div>
+            <div class="field full">
+              <label for="sNotes">${t("sites.notes")}</label>
+              <textarea id="sNotes" name="notes" placeholder="${t("sites.notes")}"></textarea>
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">${t("sites.create")}</button>
+            </div>
+          </form>
+        </div>
+        <div class="user-group">
+          <h3>${t("sites.list")} <span class="badge badge-muted">${list.length}</span></h3>
+          <div class="user-group-list" id="siteList">${listHtml}</div>
+        </div>
+      </section>
+    `;
+
+    container.querySelector("#addSiteForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const name = String(fd.get("name") || "").trim();
+      const address = String(fd.get("address") || "").trim();
+      const notes = String(fd.get("notes") || "").trim();
+      if (!name) return;
+      const updated = loadSites();
+      updated.push({ id: nextSiteId(), name, address, notes });
+      saveSites(updated);
+      toast(t("sites.created"));
+      renderContent();
+    });
+
+    container.querySelectorAll("[data-action='del-site']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const updated = loadSites().filter((s) => s.id !== btn.dataset.sid);
+        saveSites(updated);
+        toast(t("sites.deleted"));
+        renderContent();
+      });
+    });
+  }
+
+  renderContent();
 }
 
 function renderManagerPrestataires(container) {
@@ -2451,9 +2565,14 @@ function renderDetails(ticket) {
   const assignedTo = ticket.assignedToExternal
     ? (findPrestataire(ticket.assignedToExternal)?.name || t("mgr.unassigned"))
     : (findUser(ticket.assignedTo)?.name || t("mgr.unassigned"));
+  const site = ticket.siteId ? findSite(ticket.siteId) : null;
+  const siteLabel = site
+    ? `${site.name}${site.address ? ` — ${site.address}` : ""}`
+    : t("ticket.unknown");
 
   const items = [
     detailItem(t("ticket.by"),        createdBy),
+    detailItem(t("ticket.site"),      siteLabel),
     detailItem(t("ticket.desired"),   formatDate(ticket.desiredDate)),
     detailItem(t("ticket.intervention.delay"), interventionDelayLabel(ticket.interventionDelay)),
     detailItem(t("ticket.validated"), formatDate(ticket.plannedDate)),

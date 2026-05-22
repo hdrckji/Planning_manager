@@ -14,6 +14,7 @@
     prestataires: "famiflora-prestataires-v1",
     specialties: "famiflora-specialties-v1",
     tree: "famiflora-tree-config-v1",
+    sites: "famiflora-sites-v1",
   };
 
   // ── Cache mémoire ────────────────────────────────────────────────────────
@@ -21,6 +22,7 @@
   let _cachedPrestataires = null;
   let _cachedSpecialties  = null;
   let _cachedTree         = null;
+  let _cachedSites        = null;
   let _readOnlyReason = "";
 
   function readLocalJson(key, fallbackValue) {
@@ -44,6 +46,7 @@
       prestataires: readLocalJson(STORAGE_KEYS.prestataires, []),
       specialties: readLocalJson(STORAGE_KEYS.specialties, []),
       tree: readLocalJson(STORAGE_KEYS.tree, null),
+      sites: readLocalJson(STORAGE_KEYS.sites, []),
     };
   }
 
@@ -52,6 +55,7 @@
     _cachedPrestataires = Array.isArray(snapshot.prestataires) ? snapshot.prestataires : [];
     _cachedSpecialties = Array.isArray(snapshot.specialties) ? snapshot.specialties : [];
     _cachedTree = snapshot.tree ?? null;
+    _cachedSites = Array.isArray(snapshot.sites) ? snapshot.sites : [];
   }
 
   // ── Primitives HTTP ──────────────────────────────────────────────────────
@@ -102,8 +106,9 @@
       kvGetDetailed("flowdesk-prestataires"),
       kvGetDetailed("flowdesk-specialties"),
       kvGetDetailed("flowdesk-tree"),
-    ]).then(([stateRes, prestRes, specRes, treeRes]) => {
-      const hadRemoteError = [stateRes, prestRes, specRes, treeRes].some((item) => item.status === "error");
+      kvGetDetailed("flowdesk-sites"),
+    ]).then(([stateRes, prestRes, specRes, treeRes, sitesRes]) => {
+      const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes].some((item) => item.status === "error");
       if (hadRemoteError && isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
         const emptySnapshot = {
@@ -111,6 +116,7 @@
           prestataires: [],
           specialties: [],
           tree: null,
+          sites: [],
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -122,6 +128,7 @@
         prestataires: Array.isArray(prestRes.value) ? prestRes.value : [],
         specialties: Array.isArray(specRes.value) ? specRes.value : [],
         tree: treeRes.value,
+        sites: Array.isArray(sitesRes.value) ? sitesRes.value : [],
       };
       applySnapshot(snapshot);
       return snapshot;
@@ -133,6 +140,7 @@
           prestataires: [],
           specialties: [],
           tree: null,
+          sites: [],
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -184,6 +192,14 @@
       _cachedTree = v;
       writeLocalJson(STORAGE_KEYS.tree, v);
       kvSet("flowdesk-tree", v);
+    },
+
+    // ── Sites (lieux de prestation) ────────────────────────────────────────
+    getSites:  ()  => _cachedSites ?? [],
+    saveSites: (v) => {
+      _cachedSites = v;
+      writeLocalJson(STORAGE_KEYS.sites, v);
+      kvSet("flowdesk-sites", v);
     },
   };
 })();
