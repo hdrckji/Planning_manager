@@ -913,6 +913,11 @@ function renderEmployeePage() {
     }
     const photo = formData.get("photo");
     const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
+    if (!photoDataUrl) {
+      toast(t("emp.photo.required"));
+      form.querySelector("#ticketPhoto")?.focus();
+      return;
+    }
     const comment = String(formData.get("comment") || "").trim();
     const interventionDelay = normalizeInterventionDelay(formData.get("interventionDelay"));
     const title = buildTitle();
@@ -1016,7 +1021,7 @@ function renderEmployeeTicketTable(container, tickets) {
                       <h4>${t("chat.history")}</h4>
                       ${renderInfoThreadHtml(ticket)}
                     </div>
-                    ${ticket.status === "en_attente" ? `
+                    ${ticket.status !== "termine" ? `
                       <form class="employee-reply-form" data-action="employee-reply" data-ticket-id="${ticket.id}">
                         <label>${t("emp.reply.label")}</label>
                         <textarea name="employeeReply" placeholder="${t("emp.reply.ph")}"></textarea>
