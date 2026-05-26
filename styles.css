@@ -939,7 +939,8 @@ textarea {
     margin: 0;
     box-sizing: border-box;
   }
-  .hero, .layout, .main-column, .left-rail, .view-panel {
+  .hero, .layout, .main-column, .left-rail, .view-panel,
+  .ticket-list, .planning-list, .lane-list {
     display: block !important;
     width: 100%;
     min-width: 0;
@@ -2469,6 +2470,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .waiting-compact-item {
