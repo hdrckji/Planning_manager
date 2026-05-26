@@ -912,9 +912,9 @@ textarea {
   }
   .hero, .layout, .main-column, .left-rail, .view-panel {
     display: block !important;
-    width: 100vw;
+    width: 100%;
     min-width: 0;
-    max-width: 100vw;
+    max-width: 100%;
     margin: 0;
     padding: 0;
   }
@@ -928,24 +928,24 @@ textarea {
     gap: 8px;
   }
   .employee-requests-table, .manager-requests-table {
-    width: 100vw !important;
+    width: 100% !important;
     min-width: 0 !important;
     font-size: 0.9rem;
     border-spacing: 0;
     border-collapse: separate;
     display: block;
-    overflow-x: auto;
+    overflow-x: hidden;
   }
   .employee-requests-table thead, .manager-requests-table thead {
     display: none;
   }
   .employee-requests-table tbody, .manager-requests-table tbody {
     display: block;
-    width: 100vw;
+    width: 100%;
   }
   .employee-request-row, .manager-request-row {
     display: block;
-    width: 98vw;
+    width: 100%;
     margin: 0 0 12px 0;
     border-radius: 12px;
     background: #fff;
@@ -1033,6 +1033,21 @@ textarea {
   .empty-state {
     padding: 14px;
     font-size: 0.95em;
+  }
+  .filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+  }
+  .filter-bar select {
+    width: 100%;
+    min-width: 0;
+  }
+  .employee-requests-wrap,
+  .manager-requests-wrap {
+    overflow-x: hidden;
+    width: 100%;
   }
 }
 
@@ -1208,12 +1223,11 @@ textarea {
   }
 
   .manager-requests-table {
-    min-width: 480px;
+    min-width: 0;
   }
 
   .employee-requests-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
     width: 100%;
     margin: 0;
     padding: 0;

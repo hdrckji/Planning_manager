@@ -1495,11 +1495,11 @@ function renderManagerTicketTable(container, tickets, collaborators) {
             const isOpen = managerExpandedTicketId === ticket.id;
             return `
               <tr class="employee-request-row manager-request-row${isOpen ? " is-open" : ""}" data-manager-ticket-row="${ticket.id}">
-                <td><strong>${ticket.id}</strong> · ${escHtml(ticket.title)}</td>
-                <td>${escHtml(createdBy)}</td>
-                <td>${interventionDelayLabel(ticket.interventionDelay)}</td>
-                <td><span class="badge badge-priority" data-priority="${ticket.priority}">${priorityLabel(ticket.priority)}</span></td>
-                <td><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
+                <td data-label="Réf"><strong>${ticket.id}</strong> · ${escHtml(ticket.title)}</td>
+                <td data-label="${escHtml(t("emp.table.by"))}">${escHtml(createdBy)}</td>
+                <td data-label="${escHtml(t("emp.table.delay"))}">${interventionDelayLabel(ticket.interventionDelay)}</td>
+                <td data-label="${escHtml(t("mgr.priority"))}"><span class="badge badge-priority" data-priority="${ticket.priority}">${priorityLabel(ticket.priority)}</span></td>
+                <td data-label="${escHtml(t("emp.table.status"))}"><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
               </tr>
               <tr class="employee-request-detail manager-request-detail${isOpen ? "" : " hidden"}" data-manager-ticket-detail="${ticket.id}">
                 <td colspan="5">
@@ -1518,14 +1518,11 @@ function renderManagerTicketTable(container, tickets, collaborators) {
     </div>
   `;
 
-  container.querySelectorAll("[data-manager-form-host]").forEach((host) => {
-    const ticketId = host.getAttribute("data-manager-form-host") || "";
-    const ticket = tickets.find((item) => item.id === ticketId);
-    if (!ticket) {
-      return;
-    }
-    host.appendChild(renderManagerForm(ticket, collaborators));
-  });
+  if (managerExpandedTicketId) {
+    const host = container.querySelector(`[data-manager-form-host="${managerExpandedTicketId}"]`);
+    const ticket = tickets.find((item) => item.id === managerExpandedTicketId);
+    if (host && ticket) host.appendChild(renderManagerForm(ticket, collaborators));
+  }
 
   container.querySelectorAll("[data-manager-ticket-row]").forEach((row) => {
     row.addEventListener("click", () => {
@@ -2589,7 +2586,7 @@ function renderManagerForm(ticket, collaborators) {
     const subject = encodeURIComponent(`[Flow Desk] ${ticket.id} - ${ticket.title}`);
     const body = encodeURIComponent([
       `Référence : ${ticket.id}`,
-      `Catégorie : ${ticket.categoryPath.join(" > ") || ticket.categoryValue || "-"}`,
+      `Catégorie : ${(Array.isArray(ticket.categoryPath) ? ticket.categoryPath.join(" > ") : "") || ticket.categoryValue || "-"}`,
       `Description : ${ticket.description}`,
       `Date souhaitée : ${ticket.desiredDate || "-"}`,
       `Délai demandé : ${interventionDelayLabel(ticket.interventionDelay)}`,
