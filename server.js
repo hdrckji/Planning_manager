@@ -1,3 +1,6 @@
+process.on("uncaughtException",  (err) => console.error("UNCAUGHT:", err.stack));
+process.on("unhandledRejection", (r)   => console.error("UNHANDLED:", r));
+
 const path    = require("path");
 const express = require("express");
 const cors    = require("cors");
@@ -131,12 +134,8 @@ app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// ── Start ───────────────────────────────────────────────────────────────────
-initSchema()
-  .then(() => {
-    app.listen(PORT, () => console.log(`FamiTask server running on port ${PORT}`));
-  })
-  .catch((err) => {
-    console.error("DB init failed:", err.message);
-    process.exit(1);
-  });
+// ── Start : listen immediately so Railway health-check passes ───────────────
+app.listen(PORT, () => {
+  console.log(`FamiTask server running on port ${PORT}`);
+  initSchema().catch((err) => console.error("Schema init error:", err.message));
+});
