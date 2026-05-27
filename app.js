@@ -2433,6 +2433,10 @@ function renderCollaboratorPage() {
     .filter((ticket) => ticket.assignedTo === currentUser.id)
     .sort(sortByPlannedDate);
 
+  const myPlanningTasks = (state.planningTasks || [])
+    .filter((pt) => pt.collaboratorId === currentUser.id)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
   function mondayForOffset(offset) {
     const now = new Date();
     const day = now.getDay();
@@ -2452,14 +2456,16 @@ function renderCollaboratorPage() {
     const weekStart = days[0].toISOString().slice(0, 10);
     const weekEnd = days[6].toISOString().slice(0, 10);
     const todayStr = today();
-    const weekTasks = tickets.filter((ticket) => {
+    const weekTickets = tickets.filter((ticket) => {
       const dateStr = ticket.plannedDate || ticket.desiredDate || "";
       return dateStr >= weekStart && dateStr <= weekEnd;
     });
-    const todayTasks = weekTasks.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === todayStr);
-    const weekHours = weekTasks.reduce((sum, ticket) => sum + normalizeHours(ticket.estimatedHours, 0), 0);
-    const weekPlanned = weekTasks.filter((ticket) => ticket.status === "planifie").length;
-    const weekInProgress = weekTasks.filter((ticket) => ticket.status === "en_cours").length;
+    const weekPlanTasks = myPlanningTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
+    const weekTasks = [...weekTickets, ...weekPlanTasks];
+    const todayTasks = weekTasks.filter((item) => (item.plannedDate || item.desiredDate || item.date) === todayStr);
+    const weekHours = weekTasks.reduce((sum, item) => sum + normalizeHours(item.estimatedHours, 0), 0);
+    const weekPlanned = weekTasks.filter((item) => item.status === "planifie").length;
+    const weekInProgress = weekTasks.filter((item) => item.status === "en_cours").length;
 
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
 
@@ -2536,11 +2542,13 @@ function renderCollaboratorPage() {
           `}
         </section>
 
-        ${tickets.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
+        ${weekTasks.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
         <div class="cal-week">
           ${days.map((day) => {
             const dateStr = day.toISOString().slice(0, 10);
-            const dayTasks = tickets.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === dateStr);
+            const dayTickets = tickets.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === dateStr);
+            const dayPlanTasks = myPlanningTasks.filter((pt) => pt.date === dateStr);
+            const isEmpty = dayTickets.length === 0 && dayPlanTasks.length === 0;
             const isToday = dateStr === todayStr;
             const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
             const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
@@ -2551,7 +2559,8 @@ function renderCollaboratorPage() {
                   <span class="cal-daynum">${dayNum}</span>
                 </div>
                 <div class="cal-day-body">
-                  ${dayTasks.length === 0 ? `<span class="cal-empty">—</span>` : dayTasks.map((ticket) => {
+                  ${isEmpty ? `<span class="cal-empty">—</span>` : ""}
+                  ${dayTickets.map((ticket) => {
                     const actionButton = ticket.status === "planifie"
                       ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${ticket.id}">${t("collab.start")}</button>`
                       : ticket.status === "en_cours"
@@ -2566,6 +2575,13 @@ function renderCollaboratorPage() {
                       </article>
                     `;
                   }).join("")}
+                  ${dayPlanTasks.map((pt) => `
+                    <article class="cal-task-item" data-status="${pt.status}">
+                      <span class="cal-task-title">${escHtml(pt.title)}</span>
+                      <span class="badge badge-status" data-status="${pt.status}">${statusLabel(pt.status)}</span>
+                      <span class="cal-task-hours">${formatHours(pt.estimatedHours || 0)}</span>
+                    </article>
+                  `).join("")}
                 </div>
               </div>
             `;

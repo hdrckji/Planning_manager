@@ -1,7 +1,8 @@
 const path    = require("path");
 const express = require("express");
 const cors    = require("cors");
-const webpush = require("web-push");
+let webpush;
+try { webpush = require("web-push"); } catch (e) { console.warn("web-push unavailable, push disabled"); }
 const { pool, initSchema } = require("./db");
 
 const app  = express();
@@ -18,6 +19,7 @@ app.use(express.static(path.join(__dirname)));
 let vapidReady = false;
 
 async function initVapid() {
+  if (!webpush) return;
   try {
     const { rows } = await pool.query(
       "SELECT value FROM kv_store WHERE key = 'vapid-keys'"
