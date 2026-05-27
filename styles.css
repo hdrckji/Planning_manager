@@ -65,6 +65,7 @@ textarea {
   margin-bottom: 24px;
 }
 
+.hero-copy,
 .card {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -75,16 +76,20 @@ textarea {
 }
 
 .hero-copy {
-  padding: 28px 0 20px;
+  padding: 28px;
   position: relative;
-  overflow: visible;
-  background: transparent;
-  border: none;
-  box-shadow: none;
+  overflow: hidden;
 }
 
 .hero-copy::after {
-  content: none;
+  content: "";
+  position: absolute;
+  inset: auto -40px -50px auto;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.22), rgba(8, 145, 178, 0.14) 50%, transparent 70%);
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -1131,7 +1136,14 @@ textarea {
   }
 
   .hero-copy {
-    padding: 16px 0 12px;
+    padding: 16px;
+  }
+
+  .hero-copy::after {
+    width: 100px;
+    height: 100px;
+    inset: auto -20px -20px auto;
+    opacity: 0.6;
   }
 
   h1 {
