@@ -3505,6 +3505,6 @@ async function initPushNotifications(user) {
 
 // ── iCal link (collaborators) ───────────────────────────────────────────────
 function getIcalUrl(userId) {
-  return `${location.origin}/api/ical/${encodeURIComponent(userId)}`;
+  return `${location.origin.replace(/\/+$/, "")}/api/ical/${encodeURIComponent(userId)}`;
 }
 

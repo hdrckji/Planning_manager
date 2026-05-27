@@ -78,9 +78,14 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       "SELECT value FROM kv_store WHERE key = 'flowdesk-state'"
     );
     const st = rows[0]?.value || {};
-    const tasks   = (st.planningTasks || []).filter(t => t.collaboratorId === collabId);
-    const tickets = (st.tickets || []).filter(t => t.assignedTo === collabId && (t.plannedDate || t.desiredDate));
-    const collab  = (st.users || []).find(u => u.id === collabId);
+    const users = st.users || [];
+    // Résolution : accepte l'ID exact OU le nom (insensible à la casse)
+    const collabLower = collabId.toLowerCase();
+    const collab = users.find(u => u.id === collabId)
+                || users.find(u => (u.name || "").toLowerCase() === collabLower);
+    const resolvedId = collab ? collab.id : collabId;
+    const tasks   = (st.planningTasks || []).filter(t => t.collaboratorId === resolvedId);
+    const tickets = (st.tickets || []).filter(t => t.assignedTo === resolvedId && (t.plannedDate || t.desiredDate));
     const calName = collab ? `FamiTask – ${collab.name}` : "FamiTask Planning";
 
     const lines = [
