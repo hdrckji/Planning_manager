@@ -2542,7 +2542,7 @@ textarea {
 }
 
 .site-logo-img {
-  height: 48px;
+  height: 80px;
   width: auto;
   flex-shrink: 0;
 }
@@ -2555,7 +2555,7 @@ textarea {
 
 .site-logo-name {
   font-family: "Fraunces", serif;
-  font-size: 1.7rem;
+  font-size: 1.1rem;
   line-height: 1;
   color: var(--text);
   letter-spacing: -0.02em;
@@ -2566,7 +2566,7 @@ textarea {
 }
 
 .site-logo-sub {
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
