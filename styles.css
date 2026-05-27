@@ -2542,8 +2542,8 @@ textarea {
 }
 
 .site-logo-img {
-  width: 56px;
-  height: 56px;
+  height: 48px;
+  width: auto;
   flex-shrink: 0;
 }
 
