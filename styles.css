@@ -2536,13 +2536,14 @@ textarea {
 /* ── Site logo (FamiTask) ─────────────────────────────────── */
 .site-logo {
   display: flex;
-  align-items: center;
-  gap: 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
   margin-bottom: 16px;
 }
 
 .site-logo-img {
-  height: 80px;
+  height: 90px;
   width: auto;
   flex-shrink: 0;
 }
@@ -2550,15 +2551,15 @@ textarea {
 .site-logo-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .site-logo-name {
   font-family: "Fraunces", serif;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   line-height: 1;
   color: var(--text);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .site-logo-name strong {
@@ -2566,7 +2567,7 @@ textarea {
 }
 
 .site-logo-sub {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
