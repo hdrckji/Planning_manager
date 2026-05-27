@@ -557,6 +557,7 @@ function render() {
   renderProfileList();
   renderCurrentPage();
   persistState();
+  if (user) initPushNotifications(user);
 }
 
 function renderUserSelector() {
@@ -3323,4 +3324,54 @@ function toast(message) {
 
 // Re-render when language changes
 document.addEventListener("langchange", () => render());
+
+// ── PWA : Service Worker ────────────────────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
+}
+
+// ── Push notifications (managers only) ─────────────────────────────────────
+let _pushSubscribed = false;
+
+function urlBase64ToUint8Array(b64) {
+  const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+  const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+async function initPushNotifications(user) {
+  if (_pushSubscribed) return;
+  if (!user || user.role !== "manager") return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  try {
+    const resp = await fetch("/api/push/vapid-public-key");
+    if (!resp.ok) return;
+    const { publicKey } = await resp.json();
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") return;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+    await fetch("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: sub.toJSON(), userId: user.id, role: "manager" }),
+    });
+    _pushSubscribed = true;
+  } catch (err) {
+    console.warn("Push init failed:", err.message);
+  }
+}
+
+// ── iCal link (collaborators) ───────────────────────────────────────────────
+function getIcalUrl(userId) {
+  return `${location.origin}/api/ical/${encodeURIComponent(userId)}`;
+}
 

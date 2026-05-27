@@ -76,21 +76,9 @@ textarea {
 }
 
 .hero-copy {
-  padding: 20px 28px;
+  padding: 28px;
   position: relative;
   overflow: hidden;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 32px;
-  width: 100%;
-}
-
-.hero-copy .hero-text {
-  flex: 1;
-  margin: 0;
-  padding-left: 32px;
-  border-left: 1px solid var(--line);
 }
 
 .hero-copy::after {
