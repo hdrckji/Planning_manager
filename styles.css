@@ -62,10 +62,6 @@ textarea {
 }
 
 .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 420px);
-  gap: 20px;
-  align-items: stretch;
   margin-bottom: 24px;
 }
 
@@ -80,9 +76,21 @@ textarea {
 }
 
 .hero-copy {
-  padding: 28px;
+  padding: 20px 28px;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 32px;
+  width: 100%;
+}
+
+.hero-copy .hero-text {
+  flex: 1;
+  margin: 0;
+  padding-left: 32px;
+  border-left: 1px solid var(--line);
 }
 
 .hero-copy::after {
@@ -2543,7 +2551,7 @@ textarea {
 }
 
 .site-logo-img {
-  height: 180px;
+  height: 100px;
   width: auto;
   flex-shrink: 0;
 }
