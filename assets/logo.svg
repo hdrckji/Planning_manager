@@ -1,0 +1,35 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none" aria-label="FamiTask">
+  <!-- Outer diamond with rounded feel via path -->
+  <path d="M100 6 C105 6 109 9 112 12 L188 88 C191 91 194 95 194 100 C194 105 191 109 188 112 L112 188 C109 191 105 194 100 194 C95 194 91 191 88 188 L12 112 C9 109 6 105 6 100 C6 95 9 91 12 88 L88 12 C91 9 95 6 100 6 Z"
+        fill="rgba(16,185,129,0.13)" stroke="#059669" stroke-width="4"/>
+
+  <!-- Arrow pointing up-right (main motif) -->
+  <line x1="55" y1="138" x2="130" y2="63" stroke="#047857" stroke-width="6" stroke-linecap="round"/>
+  <path d="M102 63 L130 63 L130 91" stroke="#047857" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Lightbulb (left lower) -->
+  <circle cx="58" cy="98" r="17" stroke="#059669" stroke-width="4"/>
+  <line x1="53" y1="115" x2="63" y2="115" stroke="#059669" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="58" y1="115" x2="58" y2="122" stroke="#059669" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Pipe / faucet (right lower) -->
+  <line x1="136" y1="110" x2="136" y2="132" stroke="#059669" stroke-width="4" stroke-linecap="round"/>
+  <line x1="125" y1="132" x2="147" y2="132" stroke="#059669" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="136" cy="105" r="5" fill="#059669"/>
+
+  <!-- Circuit board dots on diamond edges -->
+  <circle cx="32" cy="72"  r="5" fill="#059669"/>
+  <circle cx="32" cy="128" r="5" fill="#059669"/>
+  <circle cx="168" cy="72"  r="5" fill="#059669"/>
+  <circle cx="168" cy="128" r="5" fill="#059669"/>
+  <circle cx="72"  cy="32" r="5" fill="#059669"/>
+  <circle cx="128" cy="32" r="5" fill="#059669"/>
+  <circle cx="72"  cy="168" r="5" fill="#059669"/>
+  <circle cx="128" cy="168" r="5" fill="#059669"/>
+
+  <!-- Connecting lines (circuit) -->
+  <line x1="32" y1="72" x2="55" y2="49" stroke="#059669" stroke-width="1.5" opacity="0.4"/>
+  <line x1="32" y1="128" x2="55" y2="151" stroke="#059669" stroke-width="1.5" opacity="0.4"/>
+  <line x1="168" y1="72" x2="145" y2="49" stroke="#059669" stroke-width="1.5" opacity="0.4"/>
+  <line x1="168" y1="128" x2="145" y2="151" stroke="#059669" stroke-width="1.5" opacity="0.4"/>
+</svg>

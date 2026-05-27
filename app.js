@@ -169,6 +169,7 @@ const PAGE_CONFIG = {
 const state = {
   users: [],
   tickets: [],
+  planningTasks: [],
   currentUserByRole: {
     employee: "",
     manager: "",
@@ -329,6 +330,20 @@ function normalizeUser(user) {
   };
 }
 
+function normalizePlanningTask(task) {
+  return {
+    id: String(task.id || ""),
+    title: String(task.title || ""),
+    description: String(task.description || ""),
+    collaboratorId: String(task.collaboratorId || ""),
+    date: String(task.date || today()),
+    estimatedHours: normalizeHours(task.estimatedHours, 1),
+    actualHours: task.actualHours != null && task.actualHours !== "" ? normalizeHours(task.actualHours, 0) : null,
+    status: ["planifie", "en_cours", "termine"].includes(task.status) ? task.status : "planifie",
+    createdAt: String(task.createdAt || new Date().toISOString()),
+  };
+}
+
 function normalizeTicket(ticket) {
   const suggestedSpecialty = getSpecialtyKeys().includes(ticket.suggestedSpecialty)
     ? ticket.suggestedSpecialty
@@ -403,8 +418,9 @@ function loadState() {
   if (!saved) return;
 
   try {
-    state.users   = Array.isArray(saved.users)   ? saved.users.map((user)     => normalizeUser(user))     : [];
-    state.tickets = Array.isArray(saved.tickets) ? saved.tickets.map((ticket) => normalizeTicket(ticket)) : [];
+    state.users         = Array.isArray(saved.users)         ? saved.users.map((user)   => normalizeUser(user))       : [];
+    state.tickets       = Array.isArray(saved.tickets)       ? saved.tickets.map((tk)   => normalizeTicket(tk))       : [];
+    state.planningTasks = Array.isArray(saved.planningTasks) ? saved.planningTasks.map((pt) => normalizePlanningTask(pt)) : [];
 
     const savedByRole = saved.currentUserByRole || {};
     state.currentUserByRole = {
@@ -460,6 +476,7 @@ function persistState() {
   window.FlowDeskApi?.saveState({
     users: state.users,
     tickets: state.tickets,
+    planningTasks: state.planningTasks,
     currentUserByRole: state.currentUserByRole,
   });
 }
@@ -1877,6 +1894,182 @@ function renderManagerUtilisateurs(container) {
   renderContent();
 }
 
+function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
+  const isEdit = !!task;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h3>${isEdit ? t("plan.task.edit") : t("plan.task.new")}</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <form class="modal-form form-grid" id="taskModalForm">
+        <div class="field full">
+          <label for="tm-title">${t("plan.task.title.label")} <span style="color:#c0392b">*</span></label>
+          <input id="tm-title" name="title" type="text" value="${escHtml(task?.title || "")}" required autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="tm-date">${t("plan.task.date.label")}</label>
+          <input id="tm-date" name="date" type="date" value="${escHtml(task?.date || date || today())}" required />
+        </div>
+        <div class="field">
+          <label for="tm-collab">${t("plan.task.collab.label")}</label>
+          <select id="tm-collab" name="collaboratorId">
+            <option value="">${t("plan.task.none")}</option>
+            ${collaborators.map((c) => `<option value="${escHtml(c.id)}" ${task?.collaboratorId === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="tm-status">${t("plan.task.status.label")}</label>
+          <select id="tm-status" name="status">
+            <option value="planifie" ${(!task || task.status === "planifie") ? "selected" : ""}>${t("status.planifie")}</option>
+            <option value="en_cours" ${task?.status === "en_cours" ? "selected" : ""}>${t("status.en_cours")}</option>
+            <option value="termine" ${task?.status === "termine" ? "selected" : ""}>${t("status.termine")}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="tm-hours">${t("plan.task.hours.label")}</label>
+          <input id="tm-hours" name="estimatedHours" type="number" min="0.25" max="24" step="0.25" value="${task?.estimatedHours ?? 1}" />
+        </div>
+        <div class="field">
+          <label for="tm-actual">${t("plan.task.actual.label")}</label>
+          <input id="tm-actual" name="actualHours" type="number" min="0" max="24" step="0.25" value="${task?.actualHours ?? ""}" placeholder="—" />
+        </div>
+        <div class="field full">
+          <label for="tm-desc">${t("plan.task.notes.label")}</label>
+          <textarea id="tm-desc" name="description" rows="2" placeholder="${escHtml(t("plan.task.notes.ph"))}">${escHtml(task?.description || "")}</textarea>
+        </div>
+        <div class="field full modal-actions">
+          ${isEdit ? `<button type="button" class="button button-danger" id="tm-delete">${t("plan.task.delete")}</button>` : ""}
+          <button type="submit" class="button">${isEdit ? t("plan.task.save") : t("plan.task.create")}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
+
+  if (isEdit) {
+    overlay.querySelector("#tm-delete").addEventListener("click", () => {
+      if (!confirm(t("plan.task.delete.confirm"))) return;
+      state.planningTasks = (state.planningTasks || []).filter((pt) => pt.id !== task.id);
+      persistState();
+      close();
+      onSave();
+    });
+  }
+
+  overlay.querySelector("#taskModalForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const actualRaw = fd.get("actualHours");
+    const saved = normalizePlanningTask({
+      id: isEdit ? task.id : nextPlanningTaskId(),
+      title: fd.get("title"),
+      description: fd.get("description"),
+      collaboratorId: fd.get("collaboratorId"),
+      date: fd.get("date"),
+      estimatedHours: fd.get("estimatedHours"),
+      actualHours: actualRaw !== "" ? actualRaw : null,
+      status: fd.get("status"),
+      createdAt: isEdit ? task.createdAt : new Date().toISOString(),
+    });
+    if (isEdit) {
+      state.planningTasks = (state.planningTasks || []).map((pt) => pt.id === saved.id ? saved : pt);
+    } else {
+      if (!Array.isArray(state.planningTasks)) state.planningTasks = [];
+      state.planningTasks.push(saved);
+    }
+    persistState();
+    close();
+    onSave();
+  });
+}
+
+function exportPlanningExcel(collaborators, weekDays) {
+  if (typeof XLSX === "undefined") {
+    toast(t("plan.export.unavail"));
+    return;
+  }
+  const startDate = weekDays[0].toISOString().slice(0, 10);
+  const endDate = weekDays[weekDays.length - 1].toISOString().slice(0, 10);
+
+  const allRows = [];
+
+  state.tickets
+    .filter((tk) => {
+      const d = tk.plannedDate || tk.desiredDate;
+      return d && d >= startDate && d <= endDate && ["planifie", "en_cours", "termine"].includes(tk.status);
+    })
+    .forEach((tk) => {
+      const assignee = findUser(tk.assignedTo);
+      allRows.push({
+        Date: tk.plannedDate || tk.desiredDate || "",
+        Titre: tk.title || "",
+        Type: "Ticket",
+        Référence: tk.id,
+        Collaborateur: assignee ? assignee.name : "—",
+        "Heures estimées": tk.estimatedHours || 0,
+        "Heures réelles": tk.actualHours != null ? tk.actualHours : "—",
+        Statut: statusLabel(tk.status),
+        Catégorie: Array.isArray(tk.categoryPath) ? tk.categoryPath.join(" › ") : (tk.categoryValue || ""),
+      });
+    });
+
+  (state.planningTasks || [])
+    .filter((pt) => pt.date >= startDate && pt.date <= endDate)
+    .forEach((pt) => {
+      const assignee = collaborators.find((c) => c.id === pt.collaboratorId);
+      allRows.push({
+        Date: pt.date,
+        Titre: pt.title,
+        Type: "Tâche planning",
+        Référence: pt.id,
+        Collaborateur: assignee ? assignee.name : "—",
+        "Heures estimées": pt.estimatedHours || 0,
+        "Heures réelles": pt.actualHours != null ? pt.actualHours : "—",
+        Statut: statusLabel(pt.status),
+        Catégorie: pt.description || "",
+      });
+    });
+
+  if (allRows.length === 0) {
+    toast(t("plan.export.empty"));
+    return;
+  }
+
+  allRows.sort((a, b) => {
+    if (a.Date < b.Date) return -1;
+    if (a.Date > b.Date) return 1;
+    return a.Collaborateur.localeCompare(b.Collaborateur);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const wsAll = XLSX.utils.json_to_sheet(allRows);
+  XLSX.utils.book_append_sheet(wb, wsAll, "Toutes les tâches");
+
+  const byCollab = {};
+  allRows.forEach((row) => {
+    const key = row.Collaborateur || "Non assigné";
+    if (!byCollab[key]) byCollab[key] = [];
+    byCollab[key].push(row);
+  });
+  Object.entries(byCollab).forEach(([name, rows]) => {
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+  });
+
+  const filename = `famitask_planning_${startDate}_${endDate}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  toast(`${t("plan.export.done")} ${filename}`);
+}
+
 function renderManagerPlanning(container, collaborators) {
   function getWeekDays() {
     const now = new Date();
@@ -1894,58 +2087,85 @@ function renderManagerPlanning(container, collaborators) {
   function renderWeek() {
     const days = getWeekDays();
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
-    let calTickets = state.tickets.filter((t_) => ["planifie", "en_cours", "termine"].includes(t_.status));
+
+    let calTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status));
+    let calTasks   = (state.planningTasks || []).slice();
     if (planningFilterCollab) {
-      calTickets = calTickets.filter((t_) => t_.assignedTo === planningFilterCollab);
+      calTickets = calTickets.filter((tk) => tk.assignedTo === planningFilterCollab);
+      calTasks   = calTasks.filter((pt) => pt.collaboratorId === planningFilterCollab);
     }
+
+    const weekStart = days[0].toISOString().slice(0, 10);
+    const weekEnd   = days[6].toISOString().slice(0, 10);
+    const weekTickets = calTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= weekStart && d <= weekEnd; });
+    const weekTasks   = calTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
+    const weekTotal   = [...weekTickets, ...weekTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
 
     container.innerHTML = `
       <section class="card">
         <div class="section-head">
           <div>
             <h2>${t("plan.title")}</h2>
-            <p class="subtle">${weekLabel}</p>
+            <p class="subtle">${weekLabel} · ${t("plan.week.total")} <strong>${formatHours(weekTotal)}</strong></p>
           </div>
           <div class="planning-controls">
             <button class="button ghost" id="prevWeekBtn">${t("plan.prev")}</button>
             <button class="button ghost" id="todayBtn">${t("plan.today")}</button>
             <button class="button ghost" id="nextWeekBtn">${t("plan.next")}</button>
+            <button class="button" id="exportExcelBtn" style="background:var(--accent-strong);">${t("plan.export")}</button>
           </div>
         </div>
         <div class="planning-filter-bar">
           <label for="planCollab">${t("plan.collab.label")}</label>
           <select id="planCollab">
             <option value="">${t("plan.collab.all")}</option>
-            ${collaborators.map((c) => `<option value="${c.id}" ${planningFilterCollab === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
+            ${collaborators.map((c) => `<option value="${escHtml(c.id)}" ${planningFilterCollab === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
           </select>
         </div>
         <div class="cal-week">
           ${days.map((day) => {
-            const dateStr = day.toISOString().slice(0, 10);
-            const dayTickets = calTickets.filter((t) => (t.plannedDate || t.desiredDate) === dateStr);
-            const isToday = dateStr === today();
-            const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
-            const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            const dateStr   = day.toISOString().slice(0, 10);
+            const dayTickets = calTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
+            const dayTasks   = calTasks.filter((pt) => pt.date === dateStr);
+            const isToday    = dateStr === today();
+            const dayName    = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
+            const dayNum     = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            const dayTotal   = [...dayTickets, ...dayTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+            const isEmpty    = dayTickets.length === 0 && dayTasks.length === 0;
             return `
               <div class="cal-day${isToday ? " cal-day--today" : ""}">
                 <div class="cal-day-head">
-                  <span class="cal-weekday">${dayName}</span>
-                  <span class="cal-daynum">${dayNum}</span>
+                  <div class="cal-day-head-left">
+                    <span class="cal-weekday">${dayName}</span>
+                    <span class="cal-daynum">${dayNum}</span>
+                  </div>
+                  <button class="cal-add-btn" data-add-date="${escHtml(dateStr)}" title="${escHtml(t("plan.task.new"))}">+</button>
                 </div>
+                ${dayTotal > 0 ? `<div class="cal-day-total">${formatHours(dayTotal)}</div>` : ""}
                 <div class="cal-day-body">
-                  ${dayTickets.length === 0
-                    ? '<span class="cal-empty">—</span>'
-                    : dayTickets.map((t) => {
-                        const assignee = findUser(t.assignedTo);
-                        return `
-                          <div class="cal-ticket" data-status="${t.status}" data-priority="${t.priority}">
-                            <span class="cal-ticket-title">${escHtml(t.title)}</span>
-                            ${assignee ? `<span class="cal-ticket-who">${escHtml(assignee.name)}</span>` : ""}
-                            <span class="cal-ticket-hours">${formatHours(t.estimatedHours || 0)}</span>
-                            <span class="badge badge-status" data-status="${t.status}">${statusLabel(t.status)}</span>
-                          </div>
-                        `;
-                      }).join("")}
+                  ${isEmpty ? '<span class="cal-empty">—</span>' : ""}
+                  ${dayTickets.map((tk) => {
+                    const assignee = findUser(tk.assignedTo);
+                    return `
+                      <div class="cal-ticket" data-status="${tk.status}" data-priority="${tk.priority}">
+                        <span class="cal-ticket-title">${escHtml(tk.title)}</span>
+                        ${assignee ? `<span class="cal-ticket-who">${escHtml(assignee.name)}</span>` : ""}
+                        <span class="cal-ticket-hours">${formatHours(tk.estimatedHours || 0)}</span>
+                        <span class="badge badge-status" data-status="${tk.status}">${statusLabel(tk.status)}</span>
+                      </div>
+                    `;
+                  }).join("")}
+                  ${dayTasks.map((pt) => {
+                    const assignee = collaborators.find((c) => c.id === pt.collaboratorId);
+                    return `
+                      <button class="cal-task-item" data-task-id="${escHtml(pt.id)}" data-status="${pt.status}" title="${escHtml(t("plan.task.edit"))}">
+                        <span class="cal-task-title">${escHtml(pt.title)}</span>
+                        ${assignee ? `<span class="cal-task-who">${escHtml(assignee.name)}</span>` : ""}
+                        <span class="cal-task-hours">${formatHours(pt.estimatedHours || 0)}${pt.actualHours != null ? ` / ${formatHours(pt.actualHours)}` : ""}</span>
+                        <span class="badge badge-status" data-status="${pt.status}">${statusLabel(pt.status)}</span>
+                      </button>
+                    `;
+                  }).join("")}
                 </div>
               </div>
             `;
@@ -1958,6 +2178,22 @@ function renderManagerPlanning(container, collaborators) {
     container.querySelector("#todayBtn").addEventListener("click", () => { planningWeekOffset = 0; renderWeek(); });
     container.querySelector("#nextWeekBtn").addEventListener("click", () => { planningWeekOffset++; renderWeek(); });
     container.querySelector("#planCollab").addEventListener("change", (e) => { planningFilterCollab = e.target.value; renderWeek(); });
+    container.querySelector("#exportExcelBtn").addEventListener("click", () => exportPlanningExcel(collaborators, days));
+
+    container.querySelectorAll(".cal-add-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showPlanningTaskModal({ date: e.currentTarget.dataset.addDate, collaborators, onSave: renderWeek });
+      });
+    });
+
+    container.querySelectorAll(".cal-task-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const taskId = btn.dataset.taskId;
+        const found = (state.planningTasks || []).find((pt) => pt.id === taskId);
+        if (found) showPlanningTaskModal({ date: found.date, collaborators, task: found, onSave: renderWeek });
+      });
+    });
   }
 
   renderWeek();
@@ -2588,7 +2824,7 @@ function renderManagerForm(ticket, collaborators) {
   function buildMailtoHref(prestId) {
     const p = prestataires.find((x) => x.id === prestId);
     if (!p || !p.email) return "#";
-    const subject = encodeURIComponent(`[Flow Desk] ${ticket.id} - ${ticket.title}`);
+    const subject = encodeURIComponent(`[FamiTask] ${ticket.id} - ${ticket.title}`);
     const body = encodeURIComponent([
       `Référence : ${ticket.id}`,
       `Catégorie : ${(Array.isArray(ticket.categoryPath) ? ticket.categoryPath.join(" > ") : "") || ticket.categoryValue || "-"}`,
@@ -2600,7 +2836,7 @@ function renderManagerForm(ticket, collaborators) {
       `Compétence requise : ${specialtyLabel(ticket.suggestedSpecialty || "general")}`,
       "",
       "Merci de prendre contact pour confirmer l'intervention.",
-      "— Flow Desk / Famiflora",
+      "— FamiTask / Famiflora",
     ].join("\n"));
     return `mailto:${p.email}?subject=${subject}&body=${body}`;
   }
@@ -2800,6 +3036,14 @@ function nextTicketId() {
     .filter((value) => !Number.isNaN(value))
     .sort((left, right) => right - left)[0] || 1000;
   return `T-${lastId + 1}`;
+}
+
+function nextPlanningTaskId() {
+  const last = (state.planningTasks || [])
+    .map((pt) => Number(String(pt.id).replace("PT-", "")))
+    .filter((n) => !isNaN(n))
+    .sort((a, b) => b - a)[0] || 0;
+  return `PT-${last + 1}`;
 }
 
 function nextUserId() {

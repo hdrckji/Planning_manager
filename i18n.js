@@ -3,13 +3,13 @@ const TRANSLATIONS = {
   fr: {
     // ── Général ────────────────────────────────────────────────────────────
     "app.brand":          "Famiflora",
-    "app.name":           "Flow Desk",
+    "app.name":           "FamiTask",
     "lang.toggle":        "NL",
     "lang.current":       "FR",
 
     // ── Portail (index.html) ───────────────────────────────────────────────
     "portal.sub":         "Portail interne de ticketing et de gestion des interventions.\nChoisissez votre espace pour commencer.",
-    "portal.footer":      "Flow Desk — Usage interne Famiflora",
+    "portal.footer":      "FamiTask — Usage interne Famiflora",
 
     "role.employee.tag":  "Magasin",
     "role.employee.title":"Espace employé",
@@ -260,12 +260,32 @@ const TRANSLATIONS = {
     "tree.keep.one":      "Conservez au moins une catégorie racine.",
 
     // ── Planning ───────────────────────────────────────────────────────────
-    "plan.title":         "Planning collaborateurs",
-    "plan.collab.all":    "Tous",
-    "plan.collab.label":  "Collaborateur :",
-    "plan.prev":          "← Préc.",
-    "plan.today":         "Aujourd'hui",
-    "plan.next":          "Suiv. →",
+    "plan.title":              "Planning collaborateurs",
+    "plan.collab.all":         "Tous",
+    "plan.collab.label":       "Collaborateur :",
+    "plan.prev":               "← Préc.",
+    "plan.today":              "Aujourd'hui",
+    "plan.next":               "Suiv. →",
+    "plan.export":             "Exporter Excel",
+    "plan.task.new":           "Nouvelle tâche",
+    "plan.task.edit":          "Modifier la tâche",
+    "plan.task.title.label":   "Titre",
+    "plan.task.date.label":    "Date",
+    "plan.task.hours.label":   "Heures estimées",
+    "plan.task.actual.label":  "Heures réelles",
+    "plan.task.collab.label":  "Collaborateur",
+    "plan.task.status.label":  "Statut",
+    "plan.task.notes.label":   "Notes",
+    "plan.task.none":          "— Non assigné —",
+    "plan.task.notes.ph":      "Description optionnelle…",
+    "plan.task.save":          "Enregistrer",
+    "plan.task.create":        "Créer la tâche",
+    "plan.task.delete":        "Supprimer",
+    "plan.task.delete.confirm":"Supprimer cette tâche ?",
+    "plan.export.empty":       "Aucune donnée à exporter pour cette période.",
+    "plan.export.done":        "Export téléchargé :",
+    "plan.export.unavail":     "Bibliothèque Excel non disponible.",
+    "plan.week.total":         "Total semaine :",
 
     // ── Collaborateur ──────────────────────────────────────────────────────
     "collab.planning":    "Mon planning",
@@ -343,13 +363,13 @@ const TRANSLATIONS = {
   nl: {
     // ── Général ────────────────────────────────────────────────────────────
     "app.brand":          "Famiflora",
-    "app.name":           "Flow Desk",
+    "app.name":           "FamiTask",
     "lang.toggle":        "FR",
     "lang.current":       "NL",
 
     // ── Portaal ────────────────────────────────────────────────────────────
     "portal.sub":         "Intern ticketingsysteem voor interventiebeheer.\nKies uw ruimte om te beginnen.",
-    "portal.footer":      "Flow Desk — Intern gebruik Famiflora",
+    "portal.footer":      "FamiTask — Intern gebruik Famiflora",
 
     "role.employee.tag":  "Winkel",
     "role.employee.title":"Medewerkerruimte",
@@ -600,12 +620,32 @@ const TRANSLATIONS = {
     "tree.keep.one":      "Behoud minstens één hoofdcategorie.",
 
     // ── Planning ───────────────────────────────────────────────────────────
-    "plan.title":         "Medewerkerplanning",
-    "plan.collab.all":    "Allen",
-    "plan.collab.label":  "Medewerker:",
-    "plan.prev":          "← Vorige",
-    "plan.today":         "Vandaag",
-    "plan.next":          "Volgende →",
+    "plan.title":              "Medewerkerplanning",
+    "plan.collab.all":         "Allen",
+    "plan.collab.label":       "Medewerker:",
+    "plan.prev":               "← Vorige",
+    "plan.today":              "Vandaag",
+    "plan.next":               "Volgende →",
+    "plan.export":             "Excel exporteren",
+    "plan.task.new":           "Nieuwe taak",
+    "plan.task.edit":          "Taak bewerken",
+    "plan.task.title.label":   "Titel",
+    "plan.task.date.label":    "Datum",
+    "plan.task.hours.label":   "Geschatte uren",
+    "plan.task.actual.label":  "Werkelijke uren",
+    "plan.task.collab.label":  "Medewerker",
+    "plan.task.status.label":  "Status",
+    "plan.task.notes.label":   "Notities",
+    "plan.task.none":          "— Niet toegewezen —",
+    "plan.task.notes.ph":      "Optionele beschrijving…",
+    "plan.task.save":          "Opslaan",
+    "plan.task.create":        "Taak aanmaken",
+    "plan.task.delete":        "Verwijderen",
+    "plan.task.delete.confirm":"Deze taak verwijderen?",
+    "plan.export.empty":       "Geen gegevens om te exporteren voor deze periode.",
+    "plan.export.done":        "Export gedownload:",
+    "plan.export.unavail":     "Excel-bibliotheek niet beschikbaar.",
+    "plan.week.total":         "Week totaal:",
 
     // ── Collaborateur ──────────────────────────────────────────────────────
     "collab.planning":    "Mijn planning",

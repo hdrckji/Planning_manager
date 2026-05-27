@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow Desk - Espace Responsable</title>
+    <title>FamiTask - Espace Responsable</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,16 +16,21 @@
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Famiflora</p>
-          <h1>Flow Desk</h1>
+          <div class="site-logo">
+            <img src="assets/logo.svg" alt="FamiTask" class="site-logo-img" />
+            <div class="site-logo-text">
+              <span class="site-logo-name">Fami<strong>Task</strong></span>
+              <span class="site-logo-sub">Ticketing &amp; Services Famiflora</span>
+            </div>
+          </div>
           <p class="hero-text" data-i18n="page.manager.hero">
             Espace de pilotage pour valider, attribuer et planifier les demandes
-            par departement.
+            par département.
           </p>
         </div>
 
         <div class="hero-panel card" style="display:none" aria-hidden="true">
-          <label for="currentUser">Profil connecte</label>
+          <label for="currentUser">Profil connecté</label>
           <select id="currentUser"></select>
           <div class="current-user-meta">
             <span id="currentRoleBadge" class="badge"></span>
@@ -84,6 +89,7 @@
       </article>
     </template>
 
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="i18n.js"></script>
     <script src="config.js"></script>
     <script src="api.js"></script>

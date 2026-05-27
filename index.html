@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow Desk · Famiflora</title>
+    <title>FamiTask · Famiflora</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -79,12 +79,26 @@
         background: #2a7a3b;
       }
 
+      .portal__logo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        margin-bottom: 20px;
+      }
+
+      .portal__logo-img {
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+      }
+
       .portal__title {
         font-family: "Fraunces", serif;
-        font-size: clamp(3.4rem, 9vw, 6.2rem);
+        font-size: clamp(3rem, 8vw, 5.4rem);
         font-weight: 700;
         line-height: 0.95;
-        margin: 0 0 20px;
+        margin: 0;
         color: #1a2e1f;
         letter-spacing: -0.02em;
       }
@@ -332,8 +346,13 @@
           max-width: 100%;
         }
 
+        .portal__logo-img {
+          width: 54px;
+          height: 54px;
+        }
+
         .portal__title {
-          font-size: clamp(2.2rem, 8vw, 4.2rem);
+          font-size: clamp(2rem, 7vw, 3.6rem);
         }
 
         .portal__sub {
@@ -662,7 +681,10 @@
 
       <header class="portal__header">
         <div class="portal__badge">Famiflora</div>
-        <h1 class="portal__title">Flow<em>Desk</em></h1>
+        <div class="portal__logo">
+          <img src="assets/logo.svg" alt="FamiTask" class="portal__logo-img" />
+          <h1 class="portal__title">Fami<em>Task</em></h1>
+        </div>
         <p class="portal__sub">
           Portail interne de ticketing et de gestion des interventions.<br>
           Choisissez votre espace pour commencer.
@@ -725,7 +747,7 @@
       </main>
 
       <footer class="portal__footer">
-        Flow Desk &mdash; Usage interne Famiflora &nbsp;&middot;&nbsp; <span id="yr"></span>
+        FamiTask &mdash; Usage interne Famiflora &nbsp;&middot;&nbsp; <span id="yr"></span>
       </footer>
     </div>
     <div class="auth-modal" id="authModal" hidden>
