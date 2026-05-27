@@ -1,37 +1,18 @@
 <svg viewBox="0 0 200 230" xmlns="http://www.w3.org/2000/svg" aria-label="Famiflora">
-  <defs>
-    <!-- Outer dark leaf: elongated teardrop pointing up from origin -->
-    <path id="ol" d="M0,0 C20,-14, 24,-46, 0,-72 C-24,-46, -20,-14, 0,0 Z"/>
-    <!-- Inner bright leaf: slightly narrower and shorter -->
-    <path id="il" d="M0,0 C13,-10, 15,-34, 0,-54 C-15,-34, -13,-10, 0,0 Z"/>
-  </defs>
+  <!-- 4 outer dark-green petals at ±45° / ±135° -->
+  <path fill="#1A5228" transform="translate(100,105) rotate(-45)"  d="M0,0 C28,-16,32,-50,0,-68 C-32,-50,-28,-16,0,0 Z"/>
+  <path fill="#1A5228" transform="translate(100,105) rotate(45)"   d="M0,0 C28,-16,32,-50,0,-68 C-32,-50,-28,-16,0,0 Z"/>
+  <path fill="#1A5228" transform="translate(100,105) rotate(135)"  d="M0,0 C28,-16,32,-50,0,-68 C-32,-50,-28,-16,0,0 Z"/>
+  <path fill="#1A5228" transform="translate(100,105) rotate(-135)" d="M0,0 C28,-16,32,-50,0,-68 C-32,-50,-28,-16,0,0 Z"/>
 
-  <g transform="translate(100,108)">
-    <!-- ── Outer dark green petals (45° intervals, diagonal) ── -->
-    <use href="#ol" fill="#1E5C2A" transform="rotate(-45)"/>
-    <use href="#ol" fill="#1E5C2A" transform="rotate(45)"/>
-    <use href="#ol" fill="#1E5C2A" transform="rotate(135)"/>
-    <use href="#ol" fill="#1E5C2A" transform="rotate(-135)"/>
+  <!-- 4 inner bright-green petals, each rotated ~20° toward the vertical axis -->
+  <path fill="#6CC230" transform="translate(100,105) rotate(-22)"  d="M0,0 C18,-12,20,-38,0,-54 C-20,-38,-18,-12,0,0 Z"/>
+  <path fill="#6CC230" transform="translate(100,105) rotate(22)"   d="M0,0 C18,-12,20,-38,0,-54 C-20,-38,-18,-12,0,0 Z"/>
+  <path fill="#6CC230" transform="translate(100,105) rotate(158)"  d="M0,0 C18,-12,20,-38,0,-54 C-20,-38,-18,-12,0,0 Z"/>
+  <path fill="#6CC230" transform="translate(100,105) rotate(-158)" d="M0,0 C18,-12,20,-38,0,-54 C-20,-38,-18,-12,0,0 Z"/>
 
-    <!-- ── Inner bright green petals (offset ~20° inward) ── -->
-    <!-- Top-left: outer at -45°, inner points more upward at -25° -->
-    <use href="#il" fill="#6CC230" transform="rotate(-25)"/>
-    <!-- Top-right: outer at 45°, inner at 25° -->
-    <use href="#il" fill="#6CC230" transform="rotate(25)"/>
-    <!-- Bottom-right: outer at 135°, inner at 155° -->
-    <use href="#il" fill="#6CC230" transform="rotate(155)"/>
-    <!-- Bottom-left: outer at -135°, inner at -155° -->
-    <use href="#il" fill="#6CC230" transform="rotate(-155)"/>
-  </g>
-
-  <!-- famiflora wordmark -->
-  <text
-    x="100" y="207"
-    text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="28"
-    font-weight="700"
-    fill="#1E5C2A"
-    letter-spacing="-0.5"
-  >famiflora</text>
+  <!-- wordmark -->
+  <text x="100" y="208" text-anchor="middle"
+        font-family="Georgia,'Times New Roman',serif"
+        font-size="27" font-weight="700" fill="#1A5228" letter-spacing="-0.3">famiflora</text>
 </svg>
