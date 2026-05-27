@@ -1530,6 +1530,7 @@ function renderManagerTicketTable(container, tickets, collaborators) {
                     <p><strong>${escHtml(ticket.title)}</strong></p>
                     <p>${escHtml(ticket.description || "-")}</p>
                     <dl class="ticket-details">${renderDetails(ticket)}</dl>
+                    ${ticket.photoDataUrl ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><img class="ticket-photo" src="${ticket.photoDataUrl}" alt="Photo de la demande" /></div>` : ""}
                     <div data-manager-form-host="${ticket.id}"></div>
                   </div>
                 </td>
@@ -1991,6 +1992,88 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
     close();
     onSave();
   });
+}
+
+function showTicketDetailModal(ticket) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+
+  const detailsHtml = renderDetails(ticket);
+  const hasPhoto = !!ticket.photoDataUrl;
+
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true" style="max-width:560px">
+      <div class="modal-head">
+        <h3>${escHtml(ticket.title)}</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div style="padding:0 20px 20px">
+        <div class="ticket-meta-row" style="margin-bottom:10px">
+          <span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span>
+          <span class="badge badge-priority" data-priority="${ticket.priority}">${priorityLabel(ticket.priority)}</span>
+        </div>
+        ${ticket.description ? `<p style="margin:0 0 12px">${escHtml(ticket.description)}</p>` : ""}
+        <dl class="ticket-details">${detailsHtml}</dl>
+        ${hasPhoto ? `<div class="ticket-photo-wrap" style="margin-top:12px"><p class="detail-label">Photo</p><div id="tdm-photo-host"></div></div>` : ""}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  if (hasPhoto) {
+    const img = document.createElement("img");
+    img.className = "ticket-photo";
+    img.alt = "Illustration de la demande";
+    img.src = ticket.photoDataUrl;
+    overlay.querySelector("#tdm-photo-host").appendChild(img);
+  }
+
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+}
+
+function showIcalModal(url) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true" style="max-width:480px">
+      <div class="modal-head">
+        <h3>Synchronisation Calendrier</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div style="padding:0 20px 20px;display:grid;gap:14px">
+        <p>Copiez ce lien et ajoutez-le à Google Calendar, Outlook ou tout autre agenda compatible iCal&nbsp;:</p>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="icalUrlInput" type="text" value="${escHtml(url)}" readonly
+            style="flex:1;border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;font-size:0.78rem;background:#f9f9f9" />
+          <button class="button" type="button" id="icalCopyBtn">Copier</button>
+        </div>
+        <p class="subtle" style="font-size:0.8rem">
+          Dans Google Calendar : &laquo;&nbsp;Autres agendas → Depuis l'URL&nbsp;&raquo;<br>
+          Dans Outlook : &laquo;&nbsp;Ajouter un calendrier → Abonnement&nbsp;&raquo;
+        </p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector("#icalCopyBtn").addEventListener("click", () => {
+    navigator.clipboard.writeText(url).then(() => {
+      const btn = overlay.querySelector("#icalCopyBtn");
+      btn.textContent = "Copié !";
+      setTimeout(() => { btn.textContent = "Copier"; }, 2000);
+    });
+  });
+
+  overlay.querySelector("#icalUrlInput").addEventListener("click", (e) => { e.target.select(); });
 }
 
 function exportPlanningExcel(collaborators, weekDays) {
@@ -2480,6 +2563,7 @@ function renderCollaboratorPage() {
             <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
             <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
             <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
+            <button class="button ghost" type="button" id="collabIcalBtn" title="Synchroniser avec Google Calendar / Outlook">📅 iCal</button>
           </div>
         </div>
 
@@ -2567,7 +2651,7 @@ function renderCollaboratorPage() {
                         ? `<button class="button" type="button" data-action="collab-finish" data-ticket-id="${ticket.id}">${t("collab.finish")}</button>`
                         : "";
                     return `
-                      <article class="cal-ticket" data-priority="${ticket.priority}">
+                      <article class="cal-ticket is-clickable" data-priority="${ticket.priority}" data-ticket-id="${escHtml(ticket.id)}" role="button" tabindex="0">
                         <span class="cal-ticket-title">${escHtml(ticket.title)}</span>
                         <span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span>
                         <span class="cal-ticket-hours">${formatHours(ticket.estimatedHours || 0)}</span>
@@ -2603,6 +2687,11 @@ function renderCollaboratorPage() {
       renderWeek();
     });
 
+    refs.mainView.querySelector("#collabIcalBtn")?.addEventListener("click", () => {
+      const url = getIcalUrl(currentUser.id);
+      showIcalModal(url);
+    });
+
     refs.mainView.querySelectorAll("[data-action='collab-start']").forEach((button) => {
       button.addEventListener("click", () => {
         updateTicket(button.dataset.ticketId, { status: "en_cours" });
@@ -2615,6 +2704,17 @@ function renderCollaboratorPage() {
         updateTicket(button.dataset.ticketId, { status: "termine" });
         toast(t("collab.finished"));
       });
+    });
+
+    refs.mainView.querySelectorAll(".cal-ticket[data-ticket-id]").forEach((article) => {
+      const openDetail = (e) => {
+        if (e.target.closest("button")) return;
+        const ticketId = article.dataset.ticketId;
+        const ticket = state.tickets.find((tk) => tk.id === ticketId);
+        if (ticket) showTicketDetailModal(ticket);
+      };
+      article.addEventListener("click", openDetail);
+      article.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(e); } });
     });
   }
 
@@ -3315,10 +3415,27 @@ function today() {
 
 function toDataUrl(file) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Impossible de lire la photo."));
-    reader.readAsDataURL(file);
+    const MAX_W = 1200;
+    const MAX_H = 900;
+    const QUALITY = 0.75;
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      let { width, height } = img;
+      if (width > MAX_W || height > MAX_H) {
+        const ratio = Math.min(MAX_W / width, MAX_H / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", QUALITY));
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Impossible de lire la photo.")); };
+    img.src = objectUrl;
   });
 }
 

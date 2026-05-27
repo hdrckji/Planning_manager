@@ -65,7 +65,6 @@ textarea {
   margin-bottom: 24px;
 }
 
-.hero-copy,
 .card {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -76,20 +75,16 @@ textarea {
 }
 
 .hero-copy {
-  padding: 28px;
+  padding: 28px 0 20px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .hero-copy::after {
-  content: "";
-  position: absolute;
-  inset: auto -40px -50px auto;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.22), rgba(8, 145, 178, 0.14) 50%, transparent 70%);
-  pointer-events: none;
+  content: none;
 }
 
 .eyebrow {
@@ -1136,14 +1131,7 @@ textarea {
   }
 
   .hero-copy {
-    padding: 16px;
-  }
-
-  .hero-copy::after {
-    width: 100px;
-    height: 100px;
-    inset: auto -20px -20px auto;
-    opacity: 0.6;
+    padding: 16px 0 12px;
   }
 
   h1 {
@@ -2273,6 +2261,19 @@ textarea {
 
 .cal-ticket[data-priority="moyenne"] {
   border-left: 3px solid var(--gold);
+}
+
+.cal-ticket.is-clickable {
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.cal-ticket.is-clickable:hover,
+.cal-ticket.is-clickable:focus-visible {
+  background: rgba(255, 250, 241, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+  outline: none;
 }
 
 .cal-ticket-title {
