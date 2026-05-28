@@ -463,8 +463,9 @@ function loadState() {
       collaborator: typeof savedByRole.collaborator === "string" ? savedByRole.collaborator : "",
     };
   } catch {
-    state.users   = [];
-    state.tickets = [];
+    state.users         = [];
+    state.tickets       = [];
+    state.planningTasks = [];
   }
 }
 
@@ -505,6 +506,19 @@ function enforcePageUserRole() {
 function persistState() {
   if (window.FlowDeskApi?.isReadOnly?.()) {
     return;
+  }
+  // Safety guard: never overwrite existing server data with an empty client state.
+  // This prevents accidental data loss when loadState() fails silently.
+  const serverState = window.FlowDeskApi?.getCachedState?.();
+  if (serverState) {
+    const serverHasUsers = Array.isArray(serverState.users) && serverState.users.length > 0;
+    const serverHasTasks = Array.isArray(serverState.planningTasks) && serverState.planningTasks.length > 0;
+    const clientHasUsers = state.users.length > 0;
+    const clientHasTasks = state.planningTasks.length > 0;
+    if ((serverHasUsers && !clientHasUsers) || (serverHasTasks && !clientHasTasks && serverHasUsers)) {
+      console.warn("persistState: skipped — would overwrite server data with empty client state");
+      return;
+    }
   }
   state.currentUserByRole[pageConfig.role] = state.currentUserId || "";
   window.FlowDeskApi?.saveState({
@@ -2653,6 +2667,17 @@ function renderCollaboratorPage() {
     const weekHours = weekTasks.reduce((sum, item) => sum + normalizeHours(item.estimatedHours, 0), 0);
     const weekPlanned = weekTasks.filter((item) => item.status === "planifie").length;
     const weekInProgress = weekTasks.filter((item) => item.status === "en_cours").length;
+    const totalAllTasks = myPlanningTasks.length + tickets.length;
+
+    // Find nearest task date outside current week (for empty-week hint)
+    let nearestFutureDate = null;
+    let nearestPastDate = null;
+    for (const item of [...myPlanningTasks, ...tickets]) {
+      const d = item.date || item.plannedDate || item.desiredDate || "";
+      if (!d) continue;
+      if (d > weekEnd && (!nearestFutureDate || d < nearestFutureDate)) nearestFutureDate = d;
+      if (d < weekStart && (!nearestPastDate || d > nearestPastDate)) nearestPastDate = d;
+    }
 
     const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
 
@@ -2675,8 +2700,12 @@ function renderCollaboratorPage() {
 
         <div class="collab-kpi-row">
           <article class="collab-kpi-card">
+            <span class="collab-kpi-value">${totalAllTasks}</span>
+            <span class="collab-kpi-label">Total tâches</span>
+          </article>
+          <article class="collab-kpi-card">
             <span class="collab-kpi-value">${weekTasks.length}</span>
-            <span class="collab-kpi-label">${t("collab.task.count")} (${t("tab.planning")})</span>
+            <span class="collab-kpi-label">${t("collab.task.count")} (semaine)</span>
           </article>
           <article class="collab-kpi-card">
             <span class="collab-kpi-value">${todayTasks.length}</span>
@@ -2685,10 +2714,6 @@ function renderCollaboratorPage() {
           <article class="collab-kpi-card">
             <span class="collab-kpi-value">${weekPlanned}</span>
             <span class="collab-kpi-label">${statusLabel("planifie")}</span>
-          </article>
-          <article class="collab-kpi-card">
-            <span class="collab-kpi-value">${weekInProgress}</span>
-            <span class="collab-kpi-label">${statusLabel("en_cours")}</span>
           </article>
           <article class="collab-kpi-card collab-kpi-card--hours">
             <span class="collab-kpi-value">${formatHours(weekHours)}</span>
@@ -2730,7 +2755,18 @@ function renderCollaboratorPage() {
           `}
         </section>
 
-        ${weekTasks.length === 0 ? `<p class="subtle">${t("collab.task.none")}</p>` : ""}
+        ${weekTasks.length === 0 ? `
+          <div class="collab-empty-week">
+            ${totalAllTasks === 0
+              ? `<p class="subtle">Aucune tâche assignée pour l'instant.</p>`
+              : `<p class="subtle">Pas de tâche cette semaine.
+                  ${nearestFutureDate ? `Prochaine tâche : <strong>${formatDate(nearestFutureDate)}</strong>.` : ""}
+                  ${nearestPastDate && !nearestFutureDate ? `Dernière tâche : <strong>${formatDate(nearestPastDate)}</strong>.` : ""}
+                  Utilisez les boutons de navigation pour consulter les autres semaines.
+                </p>`
+            }
+          </div>
+        ` : ""}
         <div class="cal-week">
           ${days.map((day) => {
             const dateStr = day.toISOString().slice(0, 10);
