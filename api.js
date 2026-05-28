@@ -16,6 +16,7 @@
     tree: "famiflora-tree-config-v1",
     sites: "famiflora-sites-v1",
     oncall: "famiflora-oncall-v1",
+    teams: "famiflora-teams-v1",
   };
 
   // ── Cache mémoire ────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@
   let _cachedSpecialties  = null;
   let _cachedTree         = null;
   let _cachedSites        = null;
+  let _cachedTeams        = null;
   let _cachedOnCall       = null;
   let _readOnlyReason = "";
 
@@ -50,6 +52,7 @@
       tree: readLocalJson(STORAGE_KEYS.tree, null),
       sites: readLocalJson(STORAGE_KEYS.sites, []),
       oncall: readLocalJson(STORAGE_KEYS.oncall, null),
+      teams: readLocalJson(STORAGE_KEYS.teams, []),
     };
   }
 
@@ -60,6 +63,7 @@
     _cachedTree = snapshot.tree ?? null;
     _cachedSites = Array.isArray(snapshot.sites) ? snapshot.sites : [];
     _cachedOnCall = snapshot.oncall ?? null;
+    _cachedTeams = Array.isArray(snapshot.teams) ? snapshot.teams : [];
   }
 
   // ── Primitives HTTP ──────────────────────────────────────────────────────
@@ -112,17 +116,14 @@
       kvGetDetailed("flowdesk-tree"),
       kvGetDetailed("flowdesk-sites"),
       kvGetDetailed("flowdesk-oncall"),
-    ]).then(([stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes]) => {
-      const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes].some((item) => item.status === "error");
+      kvGetDetailed("flowdesk-teams"),
+    ]).then(([stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes, teamsRes]) => {
+      const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes, teamsRes].some((item) => item.status === "error");
       if (hadRemoteError && isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
         const emptySnapshot = {
-          state: null,
-          prestataires: [],
-          specialties: [],
-          tree: null,
-          sites: [],
-          oncall: null,
+          state: null, prestataires: [], specialties: [], tree: null,
+          sites: [], oncall: null, teams: [],
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -136,6 +137,7 @@
         tree: treeRes.value,
         sites: Array.isArray(sitesRes.value) ? sitesRes.value : [],
         oncall: oncallRes.value ?? null,
+        teams: Array.isArray(teamsRes.value) ? teamsRes.value : [],
       };
       applySnapshot(snapshot);
       return snapshot;
@@ -143,12 +145,8 @@
       if (isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
         const emptySnapshot = {
-          state: null,
-          prestataires: [],
-          specialties: [],
-          tree: null,
-          sites: [],
-          oncall: null,
+          state: null, prestataires: [], specialties: [], tree: null,
+          sites: [], oncall: null, teams: [],
         };
         applySnapshot(emptySnapshot);
         return emptySnapshot;
@@ -216,6 +214,14 @@
       _cachedOnCall = v;
       writeLocalJson(STORAGE_KEYS.oncall, v);
       kvSet("flowdesk-oncall", v);
+    },
+
+    // ── Équipes cibles personnalisées ─────────────────────────────────────
+    getTeams:  ()  => _cachedTeams ?? [],
+    saveTeams: (v) => {
+      _cachedTeams = v;
+      writeLocalJson(STORAGE_KEYS.teams, v);
+      kvSet("flowdesk-teams", v);
     },
   };
 })();

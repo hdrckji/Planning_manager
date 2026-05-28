@@ -92,8 +92,36 @@ const DEFAULT_TREE = [
 
 const STATUS_KEYS  = ["nouveau", "en_attente", "planifie", "en_cours", "termine"];
 const PRIORITY_KEYS = ["basse", "moyenne", "haute"];
-const TEAM_KEYS     = ["magasin", "technique", "decoration"];
+const BUILTIN_TARGET_TEAMS = ["technique", "decoration"];
+const TEAM_KEYS     = ["magasin", ...BUILTIN_TARGET_TEAMS];
 const INTERVENTION_DELAY_KEYS = ["asap", "h48", "week", "month"];
+
+function loadCustomTeams() {
+  try {
+    const raw = window.FlowDeskApi?.getTeams() ?? [];
+    return Array.isArray(raw) ? raw.filter((t) => t.key && t.label) : [];
+  } catch { return []; }
+}
+
+function saveCustomTeams(teams) {
+  window.FlowDeskApi?.saveTeams(teams);
+}
+
+function getAllTargetTeamKeys() {
+  return [...BUILTIN_TARGET_TEAMS, ...loadCustomTeams().map((t) => t.key)];
+}
+
+function getAllTeamKeys() {
+  return ["magasin", ...getAllTargetTeamKeys()];
+}
+
+function teamKeyToLabel(key) {
+  if (key === "magasin") return t("team.magasin");
+  if (key === "technique") return t("team.technique");
+  if (key === "decoration") return t("team.decoration");
+  const custom = loadCustomTeams().find((ct) => ct.key === key);
+  return custom ? custom.label : key;
+}
 const DEFAULT_SPECIALTIES = [
   { key: "general", i18nKey: "skill.general", teams: ["technique", "decoration"] },
   { key: "electricite", i18nKey: "skill.electricite", teams: ["technique"] },
@@ -146,7 +174,11 @@ function getSpecialtyDefinition(key) {
 
 function STATUS_LABELS() { return { nouveau: t("status.nouveau"), en_attente: t("status.en_attente"), planifie: t("status.planifie"), en_cours: t("status.en_cours"), termine: t("status.termine") }; }
 function PRIORITY_LABELS() { return { basse: t("priority.basse"), moyenne: t("priority.moyenne"), haute: t("priority.haute") }; }
-function TEAM_LABELS_MAP() { return { magasin: t("team.magasin"), technique: t("team.technique"), decoration: t("team.decoration") }; }
+function TEAM_LABELS_MAP() {
+  const map = { magasin: t("team.magasin"), technique: t("team.technique"), decoration: t("team.decoration") };
+  loadCustomTeams().forEach((ct) => { map[ct.key] = ct.label; });
+  return map;
+}
 
 const PAGE_CONFIG = {
   employee: {
@@ -190,7 +222,8 @@ function escHtml(str) {
 }
 
 function normalizeTeamKey(team) {
-  return TEAM_KEYS.includes(team) ? team : "technique";
+  if (getAllTeamKeys().includes(team)) return team;
+  return "technique";
 }
 
 function normalizeHours(value, fallback = 2) {
@@ -222,9 +255,10 @@ function inferSpecialtyFromValue(value) {
 }
 
 function specialtyOptionsForTeam(team) {
-  const allowedTeams = team === "decoration" ? ["decoration"] : ["technique"];
+  const isCustom = !BUILTIN_TARGET_TEAMS.includes(team) && team !== "magasin";
+  const allowedTeams = isCustom ? [] : (team === "decoration" ? ["decoration"] : ["technique"]);
   const options = getSpecialtyDefinitions()
-    .filter((item) => item.key === "general" || item.teams.some((itemTeam) => allowedTeams.includes(itemTeam)))
+    .filter((item) => item.key === "general" || (!isCustom && item.teams.some((itemTeam) => allowedTeams.includes(itemTeam))))
     .map((item) => item.key);
   return options.length > 0 ? options : ["general"];
 }
@@ -1685,6 +1719,38 @@ function renderManagerUtilisateurs(container) {
         </div>
         ` : ""}
         <div class="add-user-block">
+          <h3>Équipes cibles</h3>
+          <form id="addTeamForm" class="form-grid">
+            <div class="field">
+              <label for="ntLabel">Nom de l'équipe</label>
+              <input id="ntLabel" name="label" type="text" placeholder="Ex: Jardinerie" required autocomplete="off" />
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">Créer l'équipe</button>
+            </div>
+          </form>
+          <div class="user-group-list" style="margin-top:8px">
+            ${[
+              ...BUILTIN_TARGET_TEAMS.map((key) => `
+                <div class="user-item">
+                  <div class="user-item-info">
+                    <strong>${escHtml(teamKeyToLabel(key))}</strong>
+                    <span class="badge badge-muted">Intégrée</span>
+                  </div>
+                </div>`),
+              ...loadCustomTeams().map((ct) => `
+                <div class="user-item">
+                  <div class="user-item-info">
+                    <strong>${escHtml(ct.label)}</strong>
+                    <span class="badge badge-muted">${escHtml(ct.key)}</span>
+                  </div>
+                  <button class="button danger-ghost tree-btn" type="button" data-action="del-team" data-team-key="${escHtml(ct.key)}">${t("users.delete")}</button>
+                </div>`)
+            ].join("")}
+          </div>
+        </div>
+
+        <div class="add-user-block">
           <h3>${t("users.new")}</h3>
           <form id="addUserForm" class="form-grid">
             <div class="field">
@@ -1703,8 +1769,7 @@ function renderManagerUtilisateurs(container) {
               <label for="nuTeam">${t("users.dept")}</label>
               <select id="nuTeam" name="team">
                 <option value="magasin">${t("dept.magasin")}</option>
-                <option value="technique">${t("dept.technique")}</option>
-                <option value="decoration">${t("dept.decoration")}</option>
+                ${getAllTargetTeamKeys().map((key) => `<option value="${escHtml(key)}">${escHtml(teamKeyToLabel(key))}</option>`).join("")}
               </select>
             </div>
             <div class="field full" id="nuSkillsField">
@@ -1772,6 +1837,36 @@ function renderManagerUtilisateurs(container) {
     roleSelect.addEventListener("change", syncTeamOptions);
     teamSelect.addEventListener("change", renderSpecialtyChecks);
     syncTeamOptions();
+
+    container.querySelector("#addTeamForm")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const label = String(fd.get("label") || "").trim();
+      if (!label) return;
+      const key = buildNodeValue(label, "team");
+      const existing = loadCustomTeams();
+      if (getAllTeamKeys().includes(key) || existing.some((ct) => ct.key === key)) {
+        toast("Cette équipe existe déjà.");
+        return;
+      }
+      saveCustomTeams([...existing, { key, label }]);
+      toast(`Équipe "${label}" créée.`);
+      renderContent();
+    });
+
+    container.querySelectorAll("[data-action='del-team']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.teamKey;
+        const inUse = state.users.some((u) => u.team === key);
+        if (inUse) {
+          toast("Cette équipe est utilisée par des utilisateurs. Réassignez-les d'abord.");
+          return;
+        }
+        saveCustomTeams(loadCustomTeams().filter((ct) => ct.key !== key));
+        toast("Équipe supprimée.");
+        renderContent();
+      });
+    });
 
     container.querySelector("#addUserForm").addEventListener("submit", (e) => {
       e.preventDefault();
