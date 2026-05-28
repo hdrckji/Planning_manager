@@ -70,6 +70,22 @@ function escIcal(str) {
   return (str || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
+// Replie les lignes iCal > 75 octets (RFC 5545)
+function foldLine(line) {
+  const bytes = Buffer.from(line, "utf8");
+  if (bytes.length <= 75) return line;
+  const parts = [];
+  let offset = 0;
+  let first = true;
+  while (offset < bytes.length) {
+    const limit = first ? 75 : 74;
+    parts.push(bytes.slice(offset, offset + limit).toString("utf8"));
+    offset += limit;
+    first = false;
+  }
+  return parts.join("\r\n ");
+}
+
 // Retourne la date du lendemain au format YYYYMMDD (DTEND exclusif pour événements journée entière)
 function nextDay(dateStr) {
   const d = new Date(dateStr + "T00:00:00Z");
@@ -77,9 +93,30 @@ function nextDay(dateStr) {
   return d.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
+const STATUS_LABELS_ICAL = { nouveau: "Nouveau", en_attente: "En attente", planifie: "Planifié", en_cours: "En cours", termine: "Terminé" };
+
+/** GET /api/photo/:ticketId  →  image/jpeg (photo du ticket) */
+app.get("/api/photo/:ticketId", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
+    const st = rows[0]?.value || {};
+    const ticket = (st.tickets || []).find(t => t.id === req.params.ticketId);
+    if (!ticket?.photoDataUrl) return res.status(404).send("Not found");
+    const m = ticket.photoDataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+    if (!m) return res.status(400).send("Invalid photo");
+    res.setHeader("Content-Type", m[1]);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(Buffer.from(m[2], "base64"));
+  } catch (err) {
+    console.error("Photo error:", err.message);
+    res.status(500).send("Error");
+  }
+});
+
 /** GET /api/ical/:collaboratorId  →  text/calendar */
 app.get("/api/ical/:collaboratorId", async (req, res) => {
   try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
     const collabId = req.params.collaboratorId;
     const { rows } = await pool.query(
       "SELECT value FROM kv_store WHERE key = 'flowdesk-state'"
@@ -94,11 +131,12 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     const tasks   = (st.planningTasks || []).filter(t => t.collaboratorId === resolvedId);
     const tickets = (st.tickets || []).filter(t => t.assignedTo === resolvedId && (t.plannedDate || t.desiredDate));
     const calName = collab ? `FamiTask – ${collab.name}` : "FamiTask Planning";
+    const appUrl  = `${baseUrl}/collaborator.html`;
 
     const lines = [
       "BEGIN:VCALENDAR", "VERSION:2.0",
       "PRODID:-//FamiTask//Famiflora//FR",
-      `X-WR-CALNAME:${escIcal(calName)}`,
+      foldLine(`X-WR-CALNAME:${escIcal(calName)}`),
       "X-WR-TIMEZONE:Europe/Brussels",
       "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     ];
@@ -110,12 +148,26 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       if (!dateRaw) continue;
       const dtstart = dateRaw.replace(/-/g, "");
       const dtend   = nextDay(dateRaw);
-      lines.push("BEGIN:VEVENT", `UID:task-${task.id}@famitask`, `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dtstart}`, `DTEND;VALUE=DATE:${dtend}`,
-        `SUMMARY:${escIcal(task.title)}`,
-        ...(task.description ? [`DESCRIPTION:${escIcal(task.description)}`] : []),
+      const statut  = STATUS_LABELS_ICAL[task.status] || task.status;
+      const descParts = [
+        task.description ? escIcal(task.description) : "",
+        `Statut : ${statut}`,
+        `Estimé : ${task.estimatedHours || 1}h`,
+        "",
+        `Mettre à jour : ${appUrl}`,
+      ].filter(Boolean).join("\\n");
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:task-${task.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dtstart}`,
+        `DTEND;VALUE=DATE:${dtend}`,
+        foldLine(`SUMMARY:📋 ${escIcal(task.title)}`),
+        foldLine(`DESCRIPTION:${descParts}`),
+        `URL:${appUrl}`,
         `STATUS:${task.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
-        "END:VEVENT");
+        "END:VEVENT"
+      );
     }
 
     for (const ticket of tickets) {
@@ -123,18 +175,35 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       if (!dateRaw) continue;
       const dtstart = dateRaw.replace(/-/g, "");
       const dtend   = nextDay(dateRaw);
-      lines.push("BEGIN:VEVENT", `UID:ticket-${ticket.id}@famitask`, `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dtstart}`, `DTEND;VALUE=DATE:${dtend}`,
-        `SUMMARY:${escIcal(ticket.title)}`,
-        ...(ticket.description ? [`DESCRIPTION:${escIcal(ticket.description)}`] : []),
+      const statut  = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
+      const photoUrl = ticket.photoDataUrl ? `${baseUrl}/api/photo/${encodeURIComponent(ticket.id)}` : null;
+      const descParts = [
+        ticket.description ? escIcal(ticket.description) : "",
+        `Statut : ${statut}`,
+        `Estimé : ${ticket.estimatedHours || 1}h`,
+        photoUrl ? `Photo : ${photoUrl}` : "",
+        "",
+        `Mettre à jour : ${appUrl}`,
+      ].filter(Boolean).join("\\n");
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:ticket-${ticket.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dtstart}`,
+        `DTEND;VALUE=DATE:${dtend}`,
+        foldLine(`SUMMARY:🔧 ${escIcal(ticket.title)}`),
+        foldLine(`DESCRIPTION:${descParts}`),
+        `URL:${appUrl}`,
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
         `STATUS:${ticket.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
-        "END:VEVENT");
+        "END:VEVENT"
+      );
     }
 
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
     res.setHeader("Cache-Control", "no-cache, no-store");
-    res.send(lines.join("\r\n"));
+    res.send(lines.map(foldLine).join("\r\n"));
   } catch (err) {
     console.error("iCal error:", err.message);
     res.status(500).send("Error");
