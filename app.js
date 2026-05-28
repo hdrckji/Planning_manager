@@ -2199,8 +2199,8 @@ function exportPlanningExcel(collaborators, weekDays) {
     toast(t("plan.export.unavail"));
     return;
   }
-  const startDate = weekDays[0].toISOString().slice(0, 10);
-  const endDate = weekDays[weekDays.length - 1].toISOString().slice(0, 10);
+  const startDate = localDateStr(weekDays[0]);
+  const endDate = localDateStr(weekDays[weekDays.length - 1]);
 
   const allRows = [];
 
@@ -2288,7 +2288,7 @@ function renderManagerPlanning(container, collaborators) {
 
   function renderWeek() {
     const days = getWeekDays();
-    const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
+    const weekLabel = `${formatDate(localDateStr(days[0]))} – ${formatDate(localDateStr(days[6]))}`;
 
     let calTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status));
     let calTasks   = (state.planningTasks || []).slice();
@@ -2297,8 +2297,8 @@ function renderManagerPlanning(container, collaborators) {
       calTasks   = calTasks.filter((pt) => pt.collaboratorId === planningFilterCollab);
     }
 
-    const weekStart = days[0].toISOString().slice(0, 10);
-    const weekEnd   = days[6].toISOString().slice(0, 10);
+    const weekStart = localDateStr(days[0]);
+    const weekEnd   = localDateStr(days[6]);
     const weekTickets = calTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= weekStart && d <= weekEnd; });
     const weekTasks   = calTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
     const weekTotal   = [...weekTickets, ...weekTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
@@ -2326,7 +2326,7 @@ function renderManagerPlanning(container, collaborators) {
         </div>
         <div class="cal-week">
           ${days.map((day) => {
-            const dateStr   = day.toISOString().slice(0, 10);
+            const dateStr   = localDateStr(day);
             const dayTickets = calTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
             const dayTasks   = calTasks.filter((pt) => pt.date === dateStr);
             const isToday    = dateStr === today();
@@ -2654,8 +2654,8 @@ function renderCollaboratorPage() {
       date.setDate(monday.getDate() + i);
       return date;
     });
-    const weekStart = days[0].toISOString().slice(0, 10);
-    const weekEnd = days[6].toISOString().slice(0, 10);
+    const weekStart = localDateStr(days[0]);
+    const weekEnd = localDateStr(days[6]);
     const todayStr = today();
     const weekTickets = tickets.filter((ticket) => {
       const dateStr = ticket.plannedDate || ticket.desiredDate || "";
@@ -2679,7 +2679,7 @@ function renderCollaboratorPage() {
       if (d < weekStart && (!nearestPastDate || d > nearestPastDate)) nearestPastDate = d;
     }
 
-    const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
+    const weekLabel = `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
 
     refs.mainView.innerHTML = `
       <div class="collab-planning">
@@ -2769,7 +2769,7 @@ function renderCollaboratorPage() {
         ` : ""}
         <div class="cal-week">
           ${days.map((day) => {
-            const dateStr = day.toISOString().slice(0, 10);
+            const dateStr = localDateStr(day);
             const dayTickets = tickets.filter((ticket) => (ticket.plannedDate || ticket.desiredDate) === dateStr);
             const dayPlanTasks = myPlanningTasks.filter((pt) => pt.date === dateStr);
             const isEmpty = dayTickets.length === 0 && dayPlanTasks.length === 0;
@@ -3133,7 +3133,7 @@ function renderManagerForm(ticket, collaborators) {
       day.setDate(monday.getDate() + i);
       return day;
     });
-    const weekLabel = `${formatDate(days[0].toISOString().slice(0, 10))} – ${formatDate(days[6].toISOString().slice(0, 10))}`;
+    const weekLabel = `${formatDate(localDateStr(days[0]))} – ${formatDate(localDateStr(days[6]))}`;
 
     assignWeekPicker.innerHTML = `
       <div class="assign-week-controls">
@@ -3143,7 +3143,7 @@ function renderManagerForm(ticket, collaborators) {
       </div>
       <div class="assign-week-grid">
         ${days.map((day) => {
-          const dateStr = day.toISOString().slice(0, 10);
+          const dateStr = localDateStr(day);
           const load = state.tickets
             .filter((t_) => t_.id !== ticket.id && t_.assignedTo === assigneeId && (t_.plannedDate || t_.desiredDate) === dateStr && t_.status !== "termine")
             .reduce((sum, t_) => sum + normalizeHours(t_.estimatedHours, 0), 0);
@@ -3538,11 +3538,21 @@ function sortByPlannedDate(left, right) {
   return new Date(left.plannedDate || left.desiredDate).getTime() - new Date(right.plannedDate || right.desiredDate).getTime();
 }
 
+// Convertit un objet Date en "YYYY-MM-DD" en heure locale (évite le décalage UTC).
+function localDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 function formatDate(value) {
   if (!value) {
     return "A definir";
   }
-  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium" }).format(new Date(value));
+  // Interpréter la chaîne "YYYY-MM-DD" comme heure locale (pas UTC).
+  const [y, mo, d] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium" }).format(new Date(y, mo - 1, d));
 }
 
 function formatDateTime(value) {
@@ -3550,7 +3560,7 @@ function formatDateTime(value) {
 }
 
 function today() {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr(new Date());
 }
 
 function toDataUrl(file) {
