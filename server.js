@@ -112,20 +112,38 @@ function nextDay(dateStr) {
 
 const STATUS_LABELS_ICAL = { nouveau: "Nouveau", en_attente: "En attente", planifie: "Planifié", en_cours: "En cours", termine: "Terminé" };
 
-/** GET /api/photo/:ticketId  →  image/jpeg (photo du ticket) */
+async function servePhotoDataUrl(dataUrl, res) {
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/s);
+  if (!m) return res.status(400).send("Invalid photo");
+  res.setHeader("Content-Type", m[1]);
+  res.setHeader("Cache-Control", "public, max-age=3600");
+  res.send(Buffer.from(m[2], "base64"));
+}
+
+/** GET /api/photo/:ticketId  →  image (photo du ticket) */
 app.get("/api/photo/:ticketId", async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
     const st = rows[0]?.value || {};
     const ticket = (st.tickets || []).find(t => t.id === req.params.ticketId);
     if (!ticket?.photoDataUrl) return res.status(404).send("Not found");
-    const m = ticket.photoDataUrl.match(/^data:([^;]+);base64,(.+)$/s);
-    if (!m) return res.status(400).send("Invalid photo");
-    res.setHeader("Content-Type", m[1]);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(Buffer.from(m[2], "base64"));
+    await servePhotoDataUrl(ticket.photoDataUrl, res);
   } catch (err) {
     console.error("Photo error:", err.message);
+    res.status(500).send("Error");
+  }
+});
+
+/** GET /api/photo/task/:taskId  →  image (photo d'une tâche planning) */
+app.get("/api/photo/task/:taskId", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
+    const st = rows[0]?.value || {};
+    const task = (st.planningTasks || []).find(t => t.id === req.params.taskId);
+    if (!task?.photoDataUrl) return res.status(404).send("Not found");
+    await servePhotoDataUrl(task.photoDataUrl, res);
+  } catch (err) {
+    console.error("Task photo error:", err.message);
     res.status(500).send("Error");
   }
 });
@@ -169,13 +187,14 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       const dtend   = nextDay(dateRaw);
       const statut  = STATUS_LABELS_ICAL[task.status] || task.status;
       const hours   = task.estimatedHours || 1;
+      const photoUrl = task.photoDataUrl ? `${baseUrl}/api/photo/task/${encodeURIComponent(task.id)}` : null;
       const plainDesc = [
         task.description || "",
         `Statut : ${statut}`,
         `Estimé : ${hours}h`,
         `Mettre à jour : ${appUrl}`,
       ].filter(Boolean).join("\\n");
-      const html = buildHtmlDesc({ description: task.description, statut, hours, photoUrl: null, appUrl });
+      const html = buildHtmlDesc({ description: task.description, statut, hours, photoUrl, appUrl });
       lines.push(
         "BEGIN:VEVENT",
         `UID:task-${task.id}@famitask`,
@@ -186,6 +205,7 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
         foldLine(`DESCRIPTION:${escIcal(plainDesc)}`),
         foldLine(`X-ALT-DESC;FMTTYPE=text/html:${html}`),
         `URL:${appUrl}`,
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
         `STATUS:${task.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
         "END:VEVENT"
       );

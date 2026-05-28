@@ -376,6 +376,7 @@ function normalizePlanningTask(task) {
     actualHours: task.actualHours != null && task.actualHours !== "" ? normalizeHours(task.actualHours, 0) : null,
     status: ["planifie", "en_cours", "termine"].includes(task.status) ? task.status : "planifie",
     createdAt: String(task.createdAt || new Date().toISOString()),
+    photoDataUrl: typeof task.photoDataUrl === "string" ? task.photoDataUrl : "",
   };
 }
 
@@ -2080,13 +2081,14 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
           <label for="tm-hours">${t("plan.task.hours.label")}</label>
           <input id="tm-hours" name="estimatedHours" type="number" min="0.25" max="24" step="0.25" value="${task?.estimatedHours ?? 1}" />
         </div>
-        <div class="field">
-          <label for="tm-actual">${t("plan.task.actual.label")}</label>
-          <input id="tm-actual" name="actualHours" type="number" min="0" max="24" step="0.25" value="${task?.actualHours ?? ""}" placeholder="—" />
-        </div>
         <div class="field full">
           <label for="tm-desc">${t("plan.task.notes.label")}</label>
           <textarea id="tm-desc" name="description" rows="2" placeholder="${escHtml(t("plan.task.notes.ph"))}">${escHtml(task?.description || "")}</textarea>
+        </div>
+        <div class="field full">
+          <label for="tm-photo">${t("plan.task.photo.label")}</label>
+          ${task?.photoDataUrl ? `<div style="margin-bottom:8px"><img src="${task.photoDataUrl}" alt="Photo actuelle" class="ticket-photo" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></div>` : ""}
+          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" />
         </div>
         <div class="field full modal-actions">
           ${isEdit ? `<button type="button" class="button button-danger" id="tm-delete">${t("plan.task.delete")}</button>` : ""}
@@ -2113,10 +2115,13 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
     });
   }
 
-  overlay.querySelector("#taskModalForm").addEventListener("submit", (e) => {
+  overlay.querySelector("#taskModalForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const actualRaw = fd.get("actualHours");
+    const photoFile = fd.get("taskPhoto");
+    const photoDataUrl = photoFile instanceof File && photoFile.size > 0
+      ? await toDataUrl(photoFile)
+      : (isEdit ? (task?.photoDataUrl || "") : "");
     const saved = normalizePlanningTask({
       id: isEdit ? task.id : nextPlanningTaskId(),
       title: fd.get("title"),
@@ -2124,9 +2129,9 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
       collaboratorId: fd.get("collaboratorId"),
       date: fd.get("date"),
       estimatedHours: fd.get("estimatedHours"),
-      actualHours: actualRaw !== "" ? actualRaw : null,
       status: fd.get("status"),
       createdAt: isEdit ? task.createdAt : new Date().toISOString(),
+      photoDataUrl,
     });
     if (isEdit) {
       state.planningTasks = (state.planningTasks || []).map((pt) => pt.id === saved.id ? saved : pt);
