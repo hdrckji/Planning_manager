@@ -845,6 +845,10 @@ function renderEmployeePage() {
           ${loadSites().length === 0 ? `<p class="subtle" style="margin-top:6px">${t("emp.site.empty")}</p>` : ""}
         </div>
         <div class="field full" id="treeStepsContainer"></div>
+        <div class="field full hidden" id="titleField">
+          <label for="ticketTitle">${t("emp.title")} <span style="color:#c0392b">*</span></label>
+          <input id="ticketTitle" name="ticketTitle" type="text" placeholder="${t("emp.title.ph")}" maxlength="120" autocomplete="off" />
+        </div>
         <div class="field full hidden" id="delayField">
           <label for="ticketInterventionDelay">${t("emp.delay.label")}</label>
           <select id="ticketInterventionDelay" name="interventionDelay">
@@ -875,6 +879,7 @@ function renderEmployeePage() {
 
   const form = refs.mainView.querySelector("#ticketForm");
   const stepsContainer = form.querySelector("#treeStepsContainer");
+  const titleField = form.querySelector("#titleField");
   const delayField = form.querySelector("#delayField");
   const commentField = form.querySelector("#commentField");
   const photoField = form.querySelector("#photoField");
@@ -914,11 +919,13 @@ function renderEmployeePage() {
     const isComplete = selections.length > 0 && (!getCurrentLevel() || getCurrentLevel() === null || getCurrentLevel()?.every === undefined);
     const leafReached = selections.length > 0 && (getCurrentLevel() === null || !getCurrentLevel() || getCurrentLevel().length === 0);
     if (leafReached) {
+      titleField.classList.remove("hidden");
       delayField.classList.remove("hidden");
       commentField.classList.remove("hidden");
       photoField.classList.remove("hidden");
       submitField.classList.remove("hidden");
     } else {
+      titleField.classList.add("hidden");
       delayField.classList.add("hidden");
       commentField.classList.add("hidden");
       photoField.classList.add("hidden");
@@ -1003,7 +1010,12 @@ function renderEmployeePage() {
     }
     const comment = String(formData.get("comment") || "").trim();
     const interventionDelay = normalizeInterventionDelay(formData.get("interventionDelay"));
-    const title = buildTitle();
+    const title = String(formData.get("ticketTitle") || "").trim();
+    if (!title) {
+      toast(t("emp.title.required"));
+      form.querySelector("#ticketTitle")?.focus();
+      return;
+    }
     const department = buildDepartment();
     const selectedNode = findSelectedNode();
     const suggestedSpecialty = selectedNode?.suggestedSpecialty || inferSpecialtyFromValue(title);
@@ -1076,6 +1088,7 @@ function renderEmployeeTicketTable(container, tickets) {
       <table class="employee-requests-table">
         <thead>
           <tr>
+            <th>${t("emp.table.title")}</th>
             <th>${t("emp.table.by")}</th>
             <th>${t("emp.table.created")}</th>
             <th>${t("emp.table.delay")}</th>
@@ -1088,13 +1101,14 @@ function renderEmployeeTicketTable(container, tickets) {
             const isOpen = employeeExpandedTicketId === ticket.id;
             return `
               <tr class="employee-request-row${isOpen ? " is-open" : ""}" data-ticket-row="${ticket.id}">
+                <td data-label="${escHtml(t("emp.table.title"))}"><strong>${escHtml(ticket.id)}</strong> · ${escHtml(ticket.title)}</td>
                 <td data-label="${escHtml(t("emp.table.by"))}">${escHtml(createdBy)}</td>
                 <td data-label="${escHtml(t("emp.table.created"))}">${formatDate(ticket.createdAt)}</td>
                 <td data-label="${escHtml(t("emp.table.delay"))}">${interventionDelayLabel(ticket.interventionDelay)}</td>
                 <td data-label="${escHtml(t("emp.table.status"))}"><span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span></td>
               </tr>
               <tr class="employee-request-detail${isOpen ? "" : " hidden"}" data-ticket-detail="${ticket.id}">
-                <td colspan="4">
+                <td colspan="5">
                   <div class="employee-request-detail-grid">
                     <p><strong>${escHtml(ticket.title)}</strong></p>
                     <p>${escHtml(ticket.description || "-")}</p>
@@ -1555,6 +1569,10 @@ function renderManagerDemandes(container, tickets, collaborators) {
   renderFiltered();
 }
 
+function ticketRefNum(id) {
+  return Number(String(id || "").replace(/^T-/i, "")) || 0;
+}
+
 function renderManagerTicketTable(container, tickets, collaborators) {
   if (!container) {
     return;
@@ -1564,6 +1582,8 @@ function renderManagerTicketTable(container, tickets, collaborators) {
     container.innerHTML = `<div class="empty-state">${t("ticket.empty")}</div>`;
     return;
   }
+
+  const sorted = [...tickets].sort((a, b) => ticketRefNum(b.id) - ticketRefNum(a.id));
 
   container.innerHTML = `
     <div class="employee-requests-wrap">
@@ -1578,7 +1598,7 @@ function renderManagerTicketTable(container, tickets, collaborators) {
           </tr>
         </thead>
         <tbody>
-          ${tickets.map((ticket) => {
+          ${sorted.map((ticket) => {
             const createdBy = findUser(ticket.createdBy)?.name || t("ticket.unknown");
             const isOpen = managerExpandedTicketId === ticket.id;
             return `
