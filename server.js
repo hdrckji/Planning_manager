@@ -70,6 +70,23 @@ function escIcal(str) {
   return (str || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
+function escHtml(str) {
+  return (str || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function buildHtmlDesc({ description, statut, hours, photoUrl, appUrl }) {
+  return [
+    '<html><body style="font-family:sans-serif;font-size:14px;color:#222;">',
+    description ? `<p>${escHtml(description)}</p>` : "",
+    `<p><strong>Statut :</strong> ${escHtml(statut)}&nbsp;&nbsp;`,
+    `<strong>Estimé :</strong> ${hours}h</p>`,
+    photoUrl ? `<p><img src="${photoUrl}" alt="Photo" style="max-width:480px;border-radius:8px;border:1px solid #ddd;" /></p>` : "",
+    `<p><a href="${appUrl}" style="background:#1a5228;color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">`,
+    `&#128279; Mettre à jour dans FamiTask</a></p>`,
+    "</body></html>",
+  ].join("");
+}
+
 // Replie les lignes iCal > 75 octets (RFC 5545)
 function foldLine(line) {
   const bytes = Buffer.from(line, "utf8");
@@ -149,13 +166,14 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       const dtstart = dateRaw.replace(/-/g, "");
       const dtend   = nextDay(dateRaw);
       const statut  = STATUS_LABELS_ICAL[task.status] || task.status;
-      const descParts = [
-        task.description ? escIcal(task.description) : "",
+      const hours   = task.estimatedHours || 1;
+      const plainDesc = [
+        task.description || "",
         `Statut : ${statut}`,
-        `Estimé : ${task.estimatedHours || 1}h`,
-        "",
+        `Estimé : ${hours}h`,
         `Mettre à jour : ${appUrl}`,
       ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: task.description, statut, hours, photoUrl: null, appUrl });
       lines.push(
         "BEGIN:VEVENT",
         `UID:task-${task.id}@famitask`,
@@ -163,7 +181,8 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
         `DTSTART;VALUE=DATE:${dtstart}`,
         `DTEND;VALUE=DATE:${dtend}`,
         foldLine(`SUMMARY:📋 ${escIcal(task.title)}`),
-        foldLine(`DESCRIPTION:${descParts}`),
+        foldLine(`DESCRIPTION:${escIcal(plainDesc)}`),
+        foldLine(`X-ALT-DESC;FMTTYPE=text/html:${html}`),
         `URL:${appUrl}`,
         `STATUS:${task.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
         "END:VEVENT"
@@ -173,18 +192,18 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     for (const ticket of tickets) {
       const dateRaw = ticket.plannedDate || ticket.desiredDate || "";
       if (!dateRaw) continue;
-      const dtstart = dateRaw.replace(/-/g, "");
-      const dtend   = nextDay(dateRaw);
-      const statut  = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
+      const dtstart  = dateRaw.replace(/-/g, "");
+      const dtend    = nextDay(dateRaw);
+      const statut   = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
+      const hours    = ticket.estimatedHours || 1;
       const photoUrl = ticket.photoDataUrl ? `${baseUrl}/api/photo/${encodeURIComponent(ticket.id)}` : null;
-      const descParts = [
-        ticket.description ? escIcal(ticket.description) : "",
+      const plainDesc = [
+        ticket.description || "",
         `Statut : ${statut}`,
-        `Estimé : ${ticket.estimatedHours || 1}h`,
-        photoUrl ? `Photo : ${photoUrl}` : "",
-        "",
+        `Estimé : ${hours}h`,
         `Mettre à jour : ${appUrl}`,
       ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: ticket.description, statut, hours, photoUrl, appUrl });
       lines.push(
         "BEGIN:VEVENT",
         `UID:ticket-${ticket.id}@famitask`,
@@ -192,7 +211,8 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
         `DTSTART;VALUE=DATE:${dtstart}`,
         `DTEND;VALUE=DATE:${dtend}`,
         foldLine(`SUMMARY:🔧 ${escIcal(ticket.title)}`),
-        foldLine(`DESCRIPTION:${descParts}`),
+        foldLine(`DESCRIPTION:${escIcal(plainDesc)}`),
+        foldLine(`X-ALT-DESC;FMTTYPE=text/html:${html}`),
         `URL:${appUrl}`,
         ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
         `STATUS:${ticket.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
