@@ -2070,14 +2070,6 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
           </select>
         </div>
         <div class="field">
-          <label for="tm-status">${t("plan.task.status.label")}</label>
-          <select id="tm-status" name="status">
-            <option value="planifie" ${(!task || task.status === "planifie") ? "selected" : ""}>${t("status.planifie")}</option>
-            <option value="en_cours" ${task?.status === "en_cours" ? "selected" : ""}>${t("status.en_cours")}</option>
-            <option value="termine" ${task?.status === "termine" ? "selected" : ""}>${t("status.termine")}</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="tm-hours">${t("plan.task.hours.label")}</label>
           <input id="tm-hours" name="estimatedHours" type="number" min="0.25" max="24" step="0.25" value="${task?.estimatedHours ?? 1}" />
         </div>
@@ -2129,7 +2121,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
       collaboratorId: fd.get("collaboratorId"),
       date: fd.get("date"),
       estimatedHours: fd.get("estimatedHours"),
-      status: fd.get("status"),
+      status: isEdit ? task.status : "planifie",
       createdAt: isEdit ? task.createdAt : new Date().toISOString(),
       photoDataUrl,
     });
