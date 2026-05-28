@@ -2137,6 +2137,49 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   });
 }
 
+function showPlanningTaskCollabModal(task) {
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h3>${escHtml(task.title)}</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+        ${task.description ? `<p style="margin:0">${escHtml(task.description)}</p>` : ""}
+        <dl class="ticket-details">
+          <div><dt>${t("plan.task.date.label")}</dt><dd>${formatDate(task.date)}</dd></div>
+          <div><dt>${t("ticket.estimated")}</dt><dd>${formatHours(task.estimatedHours || 0)}</dd></div>
+          <div><dt>${t("emp.table.status")}</dt><dd><span class="badge badge-status" data-status="${task.status}">${statusLabel(task.status)}</span></dd></div>
+        </dl>
+        ${task.photoDataUrl ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><img class="ticket-photo" src="${task.photoDataUrl}" alt="Photo de la tâche" /></div>` : ""}
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${task.status === "planifie" ? `<button class="button" type="button" id="ptcm-start">${t("collab.start")}</button>` : ""}
+          ${task.status === "en_cours" ? `<button class="button" type="button" id="ptcm-finish">${t("collab.finish")}</button>` : ""}
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  overlay.querySelector("#ptcm-start")?.addEventListener("click", () => {
+    updatePlanningTask(task.id, { status: "en_cours" });
+    toast(t("collab.started"));
+    close();
+  });
+  overlay.querySelector("#ptcm-finish")?.addEventListener("click", () => {
+    updatePlanningTask(task.id, { status: "termine" });
+    toast(t("collab.finished"));
+    close();
+  });
+}
+
 function showTicketDetailModal(ticket) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -2721,7 +2764,10 @@ function renderCollaboratorPage() {
       return dateStr >= weekStart && dateStr <= weekEnd;
     });
     const weekPlanTasks = myPlanningTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
-    const weekTasks = [...weekTickets, ...weekPlanTasks];
+    const weekTasks = [
+      ...weekTickets.map((t) => ({ ...t, _type: "ticket" })),
+      ...weekPlanTasks.map((t) => ({ ...t, _type: "planning" })),
+    ];
     const todayTasks = weekTasks.filter((item) => (item.plannedDate || item.desiredDate || item.date) === todayStr);
     const weekHours = weekTasks.reduce((sum, item) => sum + normalizeHours(item.estimatedHours, 0), 0);
     const weekPlanned = weekTasks.filter((item) => item.status === "planifie").length;
@@ -2792,13 +2838,14 @@ function renderCollaboratorPage() {
           ` : `
             <div class="collab-today-list">
               ${todayTasks.map((ticket) => {
+                const taskType = ticket._type || "ticket";
                 const actionButton = ticket.status === "planifie"
-                  ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${ticket.id}">${t("collab.start")}</button>`
+                  ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${ticket.id}" data-task-type="${taskType}">${t("collab.start")}</button>`
                   : ticket.status === "en_cours"
-                    ? `<button class="button" type="button" data-action="collab-finish" data-ticket-id="${ticket.id}">${t("collab.finish")}</button>`
+                    ? `<button class="button" type="button" data-action="collab-finish" data-ticket-id="${ticket.id}" data-task-type="${taskType}">${t("collab.finish")}</button>`
                     : "";
                 return `
-                  <article class="collab-today-item" data-priority="${ticket.priority}">
+                  <article class="collab-today-item is-clickable" data-priority="${ticket.priority}" data-ticket-id="${escHtml(ticket.id)}" data-task-type="${taskType}" role="button" tabindex="0">
                     <div class="collab-today-item__main">
                       <strong>${escHtml(ticket.title)}</strong>
                       <div class="collab-today-item__meta">
@@ -2858,13 +2905,21 @@ function renderCollaboratorPage() {
                       </article>
                     `;
                   }).join("")}
-                  ${dayPlanTasks.map((pt) => `
-                    <article class="cal-task-item" data-status="${pt.status}">
-                      <span class="cal-task-title">${escHtml(pt.title)}</span>
-                      <span class="badge badge-status" data-status="${pt.status}">${statusLabel(pt.status)}</span>
-                      <span class="cal-task-hours">${formatHours(pt.estimatedHours || 0)}</span>
-                    </article>
-                  `).join("")}
+                  ${dayPlanTasks.map((pt) => {
+                    const ptAction = pt.status === "planifie"
+                      ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${escHtml(pt.id)}" data-task-type="planning">${t("collab.start")}</button>`
+                      : pt.status === "en_cours"
+                        ? `<button class="button" type="button" data-action="collab-finish" data-ticket-id="${escHtml(pt.id)}" data-task-type="planning">${t("collab.finish")}</button>`
+                        : "";
+                    return `
+                      <article class="cal-ticket is-clickable" data-status="${pt.status}" data-task-id="${escHtml(pt.id)}" data-task-type="planning" role="button" tabindex="0">
+                        <span class="cal-ticket-title">${escHtml(pt.title)}</span>
+                        <span class="badge badge-status" data-status="${pt.status}">${statusLabel(pt.status)}</span>
+                        <span class="cal-ticket-hours">${formatHours(pt.estimatedHours || 0)}</span>
+                        ${ptAction}
+                      </article>
+                    `;
+                  }).join("")}
                 </div>
               </div>
             `;
@@ -2893,14 +2948,22 @@ function renderCollaboratorPage() {
 
     refs.mainView.querySelectorAll("[data-action='collab-start']").forEach((button) => {
       button.addEventListener("click", () => {
-        updateTicket(button.dataset.ticketId, { status: "en_cours" });
+        if (button.dataset.taskType === "planning") {
+          updatePlanningTask(button.dataset.ticketId, { status: "en_cours" });
+        } else {
+          updateTicket(button.dataset.ticketId, { status: "en_cours" });
+        }
         toast(t("collab.started"));
       });
     });
 
     refs.mainView.querySelectorAll("[data-action='collab-finish']").forEach((button) => {
       button.addEventListener("click", () => {
-        updateTicket(button.dataset.ticketId, { status: "termine" });
+        if (button.dataset.taskType === "planning") {
+          updatePlanningTask(button.dataset.ticketId, { status: "termine" });
+        } else {
+          updateTicket(button.dataset.ticketId, { status: "termine" });
+        }
         toast(t("collab.finished"));
       });
     });
@@ -2914,6 +2977,32 @@ function renderCollaboratorPage() {
       };
       article.addEventListener("click", openDetail);
       article.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(e); } });
+    });
+
+    refs.mainView.querySelectorAll(".cal-ticket[data-task-id]").forEach((article) => {
+      const openDetail = (e) => {
+        if (e.target.closest("button")) return;
+        const taskId = article.dataset.taskId;
+        const task = (state.planningTasks || []).find((pt) => pt.id === taskId);
+        if (task) showPlanningTaskCollabModal(task);
+      };
+      article.addEventListener("click", openDetail);
+      article.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(e); } });
+    });
+
+    refs.mainView.querySelectorAll(".collab-today-item[data-ticket-id]").forEach((article) => {
+      article.addEventListener("click", (e) => {
+        if (e.target.closest("button")) return;
+        const type = article.dataset.taskType;
+        const id = article.dataset.ticketId;
+        if (type === "planning") {
+          const task = (state.planningTasks || []).find((pt) => pt.id === id);
+          if (task) showPlanningTaskCollabModal(task);
+        } else {
+          const ticket = state.tickets.find((tk) => tk.id === id);
+          if (ticket) showTicketDetailModal(ticket);
+        }
+      });
     });
   }
 
@@ -3342,6 +3431,14 @@ function updateTicket(ticketId, updates) {
       ...updates,
       updatedAt: new Date().toISOString(),
     };
+  });
+  render();
+}
+
+function updatePlanningTask(taskId, updates) {
+  state.planningTasks = (state.planningTasks || []).map((pt) => {
+    if (pt.id !== taskId) return pt;
+    return { ...pt, ...updates };
   });
   render();
 }
