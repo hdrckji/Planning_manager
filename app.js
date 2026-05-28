@@ -679,7 +679,11 @@ function renderStats() {
   const ticketsForTeam = currentUser.team === "magasin"
     ? state.tickets
     : state.tickets.filter((ticket) => ticket.department === currentUser.team);
-  const toComplete = ticketsForTeam.filter((ticket) => ticket.status === "en_attente" && ticket.createdBy === currentUser.id);
+  const toComplete = ticketsForTeam.filter((ticket) => {
+    if (ticket.status !== "en_attente" || ticket.createdBy !== currentUser.id) return false;
+    const thread = ticketInfoThread(ticket);
+    return thread.length > 0 && thread[thread.length - 1].authorRole === "manager";
+  });
 
   refs.statsGrid.innerHTML = `
     <article class="stat-card"><span class="stat-value">${ticketsForTeam.length}</span><span class="stat-label">${t("stats.total")}</span></article>
@@ -732,7 +736,12 @@ function renderEmployeePage() {
   const tickets = currentUser
     ? state.tickets.filter((t) => t.createdBy === currentUser.id).sort(sortByUpdatedDesc)
     : [];
-  const enAttenteTickets = tickets.filter((t) => t.status === "en_attente");
+  const enAttenteTickets = tickets.filter((t) => {
+    if (t.status !== "en_attente") return false;
+    const thread = ticketInfoThread(t);
+    if (thread.length === 0) return false;
+    return thread[thread.length - 1].authorRole === "manager";
+  });
 
   refs.mainView.innerHTML = `
     ${(() => {
