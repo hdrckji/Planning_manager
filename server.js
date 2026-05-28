@@ -156,6 +156,8 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       foldLine(`X-WR-CALNAME:${escIcal(calName)}`),
       "X-WR-TIMEZONE:Europe/Brussels",
       "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      "REFRESH-INTERVAL;VALUE=DURATION:PT15M",
+      "X-PUBLISHED-TTL:PT15M",
     ];
 
     const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
@@ -222,7 +224,9 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
 
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-    res.setHeader("Cache-Control", "no-cache, no-store");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     res.send(lines.map(foldLine).join("\r\n"));
   } catch (err) {
     console.error("iCal error:", err.message);
