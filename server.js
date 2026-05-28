@@ -70,6 +70,13 @@ function escIcal(str) {
   return (str || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
+// Retourne la date du lendemain au format YYYYMMDD (DTEND exclusif pour événements journée entière)
+function nextDay(dateStr) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
 /** GET /api/ical/:collaboratorId  →  text/calendar */
 app.get("/api/ical/:collaboratorId", async (req, res) => {
   try {
@@ -99,10 +106,12 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
     for (const task of tasks) {
-      const d = (task.date || "").replace(/-/g, "");
-      if (!d) continue;
+      const dateRaw = task.date || "";
+      if (!dateRaw) continue;
+      const dtstart = dateRaw.replace(/-/g, "");
+      const dtend   = nextDay(dateRaw);
       lines.push("BEGIN:VEVENT", `UID:task-${task.id}@famitask`, `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${d}`,
+        `DTSTART;VALUE=DATE:${dtstart}`, `DTEND;VALUE=DATE:${dtend}`,
         `SUMMARY:${escIcal(task.title)}`,
         ...(task.description ? [`DESCRIPTION:${escIcal(task.description)}`] : []),
         `STATUS:${task.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
@@ -110,10 +119,12 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     }
 
     for (const ticket of tickets) {
-      const d = ((ticket.plannedDate || ticket.desiredDate) || "").replace(/-/g, "");
-      if (!d) continue;
+      const dateRaw = ticket.plannedDate || ticket.desiredDate || "";
+      if (!dateRaw) continue;
+      const dtstart = dateRaw.replace(/-/g, "");
+      const dtend   = nextDay(dateRaw);
       lines.push("BEGIN:VEVENT", `UID:ticket-${ticket.id}@famitask`, `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${d}`, `DTEND;VALUE=DATE:${d}`,
+        `DTSTART;VALUE=DATE:${dtstart}`, `DTEND;VALUE=DATE:${dtend}`,
         `SUMMARY:${escIcal(ticket.title)}`,
         ...(ticket.description ? [`DESCRIPTION:${escIcal(ticket.description)}`] : []),
         `STATUS:${ticket.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
@@ -122,6 +133,7 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
 
     lines.push("END:VCALENDAR");
     res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-store");
     res.send(lines.join("\r\n"));
   } catch (err) {
     console.error("iCal error:", err.message);
