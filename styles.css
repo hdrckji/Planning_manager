@@ -2651,6 +2651,56 @@ textarea {
   background: rgba(0,0,0,0.12);
 }
 
+/* ── Chat dans le modal de détail ticket (collaborateur) ──────────────────── */
+.tdm-chat-section {
+  display: grid;
+  gap: 10px;
+}
+
+.tdm-chat-panel {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.tdm-chat-msg {
+  display: grid;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+}
+
+.tdm-chat-msg--manager {
+  background: #eaf1ea;
+  border-left: 3px solid var(--accent);
+}
+
+.tdm-chat-msg--employee {
+  background: #f4f4f4;
+  border-left: 3px solid #aaa;
+}
+
+.tdm-chat-role {
+  font-weight: 700;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  opacity: .7;
+}
+
+.tdm-chat-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.tdm-chat-time {
+  font-size: 0.75rem;
+  opacity: .55;
+}
+
 .modal-actions {
   display: flex;
   gap: 10px;

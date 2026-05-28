@@ -2116,8 +2116,33 @@ function showTicketDetailModal(ticket) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
 
-  const detailsHtml = renderDetails(ticket);
   const hasPhoto = !!ticket.photoDataUrl;
+  const thread   = ticketInfoThread(ticket);
+  const site     = ticket.siteId ? findSite(ticket.siteId) : null;
+  const siteLabel = site ? `${site.name}${site.address ? ` — ${site.address}` : ""}` : null;
+
+  const detailsHtml = [
+    siteLabel                ? detailItem(t("ticket.site"),      siteLabel)                        : "",
+    ticket.plannedDate       ? detailItem(t("ticket.validated"), formatDate(ticket.plannedDate))    : "",
+    ticket.estimatedHours    ? detailItem(t("ticket.estimated"), formatHours(ticket.estimatedHours)): "",
+  ].join("");
+
+  const chatHtml = thread.length > 0 ? `
+    <div class="tdm-chat-section">
+      <button class="button ghost tdm-chat-toggle" type="button">
+        💬 ${thread.length > 1 ? `${thread.length} messages` : "1 message"}
+      </button>
+      <div class="tdm-chat-panel" hidden>
+        ${thread.map((msg) => `
+          <div class="tdm-chat-msg tdm-chat-msg--${msg.authorRole}">
+            <span class="tdm-chat-role">${msg.authorRole === "manager" ? "Manager" : "Employé"}</span>
+            <p class="tdm-chat-text">${escHtml(msg.text)}</p>
+            ${msg.at ? `<span class="tdm-chat-time">${formatDateTime(msg.at)}</span>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  ` : "";
 
   overlay.innerHTML = `
     <div class="modal-box card" role="dialog" aria-modal="true" style="max-width:560px">
@@ -2125,14 +2150,15 @@ function showTicketDetailModal(ticket) {
         <h3>${escHtml(ticket.title)}</h3>
         <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
       </div>
-      <div style="padding:0 20px 20px">
-        <div class="ticket-meta-row" style="margin-bottom:10px">
+      <div style="padding:0 20px 20px;display:grid;gap:12px">
+        <div class="ticket-meta-row">
           <span class="badge badge-status" data-status="${ticket.status}">${statusLabel(ticket.status)}</span>
           <span class="badge badge-priority" data-priority="${ticket.priority}">${priorityLabel(ticket.priority)}</span>
         </div>
-        ${ticket.description ? `<p style="margin:0 0 12px">${escHtml(ticket.description)}</p>` : ""}
-        <dl class="ticket-details">${detailsHtml}</dl>
-        ${hasPhoto ? `<div class="ticket-photo-wrap" style="margin-top:12px"><p class="detail-label">Photo</p><div id="tdm-photo-host"></div></div>` : ""}
+        ${ticket.description ? `<p style="margin:0">${escHtml(ticket.description)}</p>` : ""}
+        ${detailsHtml ? `<dl class="ticket-details">${detailsHtml}</dl>` : ""}
+        ${hasPhoto ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><div id="tdm-photo-host"></div></div>` : ""}
+        ${chatHtml}
       </div>
     </div>
   `;
@@ -2147,6 +2173,14 @@ function showTicketDetailModal(ticket) {
     img.src = ticket.photoDataUrl;
     overlay.querySelector("#tdm-photo-host").appendChild(img);
   }
+
+  overlay.querySelector(".tdm-chat-toggle")?.addEventListener("click", () => {
+    const panel  = overlay.querySelector(".tdm-chat-panel");
+    const btn    = overlay.querySelector(".tdm-chat-toggle");
+    const open   = panel.hidden;
+    panel.hidden = !open;
+    btn.textContent = open ? "🔼 Fermer les messages" : `💬 ${thread.length > 1 ? `${thread.length} messages` : "1 message"}`;
+  });
 
   const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
   overlay.querySelector(".modal-close").addEventListener("click", close);
