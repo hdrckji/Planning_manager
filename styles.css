@@ -1140,8 +1140,10 @@ textarea {
   }
 
   .hero-copy {
+    flex-direction: row;
+    align-items: center;
     padding: 14px 16px;
-    gap: 14px;
+    gap: 12px;
   }
 
   .site-logo-img {
@@ -1999,6 +2001,16 @@ textarea {
   min-width: 180px;
 }
 
+@media (max-width: 768px) {
+  .planning-filter-bar {
+    flex-wrap: wrap;
+  }
+  .planning-filter-bar select {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 .planning-controls {
   display: flex;
   gap: 8px;
@@ -2195,11 +2207,16 @@ textarea {
 }
 
 .cal-day {
-  min-width: 110px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(68, 53, 36, 0.09);
   overflow: hidden;
+}
+
+@media (min-width: 769px) {
+  .cal-day {
+    min-width: 110px;
+  }
 }
 
 .cal-day--today {
@@ -2409,7 +2426,6 @@ textarea {
   .assign-week-grid {
     grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
   }
-}
 
   .manager-tabs {
     gap: 6px;

@@ -212,6 +212,7 @@ const state = {
 
 let managerSubPage = "dashboard";
 let planningWeekOffset = 0;
+let _stateLoaded = false;
 let planningFilterCollab = "";
 let employeeExpandedTicketId = "";
 let managerExpandedTicketId = "";
@@ -382,8 +383,13 @@ function normalizeTicket(ticket) {
   const suggestedSpecialty = getSpecialtyKeys().includes(ticket.suggestedSpecialty)
     ? ticket.suggestedSpecialty
     : inferSpecialtyFromValue(ticket.categoryValue || ticket.title);
+  const rawCreatedAt = ticket.createdAt;
+  const createdAt = rawCreatedAt && !isNaN(new Date(rawCreatedAt).getTime())
+    ? rawCreatedAt
+    : new Date().toISOString();
   return {
     ...ticket,
+    createdAt,
     estimatedHours: normalizeHours(ticket.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty)),
     suggestedSpecialty,
     suggestedAssigneeId: typeof ticket.suggestedAssigneeId === "string" ? ticket.suggestedAssigneeId : "",
@@ -447,15 +453,24 @@ function showLoadingOverlay(visible) {
   overlay.hidden = !visible;
 }
 
+function safeMap(arr, fn) {
+  if (!Array.isArray(arr)) return [];
+  const result = [];
+  for (const item of arr) {
+    try { result.push(fn(item)); } catch { /* skip corrupt item */ }
+  }
+  return result;
+}
+
 function loadState() {
   const saved = window.FlowDeskApi?.getCachedState();
   if (!saved) return;
 
-  try {
-    state.users         = Array.isArray(saved.users)         ? saved.users.map((user)   => normalizeUser(user))       : [];
-    state.tickets       = Array.isArray(saved.tickets)       ? saved.tickets.map((tk)   => normalizeTicket(tk))       : [];
-    state.planningTasks = Array.isArray(saved.planningTasks) ? saved.planningTasks.map((pt) => normalizePlanningTask(pt)) : [];
+  state.users         = safeMap(saved.users,         normalizeUser);
+  state.tickets       = safeMap(saved.tickets,       normalizeTicket);
+  state.planningTasks = safeMap(saved.planningTasks, normalizePlanningTask);
 
+  try {
     const savedByRole = saved.currentUserByRole || {};
     state.currentUserByRole = {
       employee:     typeof savedByRole.employee     === "string" ? savedByRole.employee     : "",
@@ -463,10 +478,10 @@ function loadState() {
       collaborator: typeof savedByRole.collaborator === "string" ? savedByRole.collaborator : "",
     };
   } catch {
-    state.users         = [];
-    state.tickets       = [];
-    state.planningTasks = [];
+    /* currentUserByRole stays at default */
   }
+
+  _stateLoaded = true;
 }
 
 function enforcePageUserRole() {
@@ -507,18 +522,11 @@ function persistState() {
   if (window.FlowDeskApi?.isReadOnly?.()) {
     return;
   }
-  // Safety guard: never overwrite existing server data with an empty client state.
-  // This prevents accidental data loss when loadState() fails silently.
-  const serverState = window.FlowDeskApi?.getCachedState?.();
-  if (serverState) {
-    const serverHasUsers = Array.isArray(serverState.users) && serverState.users.length > 0;
-    const serverHasTasks = Array.isArray(serverState.planningTasks) && serverState.planningTasks.length > 0;
-    const clientHasUsers = state.users.length > 0;
-    const clientHasTasks = state.planningTasks.length > 0;
-    if ((serverHasUsers && !clientHasUsers) || (serverHasTasks && !clientHasTasks && serverHasUsers)) {
-      console.warn("persistState: skipped — would overwrite server data with empty client state");
-      return;
-    }
+  // Ne sauvegarder que si le state a bien été chargé depuis le serveur.
+  // Évite d'écraser les données serveur avec un état vide si loadState() n'a pas tourné.
+  if (!_stateLoaded) {
+    console.warn("persistState: skipped — state not loaded yet");
+    return;
   }
   state.currentUserByRole[pageConfig.role] = state.currentUserId || "";
   window.FlowDeskApi?.saveState({
@@ -3581,16 +3589,20 @@ function localDateStr(date) {
 }
 
 function formatDate(value) {
-  if (!value) {
-    return "A definir";
-  }
-  // Interpréter la chaîne "YYYY-MM-DD" comme heure locale (pas UTC).
-  const [y, mo, d] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium" }).format(new Date(y, mo - 1, d));
+  if (!value) return "—";
+  // Extraire uniquement YYYY-MM-DD pour gérer aussi les chaînes ISO complètes
+  const dateOnly = String(value).slice(0, 10);
+  const [y, mo, d] = dateOnly.split("-").map(Number);
+  const date = new Date(y, mo - 1, d);
+  if (isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium" }).format(date);
 }
 
 function formatDateTime(value) {
-  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  if (!value) return "—";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("fr-BE", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 function today() {
