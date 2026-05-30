@@ -214,6 +214,7 @@ let managerSubPage = "dashboard";
 let planningWeekOffset = 0;
 let _stateLoaded = false;
 let planningFilterCollab = "";
+let planningFilterPrestataire = "";
 let employeeExpandedTicketId = "";
 let managerExpandedTicketId = "";
 let collaboratorWeekOffset = 0;
@@ -2391,19 +2392,30 @@ function renderManagerPlanning(container, collaborators) {
   function renderWeek() {
     const days = getWeekDays();
     const weekLabel = `${formatDate(localDateStr(days[0]))} – ${formatDate(localDateStr(days[6]))}`;
+    const weekStart = localDateStr(days[0]);
+    const weekEnd   = localDateStr(days[6]);
 
-    let calTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status));
+    // ── Planning interne (collaborateurs) ────────────────────────────────────
+    let calTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedTo);
     let calTasks   = (state.planningTasks || []).slice();
     if (planningFilterCollab) {
       calTickets = calTickets.filter((tk) => tk.assignedTo === planningFilterCollab);
       calTasks   = calTasks.filter((pt) => pt.collaboratorId === planningFilterCollab);
     }
-
-    const weekStart = localDateStr(days[0]);
-    const weekEnd   = localDateStr(days[6]);
     const weekTickets = calTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= weekStart && d <= weekEnd; });
     const weekTasks   = calTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
     const weekTotal   = [...weekTickets, ...weekTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+
+    // ── Planning externe (prestataires) ──────────────────────────────────────
+    const prestataires = loadPrestataires();
+    let extTickets = state.tickets.filter((tk) =>
+      ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedToExternal
+    );
+    if (planningFilterPrestataire) {
+      extTickets = extTickets.filter((tk) => tk.assignedToExternal === planningFilterPrestataire);
+    }
+    const weekExtTickets = extTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= weekStart && d <= weekEnd; });
+    const weekExtTotal   = weekExtTickets.reduce((s, x) => s + (x.estimatedHours || 0), 0);
 
     container.innerHTML = `
       <section class="card">
@@ -2476,6 +2488,60 @@ function renderManagerPlanning(container, collaborators) {
           }).join("")}
         </div>
       </section>
+
+      <section class="card" style="margin-top:20px;">
+        <div class="section-head">
+          <div>
+            <h2>🏢 Planning Partenaires Externes</h2>
+            <p class="subtle">${weekLabel} · Total semaine <strong>${formatHours(weekExtTotal)}</strong></p>
+          </div>
+        </div>
+        ${prestataires.length === 0 ? `<div class="empty-state">Aucun partenaire externe enregistré.</div>` : `
+        <div class="planning-filter-bar">
+          <label for="planPrestataire">Partenaire</label>
+          <select id="planPrestataire">
+            <option value="">Tous les partenaires</option>
+            ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${planningFilterPrestataire === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
+          </select>
+        </div>
+        ${weekExtTickets.length === 0 ? `<div class="empty-state">Aucune intervention externe cette semaine.</div>` : ""}
+        <div class="cal-week">
+          ${days.map((day) => {
+            const dateStr = localDateStr(day);
+            const dayExt  = extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
+            const isToday = dateStr === today();
+            const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
+            const dayNum  = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            const dayTotal = dayExt.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+            return `
+              <div class="cal-day${isToday ? " cal-day--today" : ""}">
+                <div class="cal-day-head">
+                  <div class="cal-day-head-left">
+                    <span class="cal-weekday">${dayName}</span>
+                    <span class="cal-daynum">${dayNum}</span>
+                  </div>
+                </div>
+                ${dayTotal > 0 ? `<div class="cal-day-total">${formatHours(dayTotal)}</div>` : ""}
+                <div class="cal-day-body">
+                  ${dayExt.length === 0 ? '<span class="cal-empty">—</span>' : ""}
+                  ${dayExt.map((tk) => {
+                    const prest = prestataires.find((p) => p.id === tk.assignedToExternal);
+                    return `
+                      <div class="cal-ticket cal-ticket--ext is-clickable" data-status="${tk.status}" data-priority="${tk.priority}" data-ext-ticket-id="${escHtml(tk.id)}" role="button" tabindex="0">
+                        <span class="cal-ticket-title">${escHtml(tk.title)}</span>
+                        ${prest ? `<span class="cal-ticket-who">🏢 ${escHtml(prest.name)}</span>` : ""}
+                        <span class="cal-ticket-hours">${formatHours(tk.estimatedHours || 0)}</span>
+                        <span class="badge badge-status" data-status="${tk.status}">${statusLabel(tk.status)}</span>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+        `}
+      </section>
     `;
 
     container.querySelector("#prevWeekBtn").addEventListener("click", () => { planningWeekOffset--; renderWeek(); });
@@ -2483,6 +2549,20 @@ function renderManagerPlanning(container, collaborators) {
     container.querySelector("#nextWeekBtn").addEventListener("click", () => { planningWeekOffset++; renderWeek(); });
     container.querySelector("#planCollab").addEventListener("change", (e) => { planningFilterCollab = e.target.value; renderWeek(); });
     container.querySelector("#exportExcelBtn").addEventListener("click", () => exportPlanningExcel(collaborators, days));
+    container.querySelector("#planPrestataire")?.addEventListener("change", (e) => { planningFilterPrestataire = e.target.value; renderWeek(); });
+
+    container.querySelectorAll(".cal-ticket--ext[data-ext-ticket-id]").forEach((card) => {
+      const open = (e) => {
+        if (e.target.closest("button")) return;
+        const tk = state.tickets.find((t) => t.id === card.dataset.extTicketId);
+        if (!tk) return;
+        managerSubPage = "demandes";
+        managerExpandedTicketId = tk.id;
+        render();
+      };
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(e); } });
+    });
 
     container.querySelectorAll(".cal-add-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
