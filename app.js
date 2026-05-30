@@ -2885,7 +2885,7 @@ function renderTreeEditor(container) {
               <div class="field">
                 <label for="catTeam">${t("tree.team")}</label>
                 <select id="catTeam" name="team">
-                  ${TEAM_KEYS.filter((key) => key !== "magasin").map((key) => `<option value="${key}" ${selectedNode.team === key ? "selected" : ""}>${teamLabel(key)}</option>`).join("")}
+                  ${getAllTargetTeamKeys().map((key) => `<option value="${key}" ${selectedNode.team === key ? "selected" : ""}>${teamLabel(key)}</option>`).join("")}
                 </select>
               </div>
               <div class="field">
