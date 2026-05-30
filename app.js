@@ -977,7 +977,7 @@ function renderEmployeePage() {
 
   function buildDepartment() {
     const root = tree.find((n) => n.value === selections[0]);
-    return root?.value || "technique";
+    return root?.team || "technique";
   }
 
   function findSelectedNode() {
