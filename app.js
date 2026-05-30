@@ -215,6 +215,8 @@ let planningWeekOffset = 0;
 let _stateLoaded = false;
 let planningFilterCollab = "";
 let planningFilterPrestataire = "";
+let planningViewMode = "week";
+let planningMonthOffset = 0;
 let employeeExpandedTicketId = "";
 let managerExpandedTicketId = "";
 let collaboratorWeekOffset = 0;
@@ -2425,6 +2427,10 @@ function renderManagerPlanning(container, collaborators) {
             <p class="subtle">${weekLabel} · ${t("plan.week.total")} <strong>${formatHours(weekTotal)}</strong></p>
           </div>
           <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost active" id="viewWeekBtn">${t("plan.view.week")}</button>
+              <button class="button ghost" id="viewMonthBtn">${t("plan.view.month")}</button>
+            </div>
             <button class="button ghost" id="prevWeekBtn">${t("plan.prev")}</button>
             <button class="button ghost" id="todayBtn">${t("plan.today")}</button>
             <button class="button ghost" id="nextWeekBtn">${t("plan.next")}</button>
@@ -2492,19 +2498,19 @@ function renderManagerPlanning(container, collaborators) {
       <section class="card" style="margin-top:20px;">
         <div class="section-head">
           <div>
-            <h2>🏢 Planning Partenaires Externes</h2>
-            <p class="subtle">${weekLabel} · Total semaine <strong>${formatHours(weekExtTotal)}</strong></p>
+            <h2>🏢 ${t("plan.ext.title")}</h2>
+            <p class="subtle">${weekLabel} · ${t("plan.week.total")} <strong>${formatHours(weekExtTotal)}</strong></p>
           </div>
         </div>
-        ${prestataires.length === 0 ? `<div class="empty-state">Aucun partenaire externe enregistré.</div>` : `
+        ${prestataires.length === 0 ? `<div class="empty-state">${t("plan.ext.none")}</div>` : `
         <div class="planning-filter-bar">
-          <label for="planPrestataire">Partenaire</label>
+          <label for="planPrestataire">${t("plan.ext.partner")}</label>
           <select id="planPrestataire">
-            <option value="">Tous les partenaires</option>
+            <option value="">${t("plan.ext.all")}</option>
             ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${planningFilterPrestataire === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
           </select>
         </div>
-        ${weekExtTickets.length === 0 ? `<div class="empty-state">Aucune intervention externe cette semaine.</div>` : ""}
+        ${weekExtTickets.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
         <div class="cal-week">
           ${days.map((day) => {
             const dateStr = localDateStr(day);
@@ -2578,9 +2584,197 @@ function renderManagerPlanning(container, collaborators) {
         if (found) showPlanningTaskModal({ date: found.date, collaborators, task: found, onSave: renderWeek });
       });
     });
+
+    container.querySelector("#viewWeekBtn").addEventListener("click", () => { planningViewMode = "week"; renderWeek(); });
+    container.querySelector("#viewMonthBtn").addEventListener("click", () => { planningViewMode = "month"; renderMonth(); });
   }
 
-  renderWeek();
+  function renderMonth() {
+    const now = new Date();
+    const baseMonth = new Date(now.getFullYear(), now.getMonth() + planningMonthOffset, 1);
+    const year = baseMonth.getFullYear();
+    const month = baseMonth.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const langCode = getLang() === "nl" ? "nl-BE" : "fr-BE";
+    const monthLabel = new Intl.DateTimeFormat(langCode, { month: "long", year: "numeric" }).format(firstDay);
+    const monthStart = localDateStr(firstDay);
+    const monthEnd = localDateStr(lastDay);
+
+    const startDow = firstDay.getDay();
+    const paddingDays = startDow === 0 ? 6 : startDow - 1;
+    const gridDays = [];
+    for (let i = paddingDays; i > 0; i--) {
+      gridDays.push({ date: new Date(year, month, 1 - i), isCurrentMonth: false });
+    }
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      gridDays.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    }
+    const tail = gridDays.length % 7;
+    if (tail !== 0) {
+      for (let i = 1; i <= 7 - tail; i++) {
+        gridDays.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+      }
+    }
+
+    let calTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedTo);
+    let calTasks = (state.planningTasks || []).slice();
+    if (planningFilterCollab) {
+      calTickets = calTickets.filter((tk) => tk.assignedTo === planningFilterCollab);
+      calTasks = calTasks.filter((pt) => pt.collaboratorId === planningFilterCollab);
+    }
+    const monthTickets = calTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= monthStart && d <= monthEnd; });
+    const monthTasks = calTasks.filter((pt) => pt.date >= monthStart && pt.date <= monthEnd);
+    const monthTotal = [...monthTickets, ...monthTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+
+    const prestataires = loadPrestataires();
+    let extTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedToExternal);
+    if (planningFilterPrestataire) {
+      extTickets = extTickets.filter((tk) => tk.assignedToExternal === planningFilterPrestataire);
+    }
+    const monthExtTickets = extTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= monthStart && d <= monthEnd; });
+    const monthExtTotal = monthExtTickets.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+
+    const weekdays = getLang() === "nl"
+      ? ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
+      : ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+    function buildMonthGrid(dayTicketsFn, dayTasksFn, showAddBtn) {
+      return gridDays.map(({ date, isCurrentMonth }) => {
+        const dateStr = localDateStr(date);
+        const isToday = dateStr === today();
+        const dayTk = dayTicketsFn(dateStr);
+        const dayPt = dayTasksFn(dateStr);
+        const dayTotal = [...dayTk, ...dayPt].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+        return `
+          <div class="cal-month-day${isToday ? " cal-month-day--today" : ""}${!isCurrentMonth ? " cal-month-day--other" : ""}">
+            <div class="cal-month-day-head">
+              <span class="cal-month-daynum">${date.getDate()}</span>
+              ${dayTotal > 0 ? `<span class="cal-month-total">${formatHours(dayTotal)}</span>` : ""}
+              ${showAddBtn && isCurrentMonth ? `<button class="cal-add-btn" data-add-date="${escHtml(dateStr)}" title="${escHtml(t("plan.task.new"))}">+</button>` : ""}
+            </div>
+            <div class="cal-month-body">
+              ${dayTk.map((tk) => `<div class="cal-month-item" data-status="${tk.status}" title="${escHtml(tk.title)}">${escHtml(tk.title)}</div>`).join("")}
+              ${dayPt.map((pt) => `<div class="cal-month-item cal-month-item--task" data-status="${pt.status}" title="${escHtml(pt.title)}">${escHtml(pt.title)}</div>`).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function buildMonthGridExt(dayExtFn) {
+      return gridDays.map(({ date, isCurrentMonth }) => {
+        const dateStr = localDateStr(date);
+        const isToday = dateStr === today();
+        const dayExt = dayExtFn(dateStr);
+        const dayTotal = dayExt.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+        return `
+          <div class="cal-month-day${isToday ? " cal-month-day--today" : ""}${!isCurrentMonth ? " cal-month-day--other" : ""}">
+            <div class="cal-month-day-head">
+              <span class="cal-month-daynum">${date.getDate()}</span>
+              ${dayTotal > 0 ? `<span class="cal-month-total">${formatHours(dayTotal)}</span>` : ""}
+            </div>
+            <div class="cal-month-body">
+              ${dayExt.map((tk) => {
+                const prest = prestataires.find((p) => p.id === tk.assignedToExternal);
+                return `<div class="cal-month-item cal-month-item--ext" data-status="${tk.status}" data-ext-ticket-id="${escHtml(tk.id)}" title="${escHtml(tk.title)}">${escHtml(tk.title)}${prest ? ` (${escHtml(prest.name)})` : ""}</div>`;
+              }).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>${t("plan.title")}</h2>
+            <p class="subtle">${monthLabel} · ${t("plan.month.total")} <strong>${formatHours(monthTotal)}</strong></p>
+          </div>
+          <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost" id="viewWeekBtn">${t("plan.view.week")}</button>
+              <button class="button ghost active" id="viewMonthBtn">${t("plan.view.month")}</button>
+            </div>
+            <button class="button ghost" id="prevMonthBtn">${t("plan.prev")}</button>
+            <button class="button ghost" id="todayMonthBtn">${t("plan.today")}</button>
+            <button class="button ghost" id="nextMonthBtn">${t("plan.next")}</button>
+            <button class="button" id="exportExcelBtn" style="background:var(--accent-strong);">${t("plan.export")}</button>
+          </div>
+        </div>
+        <div class="planning-filter-bar">
+          <label for="planCollab">${t("plan.collab.label")}</label>
+          <select id="planCollab">
+            <option value="">${t("plan.collab.all")}</option>
+            ${collaborators.map((c) => `<option value="${escHtml(c.id)}" ${planningFilterCollab === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
+          </select>
+        </div>
+        <div class="cal-month">
+          ${weekdays.map((d) => `<div class="cal-month-weekday">${d}</div>`).join("")}
+          ${buildMonthGrid(
+            (dateStr) => calTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr),
+            (dateStr) => calTasks.filter((pt) => pt.date === dateStr),
+            true
+          )}
+        </div>
+      </section>
+
+      <section class="card" style="margin-top:20px;">
+        <div class="section-head">
+          <div>
+            <h2>🏢 ${t("plan.ext.title")}</h2>
+            <p class="subtle">${monthLabel} · ${t("plan.month.total")} <strong>${formatHours(monthExtTotal)}</strong></p>
+          </div>
+        </div>
+        ${prestataires.length === 0 ? `<div class="empty-state">${t("plan.ext.none")}</div>` : `
+        <div class="planning-filter-bar">
+          <label for="planPrestataire">${t("plan.ext.partner")}</label>
+          <select id="planPrestataire">
+            <option value="">${t("plan.ext.all")}</option>
+            ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${planningFilterPrestataire === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
+          </select>
+        </div>
+        ${monthExtTickets.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
+        <div class="cal-month">
+          ${weekdays.map((d) => `<div class="cal-month-weekday">${d}</div>`).join("")}
+          ${buildMonthGridExt((dateStr) => extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr))}
+        </div>
+        `}
+      </section>
+    `;
+
+    container.querySelector("#viewWeekBtn").addEventListener("click", () => { planningViewMode = "week"; renderWeek(); });
+    container.querySelector("#viewMonthBtn").addEventListener("click", () => { planningViewMode = "month"; renderMonth(); });
+    container.querySelector("#prevMonthBtn").addEventListener("click", () => { planningMonthOffset--; renderMonth(); });
+    container.querySelector("#todayMonthBtn").addEventListener("click", () => { planningMonthOffset = 0; renderMonth(); });
+    container.querySelector("#nextMonthBtn").addEventListener("click", () => { planningMonthOffset++; renderMonth(); });
+    container.querySelector("#planCollab").addEventListener("change", (e) => { planningFilterCollab = e.target.value; renderMonth(); });
+    container.querySelector("#exportExcelBtn").addEventListener("click", () => {
+      const exportDays = gridDays.filter((d) => d.isCurrentMonth).map((d) => d.date);
+      exportPlanningExcel(collaborators, exportDays);
+    });
+    container.querySelector("#planPrestataire")?.addEventListener("change", (e) => { planningFilterPrestataire = e.target.value; renderMonth(); });
+
+    container.querySelectorAll(".cal-month-item--ext[data-ext-ticket-id]").forEach((item) => {
+      item.addEventListener("click", () => {
+        const tk = state.tickets.find((t) => t.id === item.dataset.extTicketId);
+        if (!tk) return;
+        managerSubPage = "demandes";
+        managerExpandedTicketId = tk.id;
+        render();
+      });
+    });
+
+    container.querySelectorAll(".cal-add-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showPlanningTaskModal({ date: e.currentTarget.dataset.addDate, collaborators, onSave: renderMonth });
+      });
+    });
+  }
+
+  if (planningViewMode === "month") renderMonth(); else renderWeek();
 }
 
 function renderTreeEditor(container) {

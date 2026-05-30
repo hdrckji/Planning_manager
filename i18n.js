@@ -290,6 +290,14 @@ const TRANSLATIONS = {
     "plan.export.done":        "Export téléchargé :",
     "plan.export.unavail":     "Bibliothèque Excel non disponible.",
     "plan.week.total":         "Total semaine :",
+    "plan.view.week":          "Semaine",
+    "plan.view.month":         "Mois",
+    "plan.month.total":        "Total mois :",
+    "plan.ext.title":          "Planning Partenaires Externes",
+    "plan.ext.none":           "Aucun partenaire externe enregistré.",
+    "plan.ext.partner":        "Partenaire :",
+    "plan.ext.all":            "Tous les partenaires",
+    "plan.ext.empty":          "Aucune intervention externe.",
 
     // ── Collaborateur ──────────────────────────────────────────────────────
     "collab.planning":    "Mon planning",
@@ -654,6 +662,14 @@ const TRANSLATIONS = {
     "plan.export.done":        "Export gedownload:",
     "plan.export.unavail":     "Excel-bibliotheek niet beschikbaar.",
     "plan.week.total":         "Week totaal:",
+    "plan.view.week":          "Week",
+    "plan.view.month":         "Maand",
+    "plan.month.total":        "Maand totaal:",
+    "plan.ext.title":          "Planning externe partners",
+    "plan.ext.none":           "Geen externe partners geregistreerd.",
+    "plan.ext.partner":        "Partner:",
+    "plan.ext.all":            "Alle partners",
+    "plan.ext.empty":          "Geen externe interventies.",
 
     // ── Collaborateur ──────────────────────────────────────────────────────
     "collab.planning":    "Mijn planning",
