@@ -3216,6 +3216,15 @@ function renderManagerForm(ticket, collaborators) {
       <button class="button secondary" type="button" id="mgrSaveBtn">${t("mgr.save")}</button>
       <button class="button ghost" type="button" data-action="ask-info">${t("mgr.ask.info")}</button>
     </div>
+    <div class="field full ticket-delete-zone">
+      <hr style="border:none;border-top:1px solid rgba(68,53,36,0.12);margin:8px 0 12px;" />
+      <p class="subtle" style="font-size:0.82rem;color:#b03a2e;margin-bottom:8px;">
+        ⚠ La suppression est irréversible. Elle ne doit servir qu'à corriger une erreur de saisie ou un doublon — pas à clôturer une demande.
+      </p>
+      <button class="button danger-ghost" type="button" id="mgrDeleteBtn" style="font-size:0.85rem;">
+        🗑 Supprimer définitivement cette demande
+      </button>
+    </div>
   `;
 
   const interneBlock = wrapper.querySelectorAll(".assign-interne-block");
@@ -3390,6 +3399,26 @@ function renderManagerForm(ticket, collaborators) {
       returnNote: String(wrapper.querySelector("[name='returnNote']")?.value || ""),
     });
     toast(t("mgr.saved"));
+  });
+
+  wrapper.querySelector("#mgrDeleteBtn").addEventListener("click", () => {
+    const step1 = confirm(
+      "⚠ ATTENTION — Suppression irréversible\n\n" +
+      "Toutes les données de cette demande (historique, échanges, photo) seront définitivement effacées.\n\n" +
+      "Cette option ne doit être utilisée que pour corriger une erreur de saisie ou supprimer un doublon.\n" +
+      "Pour clôturer une demande traitée, utilisez le statut « Terminé ».\n\n" +
+      "Voulez-vous continuer ?"
+    );
+    if (!step1) return;
+    const step2 = confirm(
+      `Confirmer la suppression définitive de la demande ${ticket.id} — « ${ticket.title} » ?\n\nCette action ne peut pas être annulée.`
+    );
+    if (!step2) return;
+    state.tickets = state.tickets.filter((tk) => tk.id !== ticket.id);
+    managerExpandedTicketId = "";
+    persistState();
+    render();
+    toast(`Demande ${ticket.id} supprimée.`);
   });
 
   renderAssignWeekPicker();
