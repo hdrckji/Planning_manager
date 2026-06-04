@@ -2478,8 +2478,8 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add("visible"));
 
-  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
-  overlay.querySelector(".modal-close").addEventListener("click", close);
+  const close = (cb) => { overlay.classList.remove("visible"); setTimeout(() => { overlay.remove(); cb?.(); }, 210); };
+  overlay.querySelector(".modal-close").addEventListener("click", () => close());
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
 
@@ -2513,13 +2513,16 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   }
 
   function refreshRestWarn(restSet) {
-    const warn = overlay.querySelector("#tm-rest-warn");
+    const warn   = overlay.querySelector("#tm-rest-warn");
+    const submit = overlay.querySelector("[type='submit']");
     const collabId = overlay.querySelector("#tm-collab").value;
     if (collabId && restSet.has(collabId)) {
-      warn.textContent = "⚠ Ce collaborateur est en repos ce jour-là.";
+      warn.textContent = "⚠ Ce collaborateur est en repos ce jour-là. Choisissez un autre collaborateur.";
       warn.style.display = "block";
+      submit.disabled = true;
     } else {
       warn.style.display = "none";
+      submit.disabled = false;
     }
   }
 
@@ -2535,8 +2538,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
       if (!confirm(t("plan.task.delete.confirm"))) return;
       state.planningTasks = (state.planningTasks || []).filter((pt) => pt.id !== task.id);
       persistState();
-      close();
-      onSave();
+      close(onSave);
     });
   }
 
@@ -2545,9 +2547,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
     const fd = new FormData(e.target);
     const collabId = fd.get("collaboratorId");
     const dateStr  = fd.get("date");
-    if (collabId && restSetForDate(dateStr).has(collabId)) {
-      if (!confirm("Ce collaborateur est en repos ce jour-là. Voulez-vous quand même créer la tâche ?")) return;
-    }
+    if (collabId && restSetForDate(dateStr).has(collabId)) return;
     const photoFile = fd.get("taskPhoto");
     const photoDataUrl = photoFile instanceof File && photoFile.size > 0
       ? await toDataUrl(photoFile)
@@ -2570,8 +2570,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
       state.planningTasks.push(saved);
     }
     persistState();
-    close();
-    onSave();
+    close(onSave);
   });
 }
 
