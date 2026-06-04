@@ -1715,20 +1715,22 @@ function renderManagerUtilisateurs(container) {
         const sched = scheduleSummary(u);
         return `
         <div class="user-item">
+          <div class="user-item-row1">
+            <span class="user-item-name">${escHtml(u.name)}</span>
+            <div class="user-item-actions">
+              ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
+              ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-schedule" data-uid="${u.id}">${editingScheduleUserId === u.id ? "Fermer horaire" : "Horaire"}</button>` : ""}
+              <button class="button ghost tree-btn" type="button" data-action="edit-name" data-uid="${u.id}">${editingNameUserId === u.id ? "Annuler" : "Renommer"}</button>
+              <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
+              <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
+            </div>
+          </div>
           <div class="user-item-info">
-            <strong>${escHtml(u.name)}</strong>
             <span class="badge badge-muted">${ROLE_LABEL[u.role] || u.role}</span>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
             ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
-            ${sched ? `<span class="badge badge-muted" style="font-size:0.75em">${escHtml(sched)}</span>` : ""}
+            ${sched ? `<span class="badge badge-muted">${escHtml(sched)}</span>` : ""}
             ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
-          </div>
-          <div class="user-item-actions">
-            ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
-            ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-schedule" data-uid="${u.id}">${editingScheduleUserId === u.id ? "Fermer horaire" : "Horaire"}</button>` : ""}
-            <button class="button ghost tree-btn" type="button" data-action="edit-name" data-uid="${u.id}">${editingNameUserId === u.id ? "Annuler" : "Renommer"}</button>
-            <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
-            <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
           </div>
           ${editingNameUserId === u.id ? `
             <form class="user-skill-editor" data-action="save-name" data-uid="${u.id}">
