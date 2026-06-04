@@ -1673,28 +1673,59 @@ function renderManagerUtilisateurs(container) {
   let editingSkillsUserId = "";
   let editingPasswordUserId = "";
   let editingNameUserId = "";
+  let editingScheduleUserId = "";
   let showSkillsCatalog = false;
   let showTeamsForm = false;
+  let filterRole = "all";
+
+  const SCHED_DAYS = ["mon","tue","wed","thu","fri","sat","sun"];
+  const SCHED_LABELS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+  function scheduleDay(user, week, day) {
+    return user.schedule?.[week]?.[day] || { active: false, start: "", end: "" };
+  }
+
+  function scheduleSummary(user) {
+    if (!user.schedule) return "";
+    const fmt = (week) => SCHED_DAYS
+      .filter((d) => user.schedule[week]?.[d]?.active)
+      .map((d) => SCHED_LABELS[SCHED_DAYS.indexOf(d)])
+      .join(" ");
+    const a = fmt("A"); const b = fmt("B");
+    if (!a && !b) return "";
+    return `A: ${a || "—"} · B: ${b || "—"}`;
+  }
 
   function renderContent() {
     const managers = state.users.filter((u) => u.role === "manager");
     const collabs = state.users.filter((u) => u.role === "collaborator");
     const employees = state.users.filter((u) => u.role === "employee");
+    const allUsers = state.users;
+
+    const filteredUsers = filterRole === "all" ? allUsers
+      : allUsers.filter((u) => u.role === filterRole);
+
+    const ROLE_LABEL = { manager: t("users.managers"), collaborator: t("users.collabs"), employee: t("users.employees") };
 
     const userListHtml = (users) => {
       if (users.length === 0) {
         return `<p class="subtle" style="padding:6px 0">${t("users.none")}</p>`;
       }
-      return users.map((u) => `
+      return users.map((u) => {
+        const sched = scheduleSummary(u);
+        return `
         <div class="user-item">
           <div class="user-item-info">
             <strong>${escHtml(u.name)}</strong>
+            <span class="badge badge-muted">${ROLE_LABEL[u.role] || u.role}</span>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
             ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
+            ${sched ? `<span class="badge badge-muted" style="font-size:0.75em">${escHtml(sched)}</span>` : ""}
             ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
           </div>
           <div class="user-item-actions">
             ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
+            ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-schedule" data-uid="${u.id}">${editingScheduleUserId === u.id ? "Fermer horaire" : "Horaire"}</button>` : ""}
             <button class="button ghost tree-btn" type="button" data-action="edit-name" data-uid="${u.id}">${editingNameUserId === u.id ? "Annuler" : "Renommer"}</button>
             <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
             <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
@@ -1727,8 +1758,49 @@ function renderManagerUtilisateurs(container) {
               <button class="button" type="submit">${t("users.skills.save")}</button>
             </form>
           ` : ""}
+          ${u.role === "collaborator" && editingScheduleUserId === u.id ? `
+            <form class="user-skill-editor" data-action="save-schedule" data-uid="${u.id}" style="overflow-x:auto">
+              <label>Horaire (semaine A / semaine B)</label>
+              <table style="border-collapse:collapse;font-size:0.85em;min-width:480px">
+                <thead>
+                  <tr>
+                    <th style="padding:4px 8px;text-align:left;font-weight:600;width:48px"></th>
+                    <th style="padding:4px 8px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine A</th>
+                    <th style="padding:4px 8px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine B</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${SCHED_DAYS.map((day, i) => {
+                    const dA = scheduleDay(u, "A", day);
+                    const dB = scheduleDay(u, "B", day);
+                    return `
+                    <tr style="border-top:1px solid rgba(0,0,0,.06)">
+                      <td style="padding:6px 8px;font-weight:500">${SCHED_LABELS[i]}</td>
+                      <td style="padding:6px 8px">
+                        <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                          <input type="checkbox" name="sA_${day}_active" ${dA.active ? "checked" : ""} />
+                          <input type="time" name="sA_${day}_start" value="${escHtml(dA.start)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
+                          <span style="color:#888">→</span>
+                          <input type="time" name="sA_${day}_end" value="${escHtml(dA.end)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
+                        </label>
+                      </td>
+                      <td style="padding:6px 8px">
+                        <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                          <input type="checkbox" name="sB_${day}_active" ${dB.active ? "checked" : ""} />
+                          <input type="time" name="sB_${day}_start" value="${escHtml(dB.start)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
+                          <span style="color:#888">→</span>
+                          <input type="time" name="sB_${day}_end" value="${escHtml(dB.end)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
+                        </label>
+                      </td>
+                    </tr>`;
+                  }).join("")}
+                </tbody>
+              </table>
+              <button class="button" type="submit" style="margin-top:8px">Enregistrer l'horaire</button>
+            </form>
+          ` : ""}
         </div>
-      `).join("");
+      `}).join("");
     };
 
     container.innerHTML = `
@@ -1851,20 +1923,15 @@ function renderManagerUtilisateurs(container) {
             </div>
           </form>
         </div>
-        <div class="user-groups">
-          <div class="user-group">
-            <h3>${t("users.managers")} <span class="badge badge-muted">${managers.length}</span></h3>
-            <div class="user-group-list">${userListHtml(managers)}</div>
-          </div>
-          <div class="user-group">
-            <h3>${t("users.collabs")} <span class="badge badge-muted">${collabs.length}</span></h3>
-            <div class="user-group-list">${userListHtml(collabs)}</div>
-          </div>
-          <div class="user-group">
-            <h3>${t("users.employees")} <span class="badge badge-muted">${employees.length}</span></h3>
-            <div class="user-group-list">${userListHtml(employees)}</div>
-          </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+          ${[
+            { key: "all",          label: `Tous (${allUsers.length})` },
+            { key: "manager",      label: `${t("users.managers")} (${managers.length})` },
+            { key: "collaborator", label: `${t("users.collabs")} (${collabs.length})` },
+            { key: "employee",     label: `${t("users.employees")} (${employees.length})` },
+          ].map((f) => `<button class="button ${filterRole === f.key ? "" : "ghost"} tree-btn" type="button" data-filter="${f.key}">${f.label}</button>`).join("")}
         </div>
+        <div class="user-group-list">${userListHtml(filteredUsers)}</div>
       </section>
     `;
 
@@ -2027,11 +2094,57 @@ function renderManagerUtilisateurs(container) {
       });
     });
 
+    container.querySelectorAll("[data-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        filterRole = btn.dataset.filter;
+        editingSkillsUserId = "";
+        editingPasswordUserId = "";
+        editingNameUserId = "";
+        editingScheduleUserId = "";
+        renderContent();
+      });
+    });
+
+    container.querySelectorAll("[data-action='edit-schedule']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingScheduleUserId = editingScheduleUserId === btn.dataset.uid ? "" : btn.dataset.uid;
+        editingSkillsUserId = "";
+        editingPasswordUserId = "";
+        editingNameUserId = "";
+        renderContent();
+      });
+    });
+
+    container.querySelectorAll("form[data-action='save-schedule']").forEach((formEl) => {
+      formEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const uid = formEl.dataset.uid;
+        const user = state.users.find((u) => u.id === uid);
+        if (!user) return;
+        const fd = new FormData(formEl);
+        const schedule = { A: {}, B: {} };
+        SCHED_DAYS.forEach((day) => {
+          ["A","B"].forEach((week) => {
+            const active = fd.get(`s${week}_${day}_active`) === "on";
+            const start = active ? String(fd.get(`s${week}_${day}_start`) || "") : "";
+            const end   = active ? String(fd.get(`s${week}_${day}_end`)   || "") : "";
+            schedule[week][day] = { active, start, end };
+          });
+        });
+        user.schedule = schedule;
+        editingScheduleUserId = "";
+        persistState();
+        renderContent();
+        toast("Horaire enregistré.");
+      });
+    });
+
     container.querySelectorAll("[data-action='edit-name']").forEach((btn) => {
       btn.addEventListener("click", () => {
         editingNameUserId = editingNameUserId === btn.dataset.uid ? "" : btn.dataset.uid;
         editingPasswordUserId = "";
         editingSkillsUserId = "";
+        editingScheduleUserId = "";
         renderContent();
       });
     });
@@ -2056,6 +2169,9 @@ function renderManagerUtilisateurs(container) {
     container.querySelectorAll("[data-action='edit-skills']").forEach((btn) => {
       btn.addEventListener("click", () => {
         editingSkillsUserId = editingSkillsUserId === btn.dataset.uid ? "" : btn.dataset.uid;
+        editingScheduleUserId = "";
+        editingPasswordUserId = "";
+        editingNameUserId = "";
         renderContent();
       });
     });
@@ -2065,6 +2181,7 @@ function renderManagerUtilisateurs(container) {
         editingPasswordUserId = editingPasswordUserId === btn.dataset.uid ? "" : btn.dataset.uid;
         editingSkillsUserId = "";
         editingNameUserId = "";
+        editingScheduleUserId = "";
         renderContent();
       });
     });
