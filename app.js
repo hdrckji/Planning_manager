@@ -151,10 +151,19 @@ function saveCustomSpecialties(list) {
   window.FlowDeskApi?.saveSpecialties(list);
 }
 
+function loadDeletedDefaultKeys() {
+  try { return JSON.parse(localStorage.getItem("flowdesk-deleted-defaults") || "[]"); } catch { return []; }
+}
+
+function saveDeletedDefaultKeys(keys) {
+  localStorage.setItem("flowdesk-deleted-defaults", JSON.stringify(keys));
+}
+
 function getSpecialtyDefinitions() {
   const custom = loadCustomSpecialties();
+  const deletedKeys = new Set(loadDeletedDefaultKeys());
   const used = new Set(DEFAULT_SPECIALTIES.map((item) => item.key));
-  const merged = [...DEFAULT_SPECIALTIES];
+  const merged = DEFAULT_SPECIALTIES.filter((item) => !deletedKeys.has(item.key));
   custom.forEach((item) => {
     if (!used.has(item.key)) {
       merged.push(item);
@@ -1663,7 +1672,9 @@ function renderManagerTicketTable(container, tickets, collaborators) {
 function renderManagerUtilisateurs(container) {
   let editingSkillsUserId = "";
   let editingPasswordUserId = "";
+  let editingNameUserId = "";
   let showSkillsCatalog = false;
+  let showTeamsForm = false;
 
   function renderContent() {
     const managers = state.users.filter((u) => u.role === "manager");
@@ -1684,9 +1695,17 @@ function renderManagerUtilisateurs(container) {
           </div>
           <div class="user-item-actions">
             ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
+            <button class="button ghost tree-btn" type="button" data-action="edit-name" data-uid="${u.id}">${editingNameUserId === u.id ? "Annuler" : "Renommer"}</button>
             <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
             <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
           </div>
+          ${editingNameUserId === u.id ? `
+            <form class="user-skill-editor" data-action="save-name" data-uid="${u.id}">
+              <label>Nouveau nom</label>
+              <input type="text" name="newName" value="${escHtml(u.name)}" required style="border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;max-width:260px" />
+              <button class="button" type="submit">Enregistrer</button>
+            </form>
+          ` : ""}
           ${editingPasswordUserId === u.id ? `
             <form class="user-skill-editor" data-action="save-password" data-uid="${u.id}">
               <label>${t("users.password.label")}</label>
@@ -1748,7 +1767,7 @@ function renderManagerUtilisateurs(container) {
           </form>
           <div class="user-group-list">
             ${getSpecialtyDefinitions().map((spec) => {
-              const canDelete = !DEFAULT_SPECIALTIES.some((def) => def.key === spec.key);
+              const canDelete = true;
               const teamBadges = (spec.teams || []).map((team) => `<span class="badge badge-muted">${teamLabel(team)}</span>`).join("");
               return `
                 <div class="user-item">
@@ -1765,7 +1784,11 @@ function renderManagerUtilisateurs(container) {
         </div>
         ` : ""}
         <div class="add-user-block">
-          <h3>Équipes cibles</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <h3 style="margin:0">Équipes cibles</h3>
+            <button class="button ghost tree-btn" type="button" id="toggleTeamsFormBtn">${showTeamsForm ? "Annuler" : "+ Ajouter une équipe"}</button>
+          </div>
+          ${showTeamsForm ? `
           <form id="addTeamForm" class="form-grid">
             <div class="field">
               <label for="ntLabel">Nom de l'équipe</label>
@@ -1775,6 +1798,7 @@ function renderManagerUtilisateurs(container) {
               <button class="button" type="submit">Créer l'équipe</button>
             </div>
           </form>
+          ` : ""}
           <div class="user-group-list" style="margin-top:8px">
             ${[
               ...BUILTIN_TARGET_TEAMS.map((key) => `
@@ -1884,6 +1908,11 @@ function renderManagerUtilisateurs(container) {
     teamSelect.addEventListener("change", renderSpecialtyChecks);
     syncTeamOptions();
 
+    container.querySelector("#toggleTeamsFormBtn")?.addEventListener("click", () => {
+      showTeamsForm = !showTeamsForm;
+      renderContent();
+    });
+
     container.querySelector("#addTeamForm")?.addEventListener("submit", (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
@@ -1987,10 +2016,40 @@ function renderManagerUtilisateurs(container) {
           toast(t("users.skills.in.use"));
           return;
         }
-        const filtered = loadCustomSpecialties().filter((item) => item.key !== key);
-        saveCustomSpecialties(filtered);
+        const isDefault = DEFAULT_SPECIALTIES.some((def) => def.key === key);
+        if (isDefault) {
+          saveDeletedDefaultKeys([...loadDeletedDefaultKeys(), key]);
+        } else {
+          saveCustomSpecialties(loadCustomSpecialties().filter((item) => item.key !== key));
+        }
         renderContent();
         toast(t("users.skills.deleted"));
+      });
+    });
+
+    container.querySelectorAll("[data-action='edit-name']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        editingNameUserId = editingNameUserId === btn.dataset.uid ? "" : btn.dataset.uid;
+        editingPasswordUserId = "";
+        editingSkillsUserId = "";
+        renderContent();
+      });
+    });
+
+    container.querySelectorAll("form[data-action='save-name']").forEach((formEl) => {
+      formEl.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const uid = formEl.dataset.uid;
+        const user = state.users.find((u) => u.id === uid);
+        if (!user) return;
+        const newName = String(formEl.querySelector("input[name='newName']")?.value || "").trim();
+        if (!newName) return;
+        user.name = newName;
+        editingNameUserId = "";
+        persistState();
+        renderUserSelector();
+        renderContent();
+        toast("Nom modifié.");
       });
     });
 
@@ -2005,6 +2064,7 @@ function renderManagerUtilisateurs(container) {
       btn.addEventListener("click", () => {
         editingPasswordUserId = editingPasswordUserId === btn.dataset.uid ? "" : btn.dataset.uid;
         editingSkillsUserId = "";
+        editingNameUserId = "";
         renderContent();
       });
     });
