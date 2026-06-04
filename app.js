@@ -1691,6 +1691,8 @@ function renderManagerUtilisateurs(container) {
   let showSkillsCatalog = false;
   let showTeamsForm = false;
   let filterRole = "all";
+  let showScheduleManager = false;
+  let editingSchedId = "";
 
   function renderContent() {
     const managers  = state.users.filter((u) => u.role === "manager");
@@ -1700,6 +1702,114 @@ function renderManagerUtilisateurs(container) {
     const filteredUsers = filterRole === "all" ? allUsers : allUsers.filter((u) => u.role === filterRole);
     const ROLE_LABEL = { manager: t("users.managers"), collaborator: t("users.collabs"), employee: t("users.employees") };
 
+    // ── Vue Gestion des horaires ──────────────────────────────────────────
+    if (showScheduleManager) {
+      const TIME_STYLE = "width:88px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit";
+      container.innerHTML = `
+        <section class="card">
+          <div class="section-head">
+            <div>
+              <h2>Gestion des horaires</h2>
+              <p class="subtle">Configurez les horaires semaine A / B pour chaque collaborateur</p>
+            </div>
+            <button class="button ghost" type="button" id="backFromSchedBtn">← Retour</button>
+          </div>
+          ${collabs.length === 0 ? `<p class="subtle" style="padding:8px 0">Aucun collaborateur.</p>` : `
+          <div class="user-group-list">
+            ${collabs.map((u) => {
+              const open = editingSchedId === u.id;
+              return `
+              <div class="user-item">
+                <div class="user-item-row1">
+                  <span class="user-item-name">${escHtml(u.name)}</span>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-muted">${teamLabel(u.team)}</span>
+                    ${scheduleSummary(u) ? `<span class="badge badge-muted" style="font-size:0.78em">${escHtml(scheduleSummary(u))}</span>` : `<span class="badge badge-warn">Pas d'horaire</span>`}
+                    <button class="button ghost tree-btn" type="button" data-action="toggle-sched" data-uid="${u.id}">${open ? "Fermer" : "Modifier"}</button>
+                  </div>
+                </div>
+                ${open ? `
+                <form class="sched-form" data-action="save-sched" data-uid="${u.id}" style="margin-top:12px;overflow-x:auto">
+                  <table style="border-collapse:collapse;font-size:0.85em;width:100%">
+                    <thead>
+                      <tr>
+                        <th style="padding:4px 8px;text-align:left;width:44px"></th>
+                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine A</th>
+                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine B</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${SCHED_DAYS.map((day, i) => {
+                        const dA = scheduleDay(u, "A", day);
+                        const dB = scheduleDay(u, "B", day);
+                        return `
+                        <tr style="border-top:1px solid rgba(0,0,0,.06)">
+                          <td style="padding:7px 8px;font-weight:600">${SCHED_LABELS[i]}</td>
+                          <td style="padding:7px 16px">
+                            <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                              <input type="checkbox" name="sA_${day}_active" ${dA.active ? "checked" : ""} />
+                              <input type="time" name="sA_${day}_start" value="${escHtml(dA.start)}" style="${TIME_STYLE}" />
+                              <span style="color:#bbb">→</span>
+                              <input type="time" name="sA_${day}_end" value="${escHtml(dA.end)}" style="${TIME_STYLE}" />
+                            </label>
+                          </td>
+                          <td style="padding:7px 16px">
+                            <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                              <input type="checkbox" name="sB_${day}_active" ${dB.active ? "checked" : ""} />
+                              <input type="time" name="sB_${day}_start" value="${escHtml(dB.start)}" style="${TIME_STYLE}" />
+                              <span style="color:#bbb">→</span>
+                              <input type="time" name="sB_${day}_end" value="${escHtml(dB.end)}" style="${TIME_STYLE}" />
+                            </label>
+                          </td>
+                        </tr>`;
+                      }).join("")}
+                    </tbody>
+                  </table>
+                  <button class="button" type="submit" style="margin-top:10px">Enregistrer l'horaire</button>
+                </form>` : ""}
+              </div>`;
+            }).join("")}
+          </div>`}
+        </section>
+      `;
+
+      container.querySelector("#backFromSchedBtn").addEventListener("click", () => {
+        showScheduleManager = false; editingSchedId = ""; renderContent();
+      });
+      container.querySelectorAll("[data-action='toggle-sched']").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          editingSchedId = editingSchedId === btn.dataset.uid ? "" : btn.dataset.uid;
+          renderContent();
+        });
+      });
+      container.querySelectorAll(".sched-form[data-action='save-sched']").forEach((form) => {
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const user = state.users.find((u) => u.id === form.dataset.uid);
+          if (!user) return;
+          const fd = new FormData(form);
+          const schedule = { A: {}, B: {} };
+          SCHED_DAYS.forEach((day) => {
+            ["A","B"].forEach((week) => {
+              const active = fd.get(`s${week}_${day}_active`) === "on";
+              schedule[week][day] = {
+                active,
+                start: active ? String(fd.get(`s${week}_${day}_start`) || "") : "",
+                end:   active ? String(fd.get(`s${week}_${day}_end`)   || "") : "",
+              };
+            });
+          });
+          user.schedule = schedule;
+          editingSchedId = "";
+          persistState();
+          renderContent();
+          toast("Horaire enregistré.");
+        });
+      });
+      return;
+    }
+
+    // ── Vue principale utilisateurs ──────────────────────────────────────
     const userListHtml = (users) => {
       if (users.length === 0) return `<p class="subtle" style="padding:6px 0">${t("users.none")}</p>`;
       return users.map((u) => {
@@ -1727,7 +1837,10 @@ function renderManagerUtilisateurs(container) {
             <h2>${t("users.title")}</h2>
             <p class="subtle">${t("users.sub")}</p>
           </div>
-          <button class="button ghost" type="button" id="toggleSkillsCatalogBtn">${showSkillsCatalog ? t("users.skills.hide") : t("users.skills.show")}</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="button ghost" type="button" id="openScheduleMgrBtn">Gestion des horaires</button>
+            <button class="button ghost" type="button" id="toggleSkillsCatalogBtn">${showSkillsCatalog ? t("users.skills.hide") : t("users.skills.show")}</button>
+          </div>
         </div>
         ${showSkillsCatalog ? `
         <div class="add-user-block">
@@ -1942,6 +2055,10 @@ function renderManagerUtilisateurs(container) {
       toast(t("users.created"));
     });
 
+    container.querySelector("#openScheduleMgrBtn")?.addEventListener("click", () => {
+      showScheduleManager = true; editingSchedId = ""; renderContent();
+    });
+
     container.querySelector("#toggleSkillsCatalogBtn")?.addEventListener("click", () => {
       showSkillsCatalog = !showSkillsCatalog;
       renderContent();
@@ -2047,48 +2164,7 @@ function showUserEditModal(user, { onSave, onDelete }) {
       </form>
     </div>` : "";
 
-  const schedSection = user.role === "collaborator" ? `
-    <div class="user-modal-section">
-      <h4 class="user-modal-section-title">Horaire — Semaine A / Semaine B</h4>
-      <form data-modal-action="save-schedule" style="overflow-x:auto">
-        <table style="border-collapse:collapse;font-size:0.85em;width:100%">
-          <thead>
-            <tr>
-              <th style="padding:4px 8px;text-align:left;width:44px"></th>
-              <th style="padding:4px 12px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine A</th>
-              <th style="padding:4px 12px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine B</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${SCHED_DAYS.map((day, i) => {
-              const dA = scheduleDay(user, "A", day);
-              const dB = scheduleDay(user, "B", day);
-              return `
-              <tr style="border-top:1px solid rgba(0,0,0,.06)">
-                <td style="padding:6px 8px;font-weight:600;white-space:nowrap">${SCHED_LABELS[i]}</td>
-                <td style="padding:6px 12px">
-                  <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                    <input type="checkbox" name="sA_${day}_active" ${dA.active ? "checked" : ""} />
-                    <input type="time" name="sA_${day}_start" value="${escHtml(dA.start)}" style="${TIME_STYLE}" />
-                    <span style="color:#aaa">→</span>
-                    <input type="time" name="sA_${day}_end" value="${escHtml(dA.end)}" style="${TIME_STYLE}" />
-                  </label>
-                </td>
-                <td style="padding:6px 12px">
-                  <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                    <input type="checkbox" name="sB_${day}_active" ${dB.active ? "checked" : ""} />
-                    <input type="time" name="sB_${day}_start" value="${escHtml(dB.start)}" style="${TIME_STYLE}" />
-                    <span style="color:#aaa">→</span>
-                    <input type="time" name="sB_${day}_end" value="${escHtml(dB.end)}" style="${TIME_STYLE}" />
-                  </label>
-                </td>
-              </tr>`;
-            }).join("")}
-          </tbody>
-        </table>
-        <button class="button" type="submit" style="margin-top:10px">Enregistrer l'horaire</button>
-      </form>
-    </div>` : "";
+  const schedSection = "";
 
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
@@ -2163,25 +2239,6 @@ function showUserEditModal(user, { onSave, onDelete }) {
     user.specialties = normalizeSpecialties(picked, user.team);
     onSave();
     toast(t("users.skills.saved"));
-  });
-
-  overlay.querySelector("[data-modal-action='save-schedule']")?.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const schedule = { A: {}, B: {} };
-    SCHED_DAYS.forEach((day) => {
-      ["A","B"].forEach((week) => {
-        const active = fd.get(`s${week}_${day}_active`) === "on";
-        schedule[week][day] = {
-          active,
-          start: active ? String(fd.get(`s${week}_${day}_start`) || "") : "",
-          end:   active ? String(fd.get(`s${week}_${day}_end`)   || "") : "",
-        };
-      });
-    });
-    user.schedule = schedule;
-    onSave();
-    toast("Horaire enregistré.");
   });
 
   overlay.querySelector("[data-modal-action='del-user']").addEventListener("click", () => {
