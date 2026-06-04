@@ -2242,6 +2242,43 @@ textarea {
   background: rgba(47, 125, 59, 0.06);
 }
 
+.cal-day--rest-warn {
+  border-color: rgba(192, 57, 43, 0.25);
+  background: rgba(192, 57, 43, 0.03);
+}
+
+.cal-day-hours {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+  white-space: nowrap;
+}
+
+.cal-day-rest {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.cal-rest-warning {
+  font-size: 0.78rem;
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.collab-week-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.collab-week-label {
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
 .cal-day-head {
   padding: 8px 12px;
   background: rgba(248, 242, 231, 0.85);

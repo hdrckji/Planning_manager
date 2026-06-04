@@ -3394,6 +3394,20 @@ function renderCollaboratorPage() {
     return monday;
   }
 
+  // Numéro ISO → "A" = paire, "B" = impaire
+  function isoWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  }
+  function weekType(date) { return isoWeekNumber(date) % 2 === 0 ? "A" : "B"; }
+  function schedKey(date) {
+    const jsDay = date.getDay(); // 0=dim … 6=sam
+    return SCHED_DAYS[jsDay === 0 ? 6 : jsDay - 1];
+  }
+
   function renderWeek() {
     const monday = mondayForOffset(collaboratorWeekOffset);
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -3430,6 +3444,9 @@ function renderCollaboratorPage() {
     }
 
     const weekLabel = `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
+    const wType  = weekType(monday);
+    const wLabel = wType === "A" ? "Semaine paire" : "Semaine impaire";
+    const hasSchedule = !!(currentUser.schedule?.A || currentUser.schedule?.B);
 
     refs.mainView.innerHTML = `
       <div class="collab-planning">
@@ -3446,7 +3463,11 @@ function renderCollaboratorPage() {
           </div>
         </div>
 
-        <p class="subtle">${weekLabel}</p>
+        <div class="collab-week-banner">
+          <span class="collab-week-label">${weekLabel}</span>
+          <span class="badge ${wType === "A" ? "badge-ok" : "badge-muted"}">${wLabel}</span>
+          ${!hasSchedule ? `<span class="badge badge-warn">Aucun horaire configuré</span>` : ""}
+        </div>
 
         <div class="collab-kpi-row">
           <article class="collab-kpi-card">
@@ -3527,14 +3548,24 @@ function renderCollaboratorPage() {
             const isToday = dateStr === todayStr;
             const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
             const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            const dayKey  = schedKey(day);
+            const daySched = currentUser.schedule?.[wType]?.[dayKey];
+            const isWorking = daySched?.active === true;
+            const hasTasksOnRestDay = !isWorking && !isEmpty && hasSchedule;
             return `
-              <div class="cal-day${isToday ? " cal-day--today" : ""}">
+              <div class="cal-day${isToday ? " cal-day--today" : ""}${hasTasksOnRestDay ? " cal-day--rest-warn" : ""}">
                 <div class="cal-day-head">
                   <span class="cal-weekday">${dayName}</span>
                   <span class="cal-daynum">${dayNum}</span>
+                  ${hasSchedule
+                    ? (isWorking
+                        ? `<span class="cal-day-hours">${daySched.start}–${daySched.end}</span>`
+                        : `<span class="cal-day-rest">Repos</span>`)
+                    : ""}
                 </div>
                 <div class="cal-day-body">
-                  ${isEmpty ? `<span class="cal-empty">—</span>` : ""}
+                  ${hasTasksOnRestDay ? `<span class="cal-rest-warning" title="Tâche planifiée un jour de repos">⚠ Jour de repos</span>` : ""}
+                  ${isEmpty && !hasTasksOnRestDay ? `<span class="cal-empty">—</span>` : ""}
                   ${dayTickets.map((ticket) => {
                     const actionButton = ticket.status === "planifie"
                       ? `<button class="button" type="button" data-action="collab-start" data-ticket-id="${ticket.id}">${t("collab.start")}</button>`
