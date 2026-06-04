@@ -1786,7 +1786,7 @@ function renderManagerUtilisateurs(container) {
         <div class="add-user-block">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
             <h3 style="margin:0">Équipes cibles</h3>
-            <button class="button ghost tree-btn" type="button" id="toggleTeamsFormBtn">${showTeamsForm ? "Annuler" : "+ Ajouter une équipe"}</button>
+            <button class="button ghost tree-btn" type="button" id="toggleTeamsFormBtn">${showTeamsForm ? "Fermer" : "Gérer les équipes"}</button>
           </div>
           ${showTeamsForm ? `
           <form id="addTeamForm" class="form-grid">
@@ -1798,7 +1798,6 @@ function renderManagerUtilisateurs(container) {
               <button class="button" type="submit">Créer l'équipe</button>
             </div>
           </form>
-          ` : ""}
           <div class="user-group-list" style="margin-top:8px">
             ${[
               ...BUILTIN_TARGET_TEAMS.map((key) => `
@@ -1818,6 +1817,7 @@ function renderManagerUtilisateurs(container) {
                 </div>`)
             ].join("")}
           </div>
+          ` : ""}
         </div>
 
         <div class="add-user-block">
