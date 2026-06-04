@@ -37,6 +37,10 @@ function nextSiteId() {
 function findSite(id) {
   return loadSites().find((s) => s.id === id) || null;
 }
+function findZone(siteId, zoneId) {
+  if (!siteId || !zoneId) return null;
+  return findSite(siteId)?.zones?.find((z) => z.id === zoneId) || null;
+}
 
 // ── Responsable de garde ─────────────────────────────────────────────
 function loadOnCall() {
@@ -857,6 +861,12 @@ function renderEmployeePage() {
           </select>
           ${loadSites().length === 0 ? `<p class="subtle" style="margin-top:6px">${t("emp.site.empty")}</p>` : ""}
         </div>
+        <div class="field full hidden" id="zoneField">
+          <label for="ticketZone">Zone</label>
+          <select id="ticketZone" name="zoneId">
+            <option value="">— Toute la zone —</option>
+          </select>
+        </div>
         <div class="field full" id="treeStepsContainer"></div>
         <div class="field full hidden" id="titleField">
           <label for="ticketTitle">${t("emp.title")} <span style="color:#c0392b">*</span></label>
@@ -897,6 +907,23 @@ function renderEmployeePage() {
   const commentField = form.querySelector("#commentField");
   const photoField = form.querySelector("#photoField");
   const submitField = form.querySelector("#submitField");
+  const zoneField  = form.querySelector("#zoneField");
+  const zoneSelect = form.querySelector("#ticketZone");
+  const siteSelect = form.querySelector("#ticketSite");
+
+  function updateZoneOptions() {
+    const site = loadSites().find((s) => s.id === siteSelect.value);
+    const zones = site?.zones || [];
+    if (zones.length > 0) {
+      zoneSelect.innerHTML = `<option value="">— Toute la zone —</option>` +
+        zones.map((z) => `<option value="${escHtml(z.id)}">${escHtml(z.name)}</option>`).join("");
+      zoneField.classList.remove("hidden");
+    } else {
+      zoneField.classList.add("hidden");
+      zoneSelect.value = "";
+    }
+  }
+  siteSelect.addEventListener("change", updateZoneOptions);
 
   const tree = loadTree();
   let selections = [];
@@ -1040,6 +1067,7 @@ function renderEmployeePage() {
       description: comment,
       department,
       siteId,
+      zoneId: String(formData.get("zoneId") || "").trim(),
       categoryValue: selectedNode?.value || "",
       categoryPath: [...selections],
       createdBy: currentUser?.id || "",
@@ -1824,7 +1852,7 @@ function scheduleSummary(user) {
     .join(" ");
   const a = fmt("A"); const b = fmt("B");
   if (!a && !b) return "";
-  return `A: ${a || "—"} · B: ${b || "—"}`;
+  return `Paire: ${a || "—"} · Impaire: ${b || "—"}`;
 }
 
 function renderManagerUtilisateurs(container) {
@@ -1850,7 +1878,7 @@ function renderManagerUtilisateurs(container) {
           <div class="section-head">
             <div>
               <h2>Gestion des horaires</h2>
-              <p class="subtle">Configurez les horaires semaine A / B pour chaque collaborateur</p>
+              <p class="subtle">Configurez les horaires semaine paire / impaire pour chaque collaborateur</p>
             </div>
             <button class="button ghost" type="button" id="backFromSchedBtn">← Retour</button>
           </div>
@@ -1874,8 +1902,8 @@ function renderManagerUtilisateurs(container) {
                     <thead>
                       <tr>
                         <th style="padding:4px 8px;text-align:left;width:44px"></th>
-                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine A</th>
-                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine B</th>
+                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine paire</th>
+                        <th style="padding:4px 16px;text-align:center;font-weight:700;color:var(--primary,#2563eb)">Semaine impaire</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -2532,7 +2560,8 @@ function showTicketDetailModal(ticket) {
   const hasPhoto = !!ticket.photoDataUrl;
   const thread   = ticketInfoThread(ticket);
   const site     = ticket.siteId ? findSite(ticket.siteId) : null;
-  const siteLabel = site ? `${site.name}${site.address ? ` — ${site.address}` : ""}` : null;
+  const zone     = ticket.zoneId ? findZone(ticket.siteId, ticket.zoneId) : null;
+  const siteLabel = site ? `${site.name}${site.address ? ` — ${site.address}` : ""}${zone ? ` › ${zone.name}` : ""}` : null;
 
   const detailsHtml = [
     siteLabel                ? detailItem(t("ticket.site"),      siteLabel)                        : "",
@@ -4048,8 +4077,9 @@ function renderDetails(ticket) {
     ? (findPrestataire(ticket.assignedToExternal)?.name || t("mgr.unassigned"))
     : (findUser(ticket.assignedTo)?.name || t("mgr.unassigned"));
   const site = ticket.siteId ? findSite(ticket.siteId) : null;
+  const zone = ticket.zoneId ? findZone(ticket.siteId, ticket.zoneId) : null;
   const siteLabel = site
-    ? `${site.name}${site.address ? ` — ${site.address}` : ""}`
+    ? `${site.name}${site.address ? ` — ${site.address}` : ""}${zone ? ` › ${zone.name}` : ""}`
     : t("ticket.unknown");
 
   const items = [
