@@ -1844,6 +1844,19 @@ function scheduleDay(user, week, day) {
   return user.schedule?.[week]?.[day] || { active: false, start: "", end: "" };
 }
 
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+function weekTypeForDate(date) { return isoWeekNumber(date) % 2 === 0 ? "A" : "B"; }
+function schedKeyForDate(date) {
+  const jsDay = date.getDay();
+  return SCHED_DAYS[jsDay === 0 ? 6 : jsDay - 1];
+}
+
 function scheduleSummary(user) {
   if (!user.schedule) return "";
   const fmt = (week) => SCHED_DAYS
@@ -2439,8 +2452,8 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
           <label for="tm-collab">${t("plan.task.collab.label")}</label>
           <select id="tm-collab" name="collaboratorId">
             <option value="">${t("plan.task.none")}</option>
-            ${collaborators.map((c) => `<option value="${escHtml(c.id)}" ${task?.collaboratorId === c.id ? "selected" : ""}>${escHtml(c.name)}</option>`).join("")}
           </select>
+          <p id="tm-rest-warn" class="cal-rest-warning" style="margin-top:6px;display:none;"></p>
         </div>
         <div class="field">
           <label for="tm-hours">${t("plan.task.hours.label")}</label>
@@ -2470,6 +2483,53 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
 
+  // ── Schedule-aware collaborator select ────────────────────────────────────
+  function restSetForDate(dateStr) {
+    if (!dateStr) return new Set();
+    const d = new Date(dateStr + "T00:00:00");
+    const wt = weekTypeForDate(d);
+    const dk = schedKeyForDate(d);
+    return new Set(
+      collaborators
+        .filter((c) => c.schedule && !scheduleDay(c, wt, dk).active)
+        .map((c) => c.id)
+    );
+  }
+
+  function refreshCollabSelect() {
+    const dateStr = overlay.querySelector("#tm-date").value;
+    const restSet = restSetForDate(dateStr);
+    const sel = overlay.querySelector("#tm-collab");
+    const currentVal = sel.value || (task?.collaboratorId ?? "");
+
+    sel.innerHTML = `<option value="">${t("plan.task.none")}</option>` +
+      collaborators.map((c) => {
+        const isRest = restSet.has(c.id);
+        const label = isRest ? `${escHtml(c.name)} (Repos)` : escHtml(c.name);
+        return `<option value="${escHtml(c.id)}" ${currentVal === c.id ? "selected" : ""} data-rest="${isRest ? "1" : "0"}">${label}</option>`;
+      }).join("");
+
+    refreshRestWarn(restSet);
+  }
+
+  function refreshRestWarn(restSet) {
+    const warn = overlay.querySelector("#tm-rest-warn");
+    const collabId = overlay.querySelector("#tm-collab").value;
+    if (collabId && restSet.has(collabId)) {
+      warn.textContent = "⚠ Ce collaborateur est en repos ce jour-là.";
+      warn.style.display = "block";
+    } else {
+      warn.style.display = "none";
+    }
+  }
+
+  refreshCollabSelect();
+  overlay.querySelector("#tm-date").addEventListener("change", refreshCollabSelect);
+  overlay.querySelector("#tm-collab").addEventListener("change", () => {
+    refreshRestWarn(restSetForDate(overlay.querySelector("#tm-date").value));
+  });
+  // ─────────────────────────────────────────────────────────────────────────
+
   if (isEdit) {
     overlay.querySelector("#tm-delete").addEventListener("click", () => {
       if (!confirm(t("plan.task.delete.confirm"))) return;
@@ -2483,6 +2543,11 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   overlay.querySelector("#taskModalForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
+    const collabId = fd.get("collaboratorId");
+    const dateStr  = fd.get("date");
+    if (collabId && restSetForDate(dateStr).has(collabId)) {
+      if (!confirm("Ce collaborateur est en repos ce jour-là. Voulez-vous quand même créer la tâche ?")) return;
+    }
     const photoFile = fd.get("taskPhoto");
     const photoDataUrl = photoFile instanceof File && photoFile.size > 0
       ? await toDataUrl(photoFile)
@@ -3394,20 +3459,6 @@ function renderCollaboratorPage() {
     return monday;
   }
 
-  // Numéro ISO → "A" = paire, "B" = impaire
-  function isoWeekNumber(date) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-  }
-  function weekType(date) { return isoWeekNumber(date) % 2 === 0 ? "A" : "B"; }
-  function schedKey(date) {
-    const jsDay = date.getDay(); // 0=dim … 6=sam
-    return SCHED_DAYS[jsDay === 0 ? 6 : jsDay - 1];
-  }
-
   function renderWeek() {
     const monday = mondayForOffset(collaboratorWeekOffset);
     const days = Array.from({ length: 7 }, (_, i) => {
@@ -3444,7 +3495,7 @@ function renderCollaboratorPage() {
     }
 
     const weekLabel = `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
-    const wType  = weekType(monday);
+    const wType  = weekTypeForDate(monday);
     const wLabel = wType === "A" ? "Semaine paire" : "Semaine impaire";
     const hasSchedule = !!(currentUser.schedule?.A || currentUser.schedule?.B);
 
@@ -3548,7 +3599,7 @@ function renderCollaboratorPage() {
             const isToday = dateStr === todayStr;
             const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
             const dayNum = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
-            const dayKey  = schedKey(day);
+            const dayKey  = schedKeyForDate(day);
             const daySched = currentUser.schedule?.[wType]?.[dayKey];
             const isWorking = daySched?.active === true;
             const hasTasksOnRestDay = !isWorking && !isEmpty && hasSchedule;
