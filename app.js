@@ -1669,138 +1669,53 @@ function renderManagerTicketTable(container, tickets, collaborators) {
   });
 }
 
+const SCHED_DAYS   = ["mon","tue","wed","thu","fri","sat","sun"];
+const SCHED_LABELS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+function scheduleDay(user, week, day) {
+  return user.schedule?.[week]?.[day] || { active: false, start: "", end: "" };
+}
+
+function scheduleSummary(user) {
+  if (!user.schedule) return "";
+  const fmt = (week) => SCHED_DAYS
+    .filter((d) => user.schedule[week]?.[d]?.active)
+    .map((d) => SCHED_LABELS[SCHED_DAYS.indexOf(d)])
+    .join(" ");
+  const a = fmt("A"); const b = fmt("B");
+  if (!a && !b) return "";
+  return `A: ${a || "—"} · B: ${b || "—"}`;
+}
+
 function renderManagerUtilisateurs(container) {
-  let editingSkillsUserId = "";
-  let editingPasswordUserId = "";
-  let editingNameUserId = "";
-  let editingScheduleUserId = "";
   let showSkillsCatalog = false;
   let showTeamsForm = false;
   let filterRole = "all";
 
-  const SCHED_DAYS = ["mon","tue","wed","thu","fri","sat","sun"];
-  const SCHED_LABELS = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
-
-  function scheduleDay(user, week, day) {
-    return user.schedule?.[week]?.[day] || { active: false, start: "", end: "" };
-  }
-
-  function scheduleSummary(user) {
-    if (!user.schedule) return "";
-    const fmt = (week) => SCHED_DAYS
-      .filter((d) => user.schedule[week]?.[d]?.active)
-      .map((d) => SCHED_LABELS[SCHED_DAYS.indexOf(d)])
-      .join(" ");
-    const a = fmt("A"); const b = fmt("B");
-    if (!a && !b) return "";
-    return `A: ${a || "—"} · B: ${b || "—"}`;
-  }
-
   function renderContent() {
-    const managers = state.users.filter((u) => u.role === "manager");
-    const collabs = state.users.filter((u) => u.role === "collaborator");
+    const managers  = state.users.filter((u) => u.role === "manager");
+    const collabs   = state.users.filter((u) => u.role === "collaborator");
     const employees = state.users.filter((u) => u.role === "employee");
-    const allUsers = state.users;
-
-    const filteredUsers = filterRole === "all" ? allUsers
-      : allUsers.filter((u) => u.role === filterRole);
-
+    const allUsers  = state.users;
+    const filteredUsers = filterRole === "all" ? allUsers : allUsers.filter((u) => u.role === filterRole);
     const ROLE_LABEL = { manager: t("users.managers"), collaborator: t("users.collabs"), employee: t("users.employees") };
 
     const userListHtml = (users) => {
-      if (users.length === 0) {
-        return `<p class="subtle" style="padding:6px 0">${t("users.none")}</p>`;
-      }
+      if (users.length === 0) return `<p class="subtle" style="padding:6px 0">${t("users.none")}</p>`;
       return users.map((u) => {
         const sched = scheduleSummary(u);
         return `
-        <div class="user-item">
+        <div class="user-item user-item-clickable" data-uid="${escHtml(u.id)}" role="button" tabindex="0">
           <div class="user-item-row1">
             <span class="user-item-name">${escHtml(u.name)}</span>
-            <div class="user-item-actions">
-              ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-skills" data-uid="${u.id}">${editingSkillsUserId === u.id ? t("users.skills.cancel") : t("users.skills.edit")}</button>` : ""}
-              ${u.role === "collaborator" ? `<button class="button ghost tree-btn" type="button" data-action="edit-schedule" data-uid="${u.id}">${editingScheduleUserId === u.id ? "Fermer horaire" : "Horaire"}</button>` : ""}
-              <button class="button ghost tree-btn" type="button" data-action="edit-name" data-uid="${u.id}">${editingNameUserId === u.id ? "Annuler" : "Renommer"}</button>
-              <button class="button ghost tree-btn" type="button" data-action="edit-password" data-uid="${u.id}">${editingPasswordUserId === u.id ? t("users.password.cancel") : (u.password ? t("users.password.change") : t("users.password.set"))}</button>
-              <button class="button danger-ghost tree-btn" type="button" data-action="del-user" data-uid="${u.id}">${t("users.delete")}</button>
-            </div>
+            ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
           </div>
           <div class="user-item-info">
             <span class="badge badge-muted">${ROLE_LABEL[u.role] || u.role}</span>
             <span class="badge badge-muted">${teamLabel(u.team)}</span>
-            ${u.role === "collaborator" ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
+            ${u.role === "collaborator" && specialtiesSummary(u) ? `<span class="badge badge-muted">${escHtml(specialtiesSummary(u))}</span>` : ""}
             ${sched ? `<span class="badge badge-muted">${escHtml(sched)}</span>` : ""}
-            ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
           </div>
-          ${editingNameUserId === u.id ? `
-            <form class="user-skill-editor" data-action="save-name" data-uid="${u.id}">
-              <label>Nouveau nom</label>
-              <input type="text" name="newName" value="${escHtml(u.name)}" required style="border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;max-width:260px" />
-              <button class="button" type="submit">Enregistrer</button>
-            </form>
-          ` : ""}
-          ${editingPasswordUserId === u.id ? `
-            <form class="user-skill-editor" data-action="save-password" data-uid="${u.id}">
-              <label>${t("users.password.label")}</label>
-              <input type="password" name="newPassword" placeholder="${t("users.password.ph")}" required minlength="4" autocomplete="new-password" style="border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;max-width:260px" />
-              <button class="button" type="submit">${t("users.password.save")}</button>
-            </form>
-          ` : ""}
-          ${u.role === "collaborator" && editingSkillsUserId === u.id ? `
-            <form class="user-skill-editor" data-action="save-skills" data-uid="${u.id}">
-              <label>${t("users.skills")}</label>
-              <div class="specialty-checks">
-                ${specialtyOptionsForTeam(u.team).map((opt) => `
-                  <label class="skill-chip">
-                    <input type="checkbox" name="editSkill" value="${opt}" ${normalizeSpecialties(u.specialties, u.team).includes(opt) ? "checked" : ""} />
-                    <span>${specialtyLabel(opt)}</span>
-                  </label>
-                `).join("")}
-              </div>
-              <button class="button" type="submit">${t("users.skills.save")}</button>
-            </form>
-          ` : ""}
-          ${u.role === "collaborator" && editingScheduleUserId === u.id ? `
-            <form class="user-skill-editor" data-action="save-schedule" data-uid="${u.id}" style="overflow-x:auto">
-              <label>Horaire (semaine A / semaine B)</label>
-              <table style="border-collapse:collapse;font-size:0.85em;min-width:480px">
-                <thead>
-                  <tr>
-                    <th style="padding:4px 8px;text-align:left;font-weight:600;width:48px"></th>
-                    <th style="padding:4px 8px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine A</th>
-                    <th style="padding:4px 8px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine B</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${SCHED_DAYS.map((day, i) => {
-                    const dA = scheduleDay(u, "A", day);
-                    const dB = scheduleDay(u, "B", day);
-                    return `
-                    <tr style="border-top:1px solid rgba(0,0,0,.06)">
-                      <td style="padding:6px 8px;font-weight:500">${SCHED_LABELS[i]}</td>
-                      <td style="padding:6px 8px">
-                        <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                          <input type="checkbox" name="sA_${day}_active" ${dA.active ? "checked" : ""} />
-                          <input type="time" name="sA_${day}_start" value="${escHtml(dA.start)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
-                          <span style="color:#888">→</span>
-                          <input type="time" name="sA_${day}_end" value="${escHtml(dA.end)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
-                        </label>
-                      </td>
-                      <td style="padding:6px 8px">
-                        <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                          <input type="checkbox" name="sB_${day}_active" ${dB.active ? "checked" : ""} />
-                          <input type="time" name="sB_${day}_start" value="${escHtml(dB.start)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
-                          <span style="color:#888">→</span>
-                          <input type="time" name="sB_${day}_end" value="${escHtml(dB.end)}" style="width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit" />
-                        </label>
-                      </td>
-                    </tr>`;
-                  }).join("")}
-                </tbody>
-              </table>
-              <button class="button" type="submit" style="margin-top:8px">Enregistrer l'horaire</button>
-            </form>
-          ` : ""}
         </div>
       `}).join("");
     };
@@ -2057,10 +1972,17 @@ function renderManagerUtilisateurs(container) {
       toast(t("users.skills.created"));
     });
 
-    container.querySelectorAll("[data-action='del-user']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        removeUser(btn.dataset.uid);
-      });
+    container.querySelectorAll(".user-item-clickable").forEach((card) => {
+      const open = () => {
+        const user = state.users.find((u) => u.id === card.dataset.uid);
+        if (!user) return;
+        showUserEditModal(user, {
+          onSave: () => { persistState(); renderUserSelector(); renderContent(); },
+          onDelete: () => { removeUser(user.id); renderContent(); },
+        });
+      };
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
     });
 
     container.querySelectorAll("[data-action='del-skill']").forEach((btn) => {
@@ -2097,132 +2019,176 @@ function renderManagerUtilisateurs(container) {
     });
 
     container.querySelectorAll("[data-filter]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        filterRole = btn.dataset.filter;
-        editingSkillsUserId = "";
-        editingPasswordUserId = "";
-        editingNameUserId = "";
-        editingScheduleUserId = "";
-        renderContent();
-      });
-    });
-
-    container.querySelectorAll("[data-action='edit-schedule']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        editingScheduleUserId = editingScheduleUserId === btn.dataset.uid ? "" : btn.dataset.uid;
-        editingSkillsUserId = "";
-        editingPasswordUserId = "";
-        editingNameUserId = "";
-        renderContent();
-      });
-    });
-
-    container.querySelectorAll("form[data-action='save-schedule']").forEach((formEl) => {
-      formEl.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const uid = formEl.dataset.uid;
-        const user = state.users.find((u) => u.id === uid);
-        if (!user) return;
-        const fd = new FormData(formEl);
-        const schedule = { A: {}, B: {} };
-        SCHED_DAYS.forEach((day) => {
-          ["A","B"].forEach((week) => {
-            const active = fd.get(`s${week}_${day}_active`) === "on";
-            const start = active ? String(fd.get(`s${week}_${day}_start`) || "") : "";
-            const end   = active ? String(fd.get(`s${week}_${day}_end`)   || "") : "";
-            schedule[week][day] = { active, start, end };
-          });
-        });
-        user.schedule = schedule;
-        editingScheduleUserId = "";
-        persistState();
-        renderContent();
-        toast("Horaire enregistré.");
-      });
-    });
-
-    container.querySelectorAll("[data-action='edit-name']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        editingNameUserId = editingNameUserId === btn.dataset.uid ? "" : btn.dataset.uid;
-        editingPasswordUserId = "";
-        editingSkillsUserId = "";
-        editingScheduleUserId = "";
-        renderContent();
-      });
-    });
-
-    container.querySelectorAll("form[data-action='save-name']").forEach((formEl) => {
-      formEl.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const uid = formEl.dataset.uid;
-        const user = state.users.find((u) => u.id === uid);
-        if (!user) return;
-        const newName = String(formEl.querySelector("input[name='newName']")?.value || "").trim();
-        if (!newName) return;
-        user.name = newName;
-        editingNameUserId = "";
-        persistState();
-        renderUserSelector();
-        renderContent();
-        toast("Nom modifié.");
-      });
-    });
-
-    container.querySelectorAll("[data-action='edit-skills']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        editingSkillsUserId = editingSkillsUserId === btn.dataset.uid ? "" : btn.dataset.uid;
-        editingScheduleUserId = "";
-        editingPasswordUserId = "";
-        editingNameUserId = "";
-        renderContent();
-      });
-    });
-
-    container.querySelectorAll("[data-action='edit-password']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        editingPasswordUserId = editingPasswordUserId === btn.dataset.uid ? "" : btn.dataset.uid;
-        editingSkillsUserId = "";
-        editingNameUserId = "";
-        editingScheduleUserId = "";
-        renderContent();
-      });
-    });
-
-    container.querySelectorAll("form[data-action='save-password']").forEach((formEl) => {
-      formEl.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const uid = formEl.dataset.uid;
-        const user = state.users.find((u) => u.id === uid);
-        if (!user) return;
-        const pwd = String(formEl.querySelector("input[name='newPassword']")?.value || "").trim();
-        if (!pwd) return;
-        user.password = pwd;
-        editingPasswordUserId = "";
-        persistState();
-        renderContent();
-        toast(t("users.password.saved"));
-      });
-    });
-
-    container.querySelectorAll("form[data-action='save-skills']").forEach((formEl) => {
-      formEl.addEventListener("submit", (event) => {
-        event.preventDefault();
-        const uid = formEl.dataset.uid;
-        const user = state.users.find((u) => u.id === uid && u.role === "collaborator");
-        if (!user) {
-          return;
-        }
-        const picked = Array.from(formEl.querySelectorAll("input[name='editSkill']:checked")).map((input) => input.value);
-        user.specialties = normalizeSpecialties(picked, user.team);
-        editingSkillsUserId = "";
-        persistState();
-        renderContent();
-        toast(t("users.skills.saved"));
-      });
+      btn.addEventListener("click", () => { filterRole = btn.dataset.filter; renderContent(); });
     });
   }
 
   renderContent();
+}
+
+function showUserEditModal(user, { onSave, onDelete }) {
+  const ROLE_LABEL = { manager: t("users.managers"), collaborator: t("users.collabs"), employee: t("users.employees") };
+  const INPUT_STYLE = "border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;box-sizing:border-box";
+  const TIME_STYLE  = "width:90px;padding:3px 6px;border:1px solid rgba(0,0,0,.2);border-radius:6px;font:inherit";
+
+  const skillsSection = user.role === "collaborator" ? `
+    <div class="user-modal-section">
+      <h4 class="user-modal-section-title">Compétences</h4>
+      <form data-modal-action="save-skills">
+        <div class="specialty-checks" style="margin-bottom:10px">
+          ${specialtyOptionsForTeam(user.team).map((opt) => `
+            <label class="skill-chip">
+              <input type="checkbox" name="editSkill" value="${opt}" ${normalizeSpecialties(user.specialties, user.team).includes(opt) ? "checked" : ""} />
+              <span>${specialtyLabel(opt)}</span>
+            </label>
+          `).join("")}
+        </div>
+        <button class="button" type="submit">Enregistrer</button>
+      </form>
+    </div>` : "";
+
+  const schedSection = user.role === "collaborator" ? `
+    <div class="user-modal-section">
+      <h4 class="user-modal-section-title">Horaire — Semaine A / Semaine B</h4>
+      <form data-modal-action="save-schedule" style="overflow-x:auto">
+        <table style="border-collapse:collapse;font-size:0.85em;width:100%">
+          <thead>
+            <tr>
+              <th style="padding:4px 8px;text-align:left;width:44px"></th>
+              <th style="padding:4px 12px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine A</th>
+              <th style="padding:4px 12px;text-align:center;font-weight:600;color:var(--primary,#2563eb)">Semaine B</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${SCHED_DAYS.map((day, i) => {
+              const dA = scheduleDay(user, "A", day);
+              const dB = scheduleDay(user, "B", day);
+              return `
+              <tr style="border-top:1px solid rgba(0,0,0,.06)">
+                <td style="padding:6px 8px;font-weight:600;white-space:nowrap">${SCHED_LABELS[i]}</td>
+                <td style="padding:6px 12px">
+                  <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <input type="checkbox" name="sA_${day}_active" ${dA.active ? "checked" : ""} />
+                    <input type="time" name="sA_${day}_start" value="${escHtml(dA.start)}" style="${TIME_STYLE}" />
+                    <span style="color:#aaa">→</span>
+                    <input type="time" name="sA_${day}_end" value="${escHtml(dA.end)}" style="${TIME_STYLE}" />
+                  </label>
+                </td>
+                <td style="padding:6px 12px">
+                  <label style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                    <input type="checkbox" name="sB_${day}_active" ${dB.active ? "checked" : ""} />
+                    <input type="time" name="sB_${day}_start" value="${escHtml(dB.start)}" style="${TIME_STYLE}" />
+                    <span style="color:#aaa">→</span>
+                    <input type="time" name="sB_${day}_end" value="${escHtml(dB.end)}" style="${TIME_STYLE}" />
+                  </label>
+                </td>
+              </tr>`;
+            }).join("")}
+          </tbody>
+        </table>
+        <button class="button" type="submit" style="margin-top:10px">Enregistrer l'horaire</button>
+      </form>
+    </div>` : "";
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card user-edit-modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h3 id="uem-title">${escHtml(user.name)}</h3>
+          <p class="subtle" style="margin:2px 0 0">${ROLE_LABEL[user.role] || user.role} · ${escHtml(teamLabel(user.team))}</p>
+        </div>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div class="user-modal-body">
+
+        <div class="user-modal-section">
+          <h4 class="user-modal-section-title">Nom</h4>
+          <form data-modal-action="save-name" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <input type="text" name="newName" value="${escHtml(user.name)}" required style="${INPUT_STYLE};max-width:280px" />
+            <button class="button" type="submit">Enregistrer</button>
+          </form>
+        </div>
+
+        ${skillsSection}
+        ${schedSection}
+
+        <div class="user-modal-section">
+          <h4 class="user-modal-section-title">Mot de passe</h4>
+          <form data-modal-action="save-password" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+            <input type="password" name="newPassword" placeholder="${t("users.password.ph")}" minlength="4" autocomplete="new-password" style="${INPUT_STYLE};max-width:280px" />
+            <button class="button" type="submit">Enregistrer</button>
+          </form>
+        </div>
+
+        <div class="user-modal-section user-modal-danger">
+          <button class="button danger-ghost" type="button" data-modal-action="del-user">Supprimer cet utilisateur</button>
+        </div>
+
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  setTimeout(() => overlay.querySelector("input[name='newName']")?.focus(), 60);
+
+  overlay.querySelector("[data-modal-action='save-name']").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = String(new FormData(e.target).get("newName") || "").trim();
+    if (!name) return;
+    user.name = name;
+    overlay.querySelector("#uem-title").textContent = name;
+    onSave();
+    toast("Nom modifié.");
+  });
+
+  overlay.querySelector("[data-modal-action='save-password']").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const pwd = String(new FormData(e.target).get("newPassword") || "").trim();
+    if (!pwd) return;
+    user.password = pwd;
+    e.target.reset();
+    onSave();
+    toast(t("users.password.saved"));
+  });
+
+  overlay.querySelector("[data-modal-action='save-skills']")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const picked = Array.from(e.target.querySelectorAll("input[name='editSkill']:checked")).map((i) => i.value);
+    user.specialties = normalizeSpecialties(picked, user.team);
+    onSave();
+    toast(t("users.skills.saved"));
+  });
+
+  overlay.querySelector("[data-modal-action='save-schedule']")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const schedule = { A: {}, B: {} };
+    SCHED_DAYS.forEach((day) => {
+      ["A","B"].forEach((week) => {
+        const active = fd.get(`s${week}_${day}_active`) === "on";
+        schedule[week][day] = {
+          active,
+          start: active ? String(fd.get(`s${week}_${day}_start`) || "") : "",
+          end:   active ? String(fd.get(`s${week}_${day}_end`)   || "") : "",
+        };
+      });
+    });
+    user.schedule = schedule;
+    onSave();
+    toast("Horaire enregistré.");
+  });
+
+  overlay.querySelector("[data-modal-action='del-user']").addEventListener("click", () => {
+    if (!confirm(`Supprimer ${user.name} ?`)) return;
+    onDelete();
+    close();
+  });
 }
 
 function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {

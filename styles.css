@@ -2622,6 +2622,51 @@ textarea {
   margin: 6px 0 0;
 }
 
+/* ── Carte utilisateur cliquable ─────────────────────────── */
+.user-item-clickable {
+  cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.user-item-clickable:hover {
+  background: rgba(235, 226, 210, 0.95);
+  box-shadow: 0 2px 8px rgba(68, 53, 36, 0.10);
+}
+.user-item-clickable:focus-visible {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 2px;
+}
+
+/* ── Modal édition utilisateur ───────────────────────────── */
+.user-edit-modal {
+  width: min(600px, 100%);
+}
+.user-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.user-modal-section {
+  padding: 16px 0;
+  border-top: 1px solid rgba(68, 53, 36, 0.10);
+}
+.user-modal-section:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+.user-modal-section-title {
+  margin: 0 0 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(68, 53, 36, 0.55);
+}
+.user-modal-danger {
+  padding-top: 16px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(192, 57, 43, 0.15);
+}
+
 /* ── Modal overlay (planning task form) ──────────────────── */
 .modal-overlay {
   position: fixed;
