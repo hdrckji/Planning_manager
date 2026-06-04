@@ -1226,15 +1226,20 @@ function renderManagerSites(container) {
 
     const listHtml = list.length === 0
       ? `<p class="subtle" style="padding:6px 0">${t("sites.none")}</p>`
-      : list.map((s) => `
-          <div class="user-item">
-            <div class="user-item-info">
-              <strong>${escHtml(s.name)}</strong>
-              ${s.address ? `<span class="badge badge-muted">${escHtml(s.address)}</span>` : ""}
-              ${s.notes ? `<span class="badge badge-muted">${escHtml(s.notes)}</span>` : ""}
+      : list.map((s) => {
+          const zoneCount = (s.zones || []).length;
+          return `
+          <div class="user-item user-item-clickable" data-sid="${escHtml(s.id)}" role="button" tabindex="0">
+            <div class="user-item-row1">
+              <span class="user-item-name">${escHtml(s.name)}</span>
+              ${zoneCount > 0 ? `<span class="badge badge-muted">${zoneCount} zone${zoneCount > 1 ? "s" : ""}</span>` : `<span class="badge badge-warn">Aucune zone</span>`}
             </div>
-            <button class="button danger-ghost tree-btn" type="button" data-action="del-site" data-sid="${s.id}">${t("sites.delete")}</button>
-          </div>`).join("");
+            <div class="user-item-info">
+              ${s.address ? `<span class="badge badge-muted">${escHtml(s.address)}</span>` : ""}
+              ${s.notes   ? `<span class="badge badge-muted">${escHtml(s.notes)}</span>`   : ""}
+            </div>
+          </div>`;
+        }).join("");
 
     container.innerHTML = `
       <section class="card">
@@ -1279,23 +1284,158 @@ function renderManagerSites(container) {
       const notes = String(fd.get("notes") || "").trim();
       if (!name) return;
       const updated = loadSites();
-      updated.push({ id: nextSiteId(), name, address, notes });
+      updated.push({ id: nextSiteId(), name, address, notes, zones: [] });
       saveSites(updated);
       toast(t("sites.created"));
       renderContent();
     });
 
-    container.querySelectorAll("[data-action='del-site']").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const updated = loadSites().filter((s) => s.id !== btn.dataset.sid);
-        saveSites(updated);
-        toast(t("sites.deleted"));
-        renderContent();
-      });
+    container.querySelectorAll(".user-item-clickable[data-sid]").forEach((card) => {
+      const open = () => {
+        const sites = loadSites();
+        const site = sites.find((s) => s.id === card.dataset.sid);
+        if (!site) return;
+        showSiteModal(site, {
+          onSave: () => {
+            saveSites(loadSites().map((s) => s.id === site.id ? site : s));
+            renderContent();
+          },
+          onDelete: () => {
+            saveSites(loadSites().filter((s) => s.id !== site.id));
+            toast(t("sites.deleted"));
+            renderContent();
+          },
+        });
+      };
+      card.addEventListener("click", open);
+      card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
     });
   }
 
   renderContent();
+}
+
+function showSiteModal(site, { onSave, onDelete }) {
+  const INPUT_STYLE = "border-radius:10px;border:1px solid rgba(0,0,0,.14);padding:8px 12px;font:inherit;width:100%;box-sizing:border-box";
+
+  function nextZoneId() {
+    return "z-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  }
+
+  function zonesHtml() {
+    const zones = site.zones || [];
+    if (zones.length === 0) return `<p class="subtle" style="padding:4px 0">Aucune zone définie.</p>`;
+    return `<div class="user-group-list" style="margin-bottom:10px">${zones.map((z) => `
+      <div class="user-item" style="padding:8px 12px">
+        <div class="user-item-info"><strong>${escHtml(z.name)}</strong></div>
+        <button class="button danger-ghost tree-btn" type="button" data-del-zone="${escHtml(z.id)}">Supprimer</button>
+      </div>`).join("")}</div>`;
+  }
+
+  function refreshZones() {
+    overlay.querySelector("#zonesList").innerHTML = zonesHtml();
+    bindZoneDeleters();
+  }
+
+  function bindZoneDeleters() {
+    overlay.querySelectorAll("[data-del-zone]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        site.zones = (site.zones || []).filter((z) => z.id !== btn.dataset.delZone);
+        onSave();
+        refreshZones();
+        toast("Zone supprimée.");
+      });
+    });
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card user-edit-modal" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div>
+          <h3 id="siteModalTitle">${escHtml(site.name)}</h3>
+          ${site.address ? `<p class="subtle" style="margin:2px 0 0">${escHtml(site.address)}</p>` : ""}
+        </div>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div class="user-modal-body">
+
+        <div class="user-modal-section">
+          <h4 class="user-modal-section-title">Informations</h4>
+          <form data-modal-action="save-info" class="form-grid">
+            <div class="field">
+              <label>Nom</label>
+              <input type="text" name="siteName" value="${escHtml(site.name)}" required style="${INPUT_STYLE}" />
+            </div>
+            <div class="field">
+              <label>Adresse</label>
+              <input type="text" name="siteAddress" value="${escHtml(site.address || "")}" style="${INPUT_STYLE}" />
+            </div>
+            <div class="field full">
+              <label>Notes</label>
+              <textarea name="siteNotes" rows="2" style="${INPUT_STYLE}">${escHtml(site.notes || "")}</textarea>
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">Enregistrer</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="user-modal-section">
+          <h4 class="user-modal-section-title">Zones <span class="badge badge-muted" id="zoneCount">${(site.zones || []).length}</span></h4>
+          <div id="zonesList">${zonesHtml()}</div>
+          <form data-modal-action="add-zone" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-top:4px">
+            <input type="text" name="zoneName" placeholder="Nom de la zone (ex: Hall A, Parking…)" required style="${INPUT_STYLE};max-width:280px" />
+            <button class="button" type="submit">Ajouter</button>
+          </form>
+        </div>
+
+        <div class="user-modal-section user-modal-danger">
+          <button class="button danger-ghost" type="button" data-modal-action="del-site">Supprimer ce lieu</button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 200); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+
+  bindZoneDeleters();
+
+  overlay.querySelector("[data-modal-action='save-info']").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    site.name    = String(fd.get("siteName")    || "").trim() || site.name;
+    site.address = String(fd.get("siteAddress") || "").trim();
+    site.notes   = String(fd.get("siteNotes")   || "").trim();
+    overlay.querySelector("#siteModalTitle").textContent = site.name;
+    onSave();
+    toast("Lieu modifié.");
+  });
+
+  overlay.querySelector("[data-modal-action='add-zone']").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = String(new FormData(e.target).get("zoneName") || "").trim();
+    if (!name) return;
+    if (!Array.isArray(site.zones)) site.zones = [];
+    site.zones.push({ id: nextZoneId(), name });
+    e.target.reset();
+    overlay.querySelector("#zoneCount").textContent = site.zones.length;
+    onSave();
+    refreshZones();
+    toast("Zone ajoutée.");
+  });
+
+  overlay.querySelector("[data-modal-action='del-site']").addEventListener("click", () => {
+    if (!confirm(`Supprimer le lieu "${site.name}" ?`)) return;
+    onDelete();
+    close();
+  });
 }
 
 function renderManagerPrestataires(container) {
