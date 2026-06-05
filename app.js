@@ -928,6 +928,7 @@ function renderEmployeePage() {
   }
   form.querySelector("#empPhotoCameraBtn").addEventListener("click", () => _empPickPhoto(true));
   form.querySelector("#empPhotoGalleryBtn").addEventListener("click", () => _empPickPhoto(false));
+
   const zoneField  = form.querySelector("#zoneField");
   const zoneSelect = form.querySelector("#ticketZone");
   const siteSelect = form.querySelector("#ticketSite");
@@ -2485,14 +2486,9 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
           <textarea id="tm-desc" name="description" rows="2" placeholder="${escHtml(t("plan.task.notes.ph"))}">${escHtml(task?.description || "")}</textarea>
         </div>
         <div class="field full">
-          <label>${t("plan.task.photo.label")}</label>
+          <label for="tm-photo">${t("plan.task.photo.label")}</label>
           ${task?.photoDataUrl ? `<div style="margin-bottom:8px"><img src="${task.photoDataUrl}" alt="Photo actuelle" class="ticket-photo" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></div>` : ""}
-          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" style="display:none" tabindex="-1" />
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button type="button" id="tm-photo-camera" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
-            <button type="button" id="tm-photo-gallery" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
-          </div>
-          <span id="tm-photo-name" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
+          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" />
         </div>
         <div class="field full modal-actions">
           ${isEdit ? `<button type="button" class="button button-danger" id="tm-delete">${t("plan.task.delete")}</button>` : ""}
@@ -2508,24 +2504,6 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   overlay.querySelector(".modal-close").addEventListener("click", () => close());
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
-
-  // ── Boutons photo : appareil photo direct ou galerie ──────────────────────
-  function _pickPhoto(withCapture) {
-    const inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = "image/*";
-    if (withCapture) inp.capture = "environment";
-    inp.addEventListener("change", () => {
-      if (inp.files[0]) {
-        overlay._capturedPhoto = inp.files[0];
-        overlay.querySelector("#tm-photo-name").textContent = "✓ " + inp.files[0].name;
-      }
-    });
-    inp.click();
-  }
-  overlay.querySelector("#tm-photo-camera").addEventListener("click", () => _pickPhoto(true));
-  overlay.querySelector("#tm-photo-gallery").addEventListener("click", () => _pickPhoto(false));
-  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Schedule-aware collaborator select ────────────────────────────────────
   function restSetForDate(dateStr) {
@@ -2592,7 +2570,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
     const collabId = fd.get("collaboratorId");
     const dateStr  = fd.get("date");
     if (collabId && restSetForDate(dateStr).has(collabId)) return;
-    const photoFile = overlay._capturedPhoto || fd.get("taskPhoto");
+    const photoFile = fd.get("taskPhoto");
     const photoDataUrl = photoFile instanceof File && photoFile.size > 0
       ? await toDataUrl(photoFile)
       : (isEdit ? (task?.photoDataUrl || "") : "");
@@ -2634,15 +2612,7 @@ function showPlanningTaskCollabModal(task) {
           <div><dt>${t("ticket.estimated")}</dt><dd>${formatHours(task.estimatedHours || 0)}</dd></div>
           <div><dt>${t("emp.table.status")}</dt><dd><span class="badge badge-status" data-status="${task.status}">${statusLabel(task.status)}</span></dd></div>
         </dl>
-        <div id="ptcm-photo-section">
-          ${task.photoDataUrl ? `<div class="ticket-photo-wrap" style="margin-bottom:8px"><p class="detail-label">Photo</p><img class="ticket-photo" src="${task.photoDataUrl}" alt="Photo de la tâche" /></div>` : ""}
-          <p class="detail-label" style="margin:0 0 8px">Ajouter / remplacer une photo</p>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="ptcm-photo-camera" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
-            <button type="button" id="ptcm-photo-gallery" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
-          </div>
-          <span id="ptcm-photo-name" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
-        </div>
+        ${task.photoDataUrl ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><img class="ticket-photo" src="${task.photoDataUrl}" alt="Photo de la tâche" /></div>` : ""}
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${task.status === "planifie" ? `<button class="button" type="button" id="ptcm-start">${t("collab.start")}</button>` : ""}
           ${task.status === "en_cours" ? `<button class="button" type="button" id="ptcm-finish">${t("collab.finish")}</button>` : ""}
@@ -2657,36 +2627,13 @@ function showPlanningTaskCollabModal(task) {
   overlay.querySelector(".modal-close").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 
-  // ── Boutons photo ──────────────────────────────────────────────────────────
-  function pickPhoto(withCapture) {
-    const inp = document.createElement("input");
-    inp.type = "file";
-    inp.accept = "image/*";
-    if (withCapture) inp.capture = "environment";
-    inp.addEventListener("change", () => {
-      if (inp.files[0]) {
-        overlay._capturedPhoto = inp.files[0];
-        overlay.querySelector("#ptcm-photo-name").textContent = "✓ " + inp.files[0].name;
-      }
-    });
-    inp.click();
-  }
-  overlay.querySelector("#ptcm-photo-camera").addEventListener("click", () => pickPhoto(true));
-  overlay.querySelector("#ptcm-photo-gallery").addEventListener("click", () => pickPhoto(false));
-
-  // ── Actions statut ─────────────────────────────────────────────────────────
   overlay.querySelector("#ptcm-start")?.addEventListener("click", () => {
     updatePlanningTask(task.id, { status: "en_cours" });
     toast(t("collab.started"));
     close();
   });
-
-  overlay.querySelector("#ptcm-finish")?.addEventListener("click", async () => {
-    const updates = { status: "termine" };
-    if (overlay._capturedPhoto) {
-      updates.photoDataUrl = await toDataUrl(overlay._capturedPhoto);
-    }
-    updatePlanningTask(task.id, updates);
+  overlay.querySelector("#ptcm-finish")?.addEventListener("click", () => {
+    updatePlanningTask(task.id, { status: "termine" });
     toast(t("collab.finished"));
     close();
   });
@@ -3761,11 +3708,10 @@ function renderCollaboratorPage() {
     refs.mainView.querySelectorAll("[data-action='collab-finish']").forEach((button) => {
       button.addEventListener("click", () => {
         if (button.dataset.taskType === "planning") {
-          // Ouvre le modal pour permettre d'ajouter une photo avant de terminer
-          const task = (state.planningTasks || []).find((pt) => pt.id === button.dataset.ticketId);
-          if (task) { showPlanningTaskCollabModal(task); return; }
+          updatePlanningTask(button.dataset.ticketId, { status: "termine" });
+        } else {
+          updateTicket(button.dataset.ticketId, { status: "termine" });
         }
-        updateTicket(button.dataset.ticketId, { status: "termine" });
         toast(t("collab.finished"));
       });
     });
