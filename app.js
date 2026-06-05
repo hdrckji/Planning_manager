@@ -883,8 +883,13 @@ function renderEmployeePage() {
           <textarea id="ticketComment" name="comment" placeholder="${t("emp.comment.ph")}"></textarea>
         </div>
         <div class="field full hidden" id="photoField">
-          <label for="ticketPhoto">${t("emp.photo")}</label>
-          <input id="ticketPhoto" name="photo" type="file" accept="image/*" />
+          <label>${t("emp.photo")}</label>
+          <input id="ticketPhoto" name="photo" type="file" accept="image/*" style="display:none" tabindex="-1" />
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" id="empPhotoCameraBtn" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
+            <button type="button" id="empPhotoGalleryBtn" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
+          </div>
+          <span id="empPhotoName" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
         </div>
         <div class="field full hidden" id="submitField">
           <button class="button" type="submit">${t("emp.submit")}</button>
@@ -907,6 +912,22 @@ function renderEmployeePage() {
   const commentField = form.querySelector("#commentField");
   const photoField = form.querySelector("#photoField");
   const submitField = form.querySelector("#submitField");
+
+  function _empPickPhoto(withCapture) {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    if (withCapture) inp.capture = "environment";
+    inp.addEventListener("change", () => {
+      if (inp.files[0]) {
+        form._capturedPhoto = inp.files[0];
+        form.querySelector("#empPhotoName").textContent = "✓ " + inp.files[0].name;
+      }
+    });
+    inp.click();
+  }
+  form.querySelector("#empPhotoCameraBtn").addEventListener("click", () => _empPickPhoto(true));
+  form.querySelector("#empPhotoGalleryBtn").addEventListener("click", () => _empPickPhoto(false));
   const zoneField  = form.querySelector("#zoneField");
   const zoneSelect = form.querySelector("#ticketZone");
   const siteSelect = form.querySelector("#ticketSite");
@@ -1041,11 +1062,11 @@ function renderEmployeePage() {
       form.querySelector("#ticketSite")?.focus();
       return;
     }
-    const photo = formData.get("photo");
+    const photo = form._capturedPhoto || formData.get("photo");
     const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
     if (!photoDataUrl) {
       toast(t("emp.photo.required"));
-      form.querySelector("#ticketPhoto")?.focus();
+      form.querySelector("#empPhotoCameraBtn")?.focus();
       return;
     }
     const comment = String(formData.get("comment") || "").trim();
