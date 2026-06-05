@@ -3740,10 +3740,11 @@ function renderCollaboratorPage() {
     refs.mainView.querySelectorAll("[data-action='collab-finish']").forEach((button) => {
       button.addEventListener("click", () => {
         if (button.dataset.taskType === "planning") {
-          updatePlanningTask(button.dataset.ticketId, { status: "termine" });
-        } else {
-          updateTicket(button.dataset.ticketId, { status: "termine" });
+          // Ouvre le modal pour permettre d'ajouter une photo avant de terminer
+          const task = (state.planningTasks || []).find((pt) => pt.id === button.dataset.ticketId);
+          if (task) { showPlanningTaskCollabModal(task); return; }
         }
+        updateTicket(button.dataset.ticketId, { status: "termine" });
         toast(t("collab.finished"));
       });
     });
