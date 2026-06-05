@@ -2466,7 +2466,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
         <div class="field full">
           <label for="tm-photo">${t("plan.task.photo.label")}</label>
           ${task?.photoDataUrl ? `<div style="margin-bottom:8px"><img src="${task.photoDataUrl}" alt="Photo actuelle" class="ticket-photo" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></div>` : ""}
-          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" />
+          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" capture="environment" />
         </div>
         <div class="field full modal-actions">
           ${isEdit ? `<button type="button" class="button button-danger" id="tm-delete">${t("plan.task.delete")}</button>` : ""}
