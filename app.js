@@ -2464,9 +2464,14 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
           <textarea id="tm-desc" name="description" rows="2" placeholder="${escHtml(t("plan.task.notes.ph"))}">${escHtml(task?.description || "")}</textarea>
         </div>
         <div class="field full">
-          <label for="tm-photo">${t("plan.task.photo.label")}</label>
+          <label>${t("plan.task.photo.label")}</label>
           ${task?.photoDataUrl ? `<div style="margin-bottom:8px"><img src="${task.photoDataUrl}" alt="Photo actuelle" class="ticket-photo" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></div>` : ""}
-          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" capture="environment" />
+          <input id="tm-photo" name="taskPhoto" type="file" accept="image/*" style="display:none" tabindex="-1" />
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button type="button" id="tm-photo-camera" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
+            <button type="button" id="tm-photo-gallery" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
+          </div>
+          <span id="tm-photo-name" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
         </div>
         <div class="field full modal-actions">
           ${isEdit ? `<button type="button" class="button button-danger" id="tm-delete">${t("plan.task.delete")}</button>` : ""}
@@ -2482,6 +2487,24 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   overlay.querySelector(".modal-close").addEventListener("click", () => close());
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
   setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
+
+  // ── Boutons photo : appareil photo direct ou galerie ──────────────────────
+  function _pickPhoto(withCapture) {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    if (withCapture) inp.capture = "environment";
+    inp.addEventListener("change", () => {
+      if (inp.files[0]) {
+        overlay._capturedPhoto = inp.files[0];
+        overlay.querySelector("#tm-photo-name").textContent = "✓ " + inp.files[0].name;
+      }
+    });
+    inp.click();
+  }
+  overlay.querySelector("#tm-photo-camera").addEventListener("click", () => _pickPhoto(true));
+  overlay.querySelector("#tm-photo-gallery").addEventListener("click", () => _pickPhoto(false));
+  // ─────────────────────────────────────────────────────────────────────────
 
   // ── Schedule-aware collaborator select ────────────────────────────────────
   function restSetForDate(dateStr) {
@@ -2548,7 +2571,7 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
     const collabId = fd.get("collaboratorId");
     const dateStr  = fd.get("date");
     if (collabId && restSetForDate(dateStr).has(collabId)) return;
-    const photoFile = fd.get("taskPhoto");
+    const photoFile = overlay._capturedPhoto || fd.get("taskPhoto");
     const photoDataUrl = photoFile instanceof File && photoFile.size > 0
       ? await toDataUrl(photoFile)
       : (isEdit ? (task?.photoDataUrl || "") : "");
