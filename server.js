@@ -17,8 +17,8 @@ const WRITE_AUTH_ENABLED = !!APP_SECRET_FROM_ENV;
 
 // ── Helpers token (payload signé HMAC-SHA256, valide 48h) ──────────────────
 function makeToken(userId, role) {
-  const day = Math.floor(Date.now() / 86400000);
-  const payload = Buffer.from(JSON.stringify({ userId, role, day })).toString("base64url");
+  const exp = Math.floor(Date.now() / 86400000) + 30; // valide 30 jours
+  const payload = Buffer.from(JSON.stringify({ userId, role, exp })).toString("base64url");
   const sig = crypto.createHmac("sha256", APP_SECRET).update(payload).digest("base64url");
   return `${payload}.${sig}`;
 }
@@ -35,7 +35,7 @@ function verifyToken(token) {
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     const today = Math.floor(Date.now() / 86400000);
-    if (data.day !== today && data.day !== today - 1) return null;
+    if (data.exp < today) return null; // expiré
     return data;
   } catch { return null; }
 }
@@ -314,19 +314,19 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
 
 // ── Authentification serveur ────────────────────────────────────────────────
 
-/** POST /api/login  body: { role, login, password }  →  { userId, token } */
+/** POST /api/login  body: { login, password, role? }  →  { userId, role, token } */
 app.post("/api/login", async (req, res) => {
-  const { role, login: loginInput, password: passwordInput } = req.body || {};
+  const { role: roleInput, login: loginInput, password: passwordInput } = req.body || {};
   const VALID_ROLES = ["employee", "manager", "collaborator"];
-  if (!VALID_ROLES.includes(role)) {
-    return res.status(400).json({ error: "invalid_role" });
-  }
   try {
     const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
     const state = rows[0]?.value || {};
-    const users = (state.users || []).filter((u) => u.role === role);
+    // Si un rôle est précisé, chercher uniquement dans ce rôle ; sinon chercher partout
+    const pool_users = roleInput && VALID_ROLES.includes(roleInput)
+      ? (state.users || []).filter((u) => u.role === roleInput)
+      : (state.users || []);
     const needle = String(loginInput || "").trim().toLowerCase();
-    const user = users.find((u) => {
+    const user = pool_users.find((u) => {
       const id = String(u.login || u.name || "").trim().toLowerCase();
       return id === needle;
     });
@@ -357,7 +357,7 @@ app.post("/api/login", async (req, res) => {
       }
     }
     if (!valid) return res.status(401).json({ error: "invalid_credentials" });
-    res.json({ userId: user.id, token: makeToken(user.id, role) });
+    res.json({ userId: user.id, role: user.role, token: makeToken(user.id, user.role) });
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ error: "server_error" });

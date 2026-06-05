@@ -82,7 +82,13 @@
   }
 
   function _authHeaders() {
-    const token = window.FlowDeskAuth?.getToken?.();
+    let token = window.FlowDeskAuth?.getToken?.();
+    if (!token) {
+      try {
+        const raw = localStorage.getItem("flowdesk-session");
+        token = raw ? JSON.parse(raw)?.token : null;
+      } catch {}
+    }
     return token
       ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
       : { "Content-Type": "application/json" };
