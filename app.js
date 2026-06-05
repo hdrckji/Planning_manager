@@ -2613,7 +2613,15 @@ function showPlanningTaskCollabModal(task) {
           <div><dt>${t("ticket.estimated")}</dt><dd>${formatHours(task.estimatedHours || 0)}</dd></div>
           <div><dt>${t("emp.table.status")}</dt><dd><span class="badge badge-status" data-status="${task.status}">${statusLabel(task.status)}</span></dd></div>
         </dl>
-        ${task.photoDataUrl ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><img class="ticket-photo" src="${task.photoDataUrl}" alt="Photo de la tâche" /></div>` : ""}
+        <div id="ptcm-photo-section">
+          ${task.photoDataUrl ? `<div class="ticket-photo-wrap" style="margin-bottom:8px"><p class="detail-label">Photo</p><img class="ticket-photo" src="${task.photoDataUrl}" alt="Photo de la tâche" /></div>` : ""}
+          <p class="detail-label" style="margin:0 0 8px">Ajouter / remplacer une photo</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="ptcm-photo-camera" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
+            <button type="button" id="ptcm-photo-gallery" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
+          </div>
+          <span id="ptcm-photo-name" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
+        </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
           ${task.status === "planifie" ? `<button class="button" type="button" id="ptcm-start">${t("collab.start")}</button>` : ""}
           ${task.status === "en_cours" ? `<button class="button" type="button" id="ptcm-finish">${t("collab.finish")}</button>` : ""}
@@ -2628,13 +2636,36 @@ function showPlanningTaskCollabModal(task) {
   overlay.querySelector(".modal-close").addEventListener("click", close);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 
+  // ── Boutons photo ──────────────────────────────────────────────────────────
+  function pickPhoto(withCapture) {
+    const inp = document.createElement("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    if (withCapture) inp.capture = "environment";
+    inp.addEventListener("change", () => {
+      if (inp.files[0]) {
+        overlay._capturedPhoto = inp.files[0];
+        overlay.querySelector("#ptcm-photo-name").textContent = "✓ " + inp.files[0].name;
+      }
+    });
+    inp.click();
+  }
+  overlay.querySelector("#ptcm-photo-camera").addEventListener("click", () => pickPhoto(true));
+  overlay.querySelector("#ptcm-photo-gallery").addEventListener("click", () => pickPhoto(false));
+
+  // ── Actions statut ─────────────────────────────────────────────────────────
   overlay.querySelector("#ptcm-start")?.addEventListener("click", () => {
     updatePlanningTask(task.id, { status: "en_cours" });
     toast(t("collab.started"));
     close();
   });
-  overlay.querySelector("#ptcm-finish")?.addEventListener("click", () => {
-    updatePlanningTask(task.id, { status: "termine" });
+
+  overlay.querySelector("#ptcm-finish")?.addEventListener("click", async () => {
+    const updates = { status: "termine" };
+    if (overlay._capturedPhoto) {
+      updates.photoDataUrl = await toDataUrl(overlay._capturedPhoto);
+    }
+    updatePlanningTask(task.id, updates);
     toast(t("collab.finished"));
     close();
   });
