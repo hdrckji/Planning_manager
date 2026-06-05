@@ -18,7 +18,10 @@ function _authLoadUsers() {
 }
 
 function _roleHasPasswords(role) {
-  return _authLoadUsers().some((u) => u.role === role && typeof u.password === "string" && u.password.length > 0);
+  return _authLoadUsers().some((u) => u.role === role && (
+    u.hasPassword === true ||
+    (typeof u.password === "string" && u.password.length > 0)
+  ));
 }
 
 function isAuthenticated(role) {
@@ -33,18 +36,23 @@ function getAuthenticatedUserId(role) {
   return (!val || val === "1") ? "" : val;
 }
 
-function login(role, loginInput, passwordInput) {
+async function login(role, loginInput, passwordInput) {
   if (!AUTH_CONFIG[role]) return false;
-  const users = _authLoadUsers().filter((u) => u.role === role);
-  const needle = String(loginInput || "").trim().toLowerCase();
-  const user = users.find((u) => {
-    const identifier = String(u.login || u.name || "").trim().toLowerCase();
-    return identifier === needle;
-  });
-  // N'accepter que les utilisateurs qui ont un mot de passe défini
-  if (!user || !user.password || user.password !== String(passwordInput)) return false;
-  sessionStorage.setItem(authSessionKey(role), user.id);
-  return true;
+  try {
+    const BASE = (window.FLOW_DESK_API_BASE ?? "").replace(/\/$/, "");
+    const res = await fetch(`${BASE}/api/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, login: loginInput, password: passwordInput }),
+    });
+    if (!res.ok) return false;
+    const { userId, token } = await res.json();
+    sessionStorage.setItem(authSessionKey(role), userId);
+    sessionStorage.setItem(authSessionKey(role) + ":token", token);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function logout(role) {
@@ -192,10 +200,19 @@ function setupPortalLogin() {
   }
 }
 
+function getToken() {
+  for (const role of Object.keys(AUTH_CONFIG)) {
+    const token = sessionStorage.getItem(authSessionKey(role) + ":token");
+    if (token) return token;
+  }
+  return null;
+}
+
 window.FlowDeskAuth = {
   protectCurrentPage,
   isAuthenticated,
   getAuthenticatedUserId,
+  getToken,
   login,
   logout,
   setupPortalLogin,

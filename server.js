@@ -4,7 +4,63 @@ process.on("unhandledRejection", (r)   => console.error("UNHANDLED:", r));
 const path    = require("path");
 const express = require("express");
 const cors    = require("cors");
+const bcrypt  = require("bcryptjs");
+const crypto  = require("crypto");
 const { pool, initSchema } = require("./db");
+
+// ── Sécurité : secret d'application ────────────────────────────────────────
+// Si APP_SECRET est défini en variable d'env → les tokens sont stables entre redémarrages
+// et la protection en écriture est activée (REQUIRE_AUTH_WRITES implicite).
+const APP_SECRET_FROM_ENV = process.env.APP_SECRET || "";
+const APP_SECRET = APP_SECRET_FROM_ENV || crypto.randomBytes(32).toString("hex");
+const WRITE_AUTH_ENABLED = !!APP_SECRET_FROM_ENV;
+
+// ── Helpers token (payload signé HMAC-SHA256, valide 48h) ──────────────────
+function makeToken(userId, role) {
+  const day = Math.floor(Date.now() / 86400000);
+  const payload = Buffer.from(JSON.stringify({ userId, role, day })).toString("base64url");
+  const sig = crypto.createHmac("sha256", APP_SECRET).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+function verifyToken(token) {
+  if (!token || typeof token !== "string") return null;
+  const dot = token.lastIndexOf(".");
+  if (dot === -1) return null;
+  const payload = token.slice(0, dot);
+  const sig     = token.slice(dot + 1);
+  const expected = crypto.createHmac("sha256", APP_SECRET).update(payload).digest("base64url");
+  if (sig.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    const today = Math.floor(Date.now() / 86400000);
+    if (data.day !== today && data.day !== today - 1) return null;
+    return data;
+  } catch { return null; }
+}
+
+// Retire les mots de passe avant d'envoyer l'état au client,
+// remplacés par un flag hasPassword pour conserver le mode migration.
+function sanitizeStateForClient(state) {
+  if (!state || !Array.isArray(state.users)) return state;
+  return {
+    ...state,
+    users: state.users.map(({ password, ...u }) => ({
+      ...u,
+      hasPassword: typeof password === "string" && password.length > 0,
+    })),
+  };
+}
+
+// Middleware : exige un token valide si APP_SECRET est défini en env.
+function requireToken(req, res, next) {
+  if (!WRITE_AUTH_ENABLED) return next();
+  const auth  = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token || !verifyToken(token)) return res.status(401).json({ error: "unauthorized" });
+  next();
+}
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -18,7 +74,7 @@ app.use(express.static(path.join(__dirname)));
 
 // ── API : key-value store ───────────────────────────────────────────────────
 
-/** GET /api/kv/:key  →  { value } */
+/** GET /api/kv/:key  →  { value }  (mots de passe retirés pour flowdesk-state) */
 app.get("/api/kv/:key", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -26,7 +82,9 @@ app.get("/api/kv/:key", async (req, res) => {
       [req.params.key],
     );
     if (rows.length === 0) return res.json({ value: null });
-    res.json({ value: rows[0].value });
+    let value = rows[0].value;
+    if (req.params.key === "flowdesk-state") value = sanitizeStateForClient(value);
+    res.json({ value });
   } catch (err) {
     console.error("GET /api/kv error:", err.message);
     res.status(500).json({ error: "db_error" });
@@ -34,7 +92,7 @@ app.get("/api/kv/:key", async (req, res) => {
 });
 
 /** PUT /api/kv/:key  body: { value }  →  204 */
-app.put("/api/kv/:key", async (req, res) => {
+app.put("/api/kv/:key", requireToken, async (req, res) => {
   const { value } = req.body;
   if (value === undefined) return res.status(400).json({ error: "missing_value" });
   try {
@@ -54,7 +112,7 @@ app.put("/api/kv/:key", async (req, res) => {
 });
 
 /** DELETE /api/kv/:key  →  204 */
-app.delete("/api/kv/:key", async (req, res) => {
+app.delete("/api/kv/:key", requireToken, async (req, res) => {
   try {
     await pool.query("DELETE FROM kv_store WHERE key = $1", [req.params.key]);
     res.sendStatus(204);
@@ -251,6 +309,58 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
   } catch (err) {
     console.error("iCal error:", err.message);
     res.status(500).send("Error");
+  }
+});
+
+// ── Authentification serveur ────────────────────────────────────────────────
+
+/** POST /api/login  body: { role, login, password }  →  { userId, token } */
+app.post("/api/login", async (req, res) => {
+  const { role, login: loginInput, password: passwordInput } = req.body || {};
+  const VALID_ROLES = ["employee", "manager", "collaborator"];
+  if (!VALID_ROLES.includes(role)) {
+    return res.status(400).json({ error: "invalid_role" });
+  }
+  try {
+    const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
+    const state = rows[0]?.value || {};
+    const users = (state.users || []).filter((u) => u.role === role);
+    const needle = String(loginInput || "").trim().toLowerCase();
+    const user = users.find((u) => {
+      const id = String(u.login || u.name || "").trim().toLowerCase();
+      return id === needle;
+    });
+    if (!user || !user.password) {
+      return res.status(401).json({ error: "invalid_credentials" });
+    }
+    const passStr = String(passwordInput || "");
+    const isHashed = user.password.startsWith("$2b$") || user.password.startsWith("$2a$");
+    let valid = false;
+    if (isHashed) {
+      valid = await bcrypt.compare(passStr, user.password);
+    } else {
+      valid = user.password === passStr;
+      if (valid) {
+        // Migration progressive : on hache le mot de passe en clair au premier login
+        const hashed = await bcrypt.hash(passStr, 12);
+        const updatedState = {
+          ...state,
+          users: state.users.map((u2) =>
+            u2.id === user.id ? { ...u2, password: hashed } : u2
+          ),
+        };
+        pool.query(
+          `INSERT INTO kv_store (key, value, updated_at) VALUES ($1, $2::jsonb, NOW())
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+          ["flowdesk-state", JSON.stringify(updatedState)]
+        ).catch((err) => console.error("Password migration error:", err.message));
+      }
+    }
+    if (!valid) return res.status(401).json({ error: "invalid_credentials" });
+    res.json({ userId: user.id, token: makeToken(user.id, role) });
+  } catch (err) {
+    console.error("Login error:", err.message);
+    res.status(500).json({ error: "server_error" });
   }
 });
 

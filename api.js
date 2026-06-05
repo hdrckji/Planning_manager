@@ -81,6 +81,13 @@
     }
   }
 
+  function _authHeaders() {
+    const token = window.FlowDeskAuth?.getToken?.();
+    return token
+      ? { "Content-Type": "application/json", "Authorization": `Bearer ${token}` }
+      : { "Content-Type": "application/json" };
+  }
+
   function kvSet(key, value) {
     if (isFileProtocol) {
       return;
@@ -90,7 +97,7 @@
     }
     fetch(`${BASE}/api/kv/${encodeURIComponent(key)}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: _authHeaders(),
       body: JSON.stringify({ value }),
     }).catch((err) => console.error("FlowDeskApi kvSet error:", err));
   }
