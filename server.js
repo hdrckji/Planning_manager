@@ -330,8 +330,15 @@ app.post("/api/login", async (req, res) => {
       const id = String(u.login || u.name || "").trim().toLowerCase();
       return id === needle;
     });
-    if (!user || !user.password) {
+    if (!user) {
+      console.log(`[login] identifiant introuvable: "${loginInput}" (${pool_users.length} users cherchés)`);
       return res.status(401).json({ error: "invalid_credentials" });
+    }
+    // Utilisateur sans mot de passe → accès libre (mode migration)
+    if (!user.password) {
+      const token = makeToken(user.id, user.role);
+      console.log(`[login] accès migration: ${user.name || user.login} (${user.role})`);
+      return res.json({ userId: user.id, role: user.role, token });
     }
     const passStr = String(passwordInput || "");
     const isHashed = user.password.startsWith("$2b$") || user.password.startsWith("$2a$");
@@ -356,11 +363,34 @@ app.post("/api/login", async (req, res) => {
         ).catch((err) => console.error("Password migration error:", err.message));
       }
     }
-    if (!valid) return res.status(401).json({ error: "invalid_credentials" });
+    if (!valid) {
+      console.log(`[login] mot de passe incorrect pour: ${user.name || user.login} (${user.role})`);
+      return res.status(401).json({ error: "invalid_credentials" });
+    }
     res.json({ userId: user.id, role: user.role, token: makeToken(user.id, user.role) });
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ error: "server_error" });
+  }
+});
+
+// ── Diagnostic (temporaire — à supprimer après debug) ──────────────────────
+
+/** GET /api/debug/users  →  liste des utilisateurs sans mots de passe */
+app.get("/api/debug/users", async (req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'");
+    const state = rows[0]?.value || {};
+    const users = (state.users || []).map((u) => ({
+      id:          u.id,
+      name:        u.name,
+      login:       u.login,
+      role:        u.role,
+      hasPassword: !!(u.password),
+    }));
+    res.json({ count: users.length, users });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
