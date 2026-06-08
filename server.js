@@ -170,6 +170,59 @@ function nextDay(dateStr) {
 
 const STATUS_LABELS_ICAL = { nouveau: "Nouveau", en_attente: "En attente", planifie: "Planifié", en_cours: "En cours", termine: "Terminé" };
 
+// ── Helpers iCal ─────────────────────────────────────────────────────────────
+const SCHED_DAYS_SRV = ["mon","tue","wed","thu","fri","sat","sun"];
+
+function isoWeekNumSrv(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dn = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dn);
+  return Math.ceil((((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 1))) / 86400000) + 1) / 7);
+}
+
+function buildEventTimes(dateRaw, schedule) {
+  const dateCompact = dateRaw.replace(/-/g, "");
+  if (schedule) {
+    const d = new Date(dateRaw + "T00:00:00");
+    const wt = isoWeekNumSrv(d) % 2 === 0 ? "A" : "B";
+    const dk = SCHED_DAYS_SRV[d.getDay() === 0 ? 6 : d.getDay() - 1];
+    const ds = schedule[wt]?.[dk];
+    if (ds?.active && ds.start && ds.end) {
+      return [
+        `DTSTART;TZID=Europe/Brussels:${dateCompact}T${ds.start.replace(":", "")}00`,
+        `DTEND;TZID=Europe/Brussels:${dateCompact}T${ds.end.replace(":", "")}00`,
+      ];
+    }
+  }
+  return [`DTSTART;VALUE=DATE:${dateCompact}`, `DTEND;VALUE=DATE:${nextDay(dateRaw)}`];
+}
+
+function icalStatus(status) {
+  if (status === "termine") return "COMPLETED";
+  if (status === "en_cours") return "IN-PROCESS";
+  return "CONFIRMED";
+}
+
+const VTIMEZONE_BRUSSELS = [
+  "BEGIN:VTIMEZONE",
+  "TZID:Europe/Brussels",
+  "BEGIN:STANDARD",
+  "DTSTART:19701025T030000",
+  "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=10",
+  "TZOFFSETFROM:+0200",
+  "TZOFFSETTO:+0100",
+  "TZNAME:CET",
+  "END:STANDARD",
+  "BEGIN:DAYLIGHT",
+  "DTSTART:19700329T020000",
+  "RRULE:FREQ=YEARLY;BYDAY=-1SU;BYMONTH=3",
+  "TZOFFSETFROM:+0100",
+  "TZOFFSETTO:+0200",
+  "TZNAME:CEST",
+  "END:DAYLIGHT",
+  "END:VTIMEZONE",
+];
+
 async function servePhotoDataUrl(dataUrl, res) {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/s);
   if (!m) return res.status(400).send("Invalid photo");
@@ -211,20 +264,29 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
   try {
     const baseUrl = `${req.protocol}://${req.get("host")}`;
     const collabId = req.params.collaboratorId;
-    const { rows } = await pool.query(
-      "SELECT value FROM kv_store WHERE key = 'flowdesk-state'"
-    );
-    const st = rows[0]?.value || {};
+    const [stateResult, sitesResult] = await Promise.all([
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'"),
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-sites'"),
+    ]);
+    const st = stateResult.rows[0]?.value || {};
+    const sitesData = Array.isArray(sitesResult.rows[0]?.value) ? sitesResult.rows[0].value : [];
     const users = st.users || [];
     // Résolution : accepte l'ID exact OU le nom (insensible à la casse)
     const collabLower = collabId.toLowerCase();
     const collab = users.find(u => u.id === collabId)
                 || users.find(u => (u.name || "").toLowerCase() === collabLower);
     const resolvedId = collab ? collab.id : collabId;
+    const schedule  = collab?.schedule ?? null;
     const tasks   = (st.planningTasks || []).filter(t => t.collaboratorId === resolvedId);
     const tickets = (st.tickets || []).filter(t => t.assignedTo === resolvedId && (t.plannedDate || t.desiredDate));
     const calName = collab ? `FamiTask – ${collab.name}` : "FamiTask Planning";
     const appUrl  = `${baseUrl}/collaborator.html`;
+
+    function siteName(siteId) {
+      if (!siteId) return null;
+      const s = sitesData.find(x => x.id === siteId);
+      return s ? s.name : null;
+    }
 
     const lines = [
       "BEGIN:VCALENDAR", "VERSION:2.0",
@@ -234,6 +296,7 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
       "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
       "REFRESH-INTERVAL;VALUE=DURATION:PT15M",
       "X-PUBLISHED-TTL:PT15M",
+      ...VTIMEZONE_BRUSSELS,
     ];
 
     const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
@@ -241,11 +304,11 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     for (const task of tasks) {
       const dateRaw = task.date || "";
       if (!dateRaw) continue;
-      const dtstart = dateRaw.replace(/-/g, "");
-      const dtend   = nextDay(dateRaw);
+      const eventTimes = buildEventTimes(dateRaw, schedule);
       const statut  = STATUS_LABELS_ICAL[task.status] || task.status;
       const hours   = task.estimatedHours || 1;
       const photoUrl = task.photoDataUrl ? `${baseUrl}/api/photo/task/${encodeURIComponent(task.id)}` : null;
+      const location = siteName(task.siteId);
       const plainDesc = [
         task.description || "",
         `Statut : ${statut}`,
@@ -257,14 +320,14 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
         "BEGIN:VEVENT",
         `UID:task-${task.id}@famitask`,
         `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dtstart}`,
-        `DTEND;VALUE=DATE:${dtend}`,
+        ...eventTimes,
         `SUMMARY:📋 ${escIcal(task.title)}`,
         `DESCRIPTION:${escIcal(plainDesc)}`,
         `X-ALT-DESC;FMTTYPE=text/html:${html}`,
         `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
         ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
-        `STATUS:${task.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
+        `STATUS:${icalStatus(task.status)}`,
         "END:VEVENT"
       );
     }
@@ -272,11 +335,11 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
     for (const ticket of tickets) {
       const dateRaw = ticket.plannedDate || ticket.desiredDate || "";
       if (!dateRaw) continue;
-      const dtstart  = dateRaw.replace(/-/g, "");
-      const dtend    = nextDay(dateRaw);
+      const eventTimes = buildEventTimes(dateRaw, schedule);
       const statut   = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
       const hours    = ticket.estimatedHours || 1;
       const photoUrl = ticket.photoDataUrl ? `${baseUrl}/api/photo/${encodeURIComponent(ticket.id)}` : null;
+      const location = siteName(ticket.siteId);
       const plainDesc = [
         ticket.description || "",
         `Statut : ${statut}`,
@@ -288,14 +351,14 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
         "BEGIN:VEVENT",
         `UID:ticket-${ticket.id}@famitask`,
         `DTSTAMP:${stamp}`,
-        `DTSTART;VALUE=DATE:${dtstart}`,
-        `DTEND;VALUE=DATE:${dtend}`,
+        ...eventTimes,
         `SUMMARY:🔧 ${escIcal(ticket.title)}`,
         `DESCRIPTION:${escIcal(plainDesc)}`,
         `X-ALT-DESC;FMTTYPE=text/html:${html}`,
         `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
         ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
-        `STATUS:${ticket.status === "termine" ? "COMPLETED" : "CONFIRMED"}`,
+        `STATUS:${icalStatus(ticket.status)}`,
         "END:VEVENT"
       );
     }

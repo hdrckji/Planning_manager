@@ -233,6 +233,8 @@ let planningMonthOffset = 0;
 let employeeExpandedTicketId = "";
 let managerExpandedTicketId = "";
 let collaboratorWeekOffset = 0;
+let collaboratorMonthOffset = 0;
+let collaboratorViewMode = "week";
 
 function escHtml(str) {
   return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -3685,6 +3687,10 @@ function renderCollaboratorPage() {
             <p class="subtle">${t("collab.planning.sub")}</p>
           </div>
           <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost active" type="button" id="collabViewWeek">${t("plan.view.week")}</button>
+              <button class="button ghost" type="button" id="collabViewMonth">${t("plan.view.month")}</button>
+            </div>
             <button class="button ghost" type="button" id="collabPrevWeek">${t("plan.prev")}</button>
             <button class="button ghost" type="button" id="collabToday">${t("plan.today")}</button>
             <button class="button ghost" type="button" id="collabNextWeek">${t("plan.next")}</button>
@@ -3833,6 +3839,14 @@ function renderCollaboratorPage() {
       </div>
     `;
 
+    refs.mainView.querySelector("#collabViewWeek")?.addEventListener("click", () => {
+      collaboratorViewMode = "week";
+      renderWeek();
+    });
+    refs.mainView.querySelector("#collabViewMonth")?.addEventListener("click", () => {
+      collaboratorViewMode = "month";
+      renderMonth();
+    });
     refs.mainView.querySelector("#collabPrevWeek")?.addEventListener("click", () => {
       collaboratorWeekOffset -= 1;
       renderWeek();
@@ -3848,6 +3862,7 @@ function renderCollaboratorPage() {
 
     refs.mainView.querySelector("#collabIcalBtn")?.addEventListener("click", () => {
       const url = getIcalUrl(currentUser.id);
+      if (!url) { toast("Lien iCal disponible uniquement en ligne (pas en mode fichier local)."); return; }
       showIcalModal(url);
     });
 
@@ -3911,7 +3926,124 @@ function renderCollaboratorPage() {
     });
   }
 
-  renderWeek();
+  function renderMonth() {
+    const now = new Date();
+    const baseYear  = now.getFullYear();
+    const baseMonth = now.getMonth();
+    const year  = baseYear  + Math.floor((baseMonth + collaboratorMonthOffset) / 12);
+    const month = ((baseMonth + collaboratorMonthOffset) % 12 + 12) % 12;
+    const firstDay = new Date(year, month, 1);
+    const lastDay  = new Date(year, month + 1, 0);
+    const monthLabel = new Intl.DateTimeFormat("fr-BE", { month: "long", year: "numeric" }).format(firstDay);
+    const todayStr = today();
+
+    // Grid: fill week from Monday
+    const startOffset = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1);
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(firstDay.getDate() - startOffset);
+    const totalCells = Math.ceil((startOffset + lastDay.getDate()) / 7) * 7;
+    const gridDays = Array.from({ length: totalCells }, (_, i) => {
+      const d = new Date(gridStart);
+      d.setDate(gridStart.getDate() + i);
+      return { date: d, isCurrentMonth: d.getMonth() === month };
+    });
+
+    const monthStart = localDateStr(firstDay);
+    const monthEnd   = localDateStr(lastDay);
+    const monthTickets = tickets.filter((t) => {
+      const d = t.plannedDate || t.desiredDate || "";
+      return d >= monthStart && d <= monthEnd;
+    });
+    const monthPlanTasks = myPlanningTasks.filter((pt) => pt.date >= monthStart && pt.date <= monthEnd);
+    const monthHours = [...monthTickets, ...monthPlanTasks].reduce((s, x) => s + normalizeHours(x.estimatedHours, 0), 0);
+
+    const weekdays = ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"];
+
+    refs.mainView.innerHTML = `
+      <div class="collab-planning">
+        <div class="section-head collab-planning-head">
+          <div>
+            <h2>${t("collab.planning")}</h2>
+            <p class="subtle">${monthLabel} · ${formatHours(monthHours)}</p>
+          </div>
+          <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost" type="button" id="collabViewWeek">${t("plan.view.week")}</button>
+              <button class="button ghost active" type="button" id="collabViewMonth">${t("plan.view.month")}</button>
+            </div>
+            <button class="button ghost" type="button" id="collabPrevMonth">${t("plan.prev")}</button>
+            <button class="button ghost" type="button" id="collabTodayMonth">${t("plan.today")}</button>
+            <button class="button ghost" type="button" id="collabNextMonth">${t("plan.next")}</button>
+            <button class="button ghost" type="button" id="collabIcalBtn" title="Synchroniser avec Google Calendar / Outlook">📅 iCal</button>
+          </div>
+        </div>
+
+        <div class="cal-month" style="margin-top:16px;">
+          ${weekdays.map((d) => `<div class="cal-month-weekday">${d}</div>`).join("")}
+          ${gridDays.map(({ date, isCurrentMonth }) => {
+            const dateStr = localDateStr(date);
+            const isToday = dateStr === todayStr;
+            const dayTk = tickets.filter((t) => (t.plannedDate || t.desiredDate) === dateStr);
+            const dayPt = myPlanningTasks.filter((pt) => pt.date === dateStr);
+            const dayTotal = [...dayTk, ...dayPt].reduce((s, x) => s + normalizeHours(x.estimatedHours, 0), 0);
+            return `
+              <div class="cal-month-day${isToday ? " cal-month-day--today" : ""}${!isCurrentMonth ? " cal-month-day--other" : ""}">
+                <div class="cal-month-day-head">
+                  <span class="cal-month-daynum">${date.getDate()}</span>
+                  ${dayTotal > 0 ? `<span class="cal-month-total">${formatHours(dayTotal)}</span>` : ""}
+                </div>
+                <div class="cal-month-body">
+                  ${dayTk.map((tk) => `<div class="cal-month-item" data-status="${tk.status}" data-ticket-id="${escHtml(tk.id)}" title="${escHtml(tk.title)}">${escHtml(tk.title)}</div>`).join("")}
+                  ${dayPt.map((pt) => `<div class="cal-month-item cal-month-item--task" data-status="${pt.status}" data-task-id="${escHtml(pt.id)}" title="${escHtml(pt.title)}">${escHtml(pt.title)}</div>`).join("")}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `;
+
+    refs.mainView.querySelector("#collabViewWeek")?.addEventListener("click", () => {
+      collaboratorViewMode = "week";
+      renderWeek();
+    });
+    refs.mainView.querySelector("#collabViewMonth")?.addEventListener("click", () => {
+      collaboratorViewMode = "month";
+      renderMonth();
+    });
+    refs.mainView.querySelector("#collabPrevMonth")?.addEventListener("click", () => {
+      collaboratorMonthOffset -= 1;
+      renderMonth();
+    });
+    refs.mainView.querySelector("#collabTodayMonth")?.addEventListener("click", () => {
+      collaboratorMonthOffset = 0;
+      renderMonth();
+    });
+    refs.mainView.querySelector("#collabNextMonth")?.addEventListener("click", () => {
+      collaboratorMonthOffset += 1;
+      renderMonth();
+    });
+    refs.mainView.querySelector("#collabIcalBtn")?.addEventListener("click", () => {
+      const url = getIcalUrl(currentUser.id);
+      if (!url) { toast("Lien iCal disponible uniquement en ligne (pas en mode fichier local)."); return; }
+      showIcalModal(url);
+    });
+
+    refs.mainView.querySelectorAll(".cal-month-item[data-ticket-id]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const ticket = state.tickets.find((tk) => tk.id === el.dataset.ticketId);
+        if (ticket) showTicketDetailModal(ticket);
+      });
+    });
+    refs.mainView.querySelectorAll(".cal-month-item[data-task-id]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const task = (state.planningTasks || []).find((pt) => pt.id === el.dataset.taskId);
+        if (task) showPlanningTaskCollabModal(task);
+      });
+    });
+  }
+
+  if (collaboratorViewMode === "month") renderMonth(); else renderWeek();
 }
 
 function renderManagerLanes(container, tickets) {
@@ -4750,6 +4882,7 @@ async function initPushNotifications(user) {
 
 // ── iCal link (collaborators) ───────────────────────────────────────────────
 function getIcalUrl(userId) {
+  if (location.protocol === "file:") return null;
   return `${location.origin.replace(/\/+$/, "")}/api/ical/${encodeURIComponent(userId)}`;
 }
 
