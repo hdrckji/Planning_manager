@@ -387,6 +387,7 @@ function normalizePlanningTask(task) {
     title: String(task.title || ""),
     description: String(task.description || ""),
     collaboratorId: String(task.collaboratorId || ""),
+    prestataireId: String(task.prestataireId || ""),
     date: String(task.date || today()),
     estimatedHours: normalizeHours(task.estimatedHours, 1),
     actualHours: task.actualHours != null && task.actualHours !== "" ? normalizeHours(task.actualHours, 0) : null,
@@ -807,7 +808,7 @@ function saveTree(tree) {
 function renderEmployeePage() {
   const currentUser = getCurrentUser();
   const tickets = currentUser
-    ? state.tickets.filter((t) => t.createdBy === currentUser.id).sort(sortByUpdatedDesc)
+    ? state.tickets.filter((t) => t.createdBy === currentUser.id || !t.createdBy).sort(sortByUpdatedDesc)
     : [];
   const enAttenteTickets = tickets.filter((t) => {
     if (t.status !== "en_attente") return false;
@@ -2021,7 +2022,7 @@ function renderManagerUtilisateurs(container) {
         <div class="user-item user-item-clickable" data-uid="${escHtml(u.id)}" role="button" tabindex="0">
           <div class="user-item-row1">
             <span class="user-item-name">${escHtml(u.name)}</span>
-            ${u.password ? `<span class="badge badge-ok" title="${t("users.password.set")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
+            ${u.password ? `<span class="badge badge-ok" title="${t("users.password.is.defined")}">🔑</span>` : `<span class="badge badge-warn">${t("users.password.none")}</span>`}
           </div>
           <div class="user-item-info">
             <span class="badge badge-muted">${ROLE_LABEL[u.role] || u.role}</span>
@@ -2395,9 +2396,14 @@ function showUserEditModal(user, { onSave, onDelete }) {
 
         <div class="user-modal-section">
           <h4 class="user-modal-section-title">Mot de passe</h4>
+          <p class="subtle" style="margin:0 0 8px">
+            ${user.password
+              ? `✓ ${t("users.password.is.defined")}`
+              : `⚠ ${t("users.password.none")} — accès libre`}
+          </p>
           <form data-modal-action="save-password" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
             <input type="password" name="newPassword" placeholder="${t("users.password.ph")}" minlength="4" autocomplete="new-password" style="${INPUT_STYLE};max-width:280px" />
-            <button class="button" type="submit">Enregistrer</button>
+            <button class="button" type="submit">${user.password ? t("users.password.change") : t("users.password.set")}</button>
           </form>
         </div>
 
@@ -2579,6 +2585,99 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
       title: fd.get("title"),
       description: fd.get("description"),
       collaboratorId: fd.get("collaboratorId"),
+      date: fd.get("date"),
+      estimatedHours: fd.get("estimatedHours"),
+      status: isEdit ? task.status : "planifie",
+      createdAt: isEdit ? task.createdAt : new Date().toISOString(),
+      photoDataUrl,
+    });
+    if (isEdit) {
+      state.planningTasks = (state.planningTasks || []).map((pt) => pt.id === saved.id ? saved : pt);
+    } else {
+      if (!Array.isArray(state.planningTasks)) state.planningTasks = [];
+      state.planningTasks.push(saved);
+    }
+    persistState();
+    close(onSave);
+  });
+}
+
+function showPlanningExtTaskModal({ date, prestataires, task = null, onSave }) {
+  const isEdit = !!task;
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h3>${isEdit ? t("plan.ext.task.edit") : t("plan.ext.task.new")}</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <form class="modal-form form-grid" id="extTaskModalForm">
+        <div class="field full">
+          <label for="etm-title">${t("plan.task.title.label")} <span style="color:#c0392b">*</span></label>
+          <input id="etm-title" name="title" type="text" value="${escHtml(task?.title || "")}" required autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="etm-date">${t("plan.task.date.label")}</label>
+          <input id="etm-date" name="date" type="date" value="${escHtml(task?.date || date || today())}" required />
+        </div>
+        <div class="field">
+          <label for="etm-prest">${t("plan.ext.partner")}</label>
+          <select id="etm-prest" name="prestataireId" required>
+            <option value="">${t("plan.ext.task.partner.none")}</option>
+            ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${task?.prestataireId === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="etm-hours">${t("plan.task.hours.label")}</label>
+          <input id="etm-hours" name="estimatedHours" type="number" min="0.25" max="24" step="0.25" value="${task?.estimatedHours ?? 1}" />
+        </div>
+        <div class="field full">
+          <label for="etm-desc">${t("plan.task.notes.label")}</label>
+          <textarea id="etm-desc" name="description" rows="2" placeholder="${escHtml(t("plan.task.notes.ph"))}">${escHtml(task?.description || "")}</textarea>
+        </div>
+        <div class="field full">
+          <label for="etm-photo">${t("plan.task.photo.label")}</label>
+          ${task?.photoDataUrl ? `<div style="margin-bottom:8px"><img src="${task.photoDataUrl}" alt="Photo actuelle" class="ticket-photo" style="max-width:100%;border-radius:8px;border:1px solid #ddd;" /></div>` : ""}
+          <input id="etm-photo" name="taskPhoto" type="file" accept="image/*" />
+        </div>
+        <div class="field full modal-actions">
+          ${isEdit ? `<button type="button" class="button button-danger" id="etm-delete">${t("plan.task.delete")}</button>` : ""}
+          <button type="submit" class="button">${isEdit ? t("plan.task.save") : t("plan.task.create")}</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+
+  const close = (cb) => { overlay.classList.remove("visible"); setTimeout(() => { overlay.remove(); cb?.(); }, 210); };
+  overlay.querySelector(".modal-close").addEventListener("click", () => close());
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  setTimeout(() => overlay.querySelector("#etm-title")?.focus(), 50);
+
+  if (isEdit) {
+    overlay.querySelector("#etm-delete").addEventListener("click", () => {
+      if (!confirm(t("plan.task.delete.confirm"))) return;
+      state.planningTasks = (state.planningTasks || []).filter((pt) => pt.id !== task.id);
+      persistState();
+      close(onSave);
+    });
+  }
+
+  overlay.querySelector("#extTaskModalForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const photoFile = fd.get("taskPhoto");
+    const photoDataUrl = photoFile instanceof File && photoFile.size > 0
+      ? await toDataUrl(photoFile)
+      : (isEdit ? (task?.photoDataUrl || "") : "");
+    const saved = normalizePlanningTask({
+      id: isEdit ? task.id : nextPlanningTaskId(),
+      title: fd.get("title"),
+      description: fd.get("description"),
+      collaboratorId: "",
+      prestataireId: fd.get("prestataireId"),
       date: fd.get("date"),
       estimatedHours: fd.get("estimatedHours"),
       status: isEdit ? task.status : "planifie",
@@ -2870,11 +2969,14 @@ function renderManagerPlanning(container, collaborators) {
     let extTickets = state.tickets.filter((tk) =>
       ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedToExternal
     );
+    let extPlanningTasks = (state.planningTasks || []).filter((pt) => pt.prestataireId);
     if (planningFilterPrestataire) {
       extTickets = extTickets.filter((tk) => tk.assignedToExternal === planningFilterPrestataire);
+      extPlanningTasks = extPlanningTasks.filter((pt) => pt.prestataireId === planningFilterPrestataire);
     }
     const weekExtTickets = extTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= weekStart && d <= weekEnd; });
-    const weekExtTotal   = weekExtTickets.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+    const weekExtTasks   = extPlanningTasks.filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
+    const weekExtTotal   = [...weekExtTickets, ...weekExtTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
 
     container.innerHTML = `
       <section class="card">
@@ -2967,15 +3069,16 @@ function renderManagerPlanning(container, collaborators) {
             ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${planningFilterPrestataire === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
           </select>
         </div>
-        ${weekExtTickets.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
+        ${weekExtTickets.length === 0 && weekExtTasks.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
         <div class="cal-week">
           ${days.map((day) => {
-            const dateStr = localDateStr(day);
-            const dayExt  = extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
-            const isToday = dateStr === today();
-            const dayName = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
-            const dayNum  = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
-            const dayTotal = dayExt.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+            const dateStr     = localDateStr(day);
+            const dayExt      = extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
+            const dayExtTasks = extPlanningTasks.filter((pt) => pt.date === dateStr);
+            const isToday     = dateStr === today();
+            const dayName     = new Intl.DateTimeFormat("fr-BE", { weekday: "short" }).format(day);
+            const dayNum      = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
+            const dayTotal    = [...dayExt, ...dayExtTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
             return `
               <div class="cal-day${isToday ? " cal-day--today" : ""}">
                 <div class="cal-day-head">
@@ -2983,10 +3086,11 @@ function renderManagerPlanning(container, collaborators) {
                     <span class="cal-weekday">${dayName}</span>
                     <span class="cal-daynum">${dayNum}</span>
                   </div>
+                  <button class="cal-add-btn" data-ext-add-date="${escHtml(dateStr)}" title="${escHtml(t("plan.ext.task.new"))}">+</button>
                 </div>
                 ${dayTotal > 0 ? `<div class="cal-day-total">${formatHours(dayTotal)}</div>` : ""}
                 <div class="cal-day-body">
-                  ${dayExt.length === 0 ? '<span class="cal-empty">—</span>' : ""}
+                  ${dayExt.length === 0 && dayExtTasks.length === 0 ? '<span class="cal-empty">—</span>' : ""}
                   ${dayExt.map((tk) => {
                     const prest = prestataires.find((p) => p.id === tk.assignedToExternal);
                     return `
@@ -2996,6 +3100,17 @@ function renderManagerPlanning(container, collaborators) {
                         <span class="cal-ticket-hours">${formatHours(tk.estimatedHours || 0)}</span>
                         <span class="badge badge-status" data-status="${tk.status}">${statusLabel(tk.status)}</span>
                       </div>
+                    `;
+                  }).join("")}
+                  ${dayExtTasks.map((pt) => {
+                    const prest = prestataires.find((p) => p.id === pt.prestataireId);
+                    return `
+                      <button class="cal-task-item" data-ext-task-id="${escHtml(pt.id)}" data-status="${pt.status}" title="${escHtml(t("plan.ext.task.edit"))}">
+                        <span class="cal-task-title">${escHtml(pt.title)}</span>
+                        ${prest ? `<span class="cal-task-who">🏢 ${escHtml(prest.name)}</span>` : ""}
+                        <span class="cal-task-hours">${formatHours(pt.estimatedHours || 0)}</span>
+                        <span class="badge badge-status" data-status="${pt.status}">${statusLabel(pt.status)}</span>
+                      </button>
                     `;
                   }).join("")}
                 </div>
@@ -3027,18 +3142,33 @@ function renderManagerPlanning(container, collaborators) {
       card.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(e); } });
     });
 
-    container.querySelectorAll(".cal-add-btn").forEach((btn) => {
+    container.querySelectorAll(".cal-add-btn[data-add-date]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         showPlanningTaskModal({ date: e.currentTarget.dataset.addDate, collaborators, onSave: renderWeek });
       });
     });
 
-    container.querySelectorAll(".cal-task-item").forEach((btn) => {
+    container.querySelectorAll(".cal-task-item[data-task-id]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const taskId = btn.dataset.taskId;
         const found = (state.planningTasks || []).find((pt) => pt.id === taskId);
         if (found) showPlanningTaskModal({ date: found.date, collaborators, task: found, onSave: renderWeek });
+      });
+    });
+
+    container.querySelectorAll(".cal-add-btn[data-ext-add-date]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showPlanningExtTaskModal({ date: e.currentTarget.dataset.extAddDate, prestataires, onSave: renderWeek });
+      });
+    });
+
+    container.querySelectorAll(".cal-task-item[data-ext-task-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const taskId = btn.dataset.extTaskId;
+        const found = (state.planningTasks || []).find((pt) => pt.id === taskId);
+        if (found) showPlanningExtTaskModal({ date: found.date, prestataires, task: found, onSave: renderWeek });
       });
     });
 
@@ -3086,11 +3216,14 @@ function renderManagerPlanning(container, collaborators) {
 
     const prestataires = loadPrestataires();
     let extTickets = state.tickets.filter((tk) => ["planifie", "en_cours", "termine"].includes(tk.status) && tk.assignedToExternal);
+    let extPlanningTasks = (state.planningTasks || []).filter((pt) => pt.prestataireId);
     if (planningFilterPrestataire) {
       extTickets = extTickets.filter((tk) => tk.assignedToExternal === planningFilterPrestataire);
+      extPlanningTasks = extPlanningTasks.filter((pt) => pt.prestataireId === planningFilterPrestataire);
     }
     const monthExtTickets = extTickets.filter((tk) => { const d = tk.plannedDate || tk.desiredDate; return d && d >= monthStart && d <= monthEnd; });
-    const monthExtTotal = monthExtTickets.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+    const monthExtTasks   = extPlanningTasks.filter((pt) => pt.date >= monthStart && pt.date <= monthEnd);
+    const monthExtTotal   = [...monthExtTickets, ...monthExtTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
 
     const weekdays = getLang() === "nl"
       ? ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
@@ -3119,22 +3252,28 @@ function renderManagerPlanning(container, collaborators) {
       }).join("");
     }
 
-    function buildMonthGridExt(dayExtFn) {
+    function buildMonthGridExt(dayExtFn, dayExtTasksFn) {
       return gridDays.map(({ date, isCurrentMonth }) => {
-        const dateStr = localDateStr(date);
-        const isToday = dateStr === today();
-        const dayExt = dayExtFn(dateStr);
-        const dayTotal = dayExt.reduce((s, x) => s + (x.estimatedHours || 0), 0);
+        const dateStr    = localDateStr(date);
+        const isToday    = dateStr === today();
+        const dayExt     = dayExtFn(dateStr);
+        const dayExtTasks = dayExtTasksFn ? dayExtTasksFn(dateStr) : [];
+        const dayTotal   = [...dayExt, ...dayExtTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
         return `
           <div class="cal-month-day${isToday ? " cal-month-day--today" : ""}${!isCurrentMonth ? " cal-month-day--other" : ""}">
             <div class="cal-month-day-head">
               <span class="cal-month-daynum">${date.getDate()}</span>
               ${dayTotal > 0 ? `<span class="cal-month-total">${formatHours(dayTotal)}</span>` : ""}
+              ${isCurrentMonth ? `<button class="cal-add-btn" data-ext-add-date="${escHtml(dateStr)}" title="${escHtml(t("plan.ext.task.new"))}">+</button>` : ""}
             </div>
             <div class="cal-month-body">
               ${dayExt.map((tk) => {
                 const prest = prestataires.find((p) => p.id === tk.assignedToExternal);
                 return `<div class="cal-month-item cal-month-item--ext" data-status="${tk.status}" data-ext-ticket-id="${escHtml(tk.id)}" title="${escHtml(tk.title)}">${escHtml(tk.title)}${prest ? ` (${escHtml(prest.name)})` : ""}</div>`;
+              }).join("")}
+              ${dayExtTasks.map((pt) => {
+                const prest = prestataires.find((p) => p.id === pt.prestataireId);
+                return `<div class="cal-month-item cal-month-item--ext-task" data-ext-task-id="${escHtml(pt.id)}" data-status="${pt.status}" title="${escHtml(pt.title)}">${escHtml(pt.title)}${prest ? ` (${escHtml(prest.name)})` : ""}</div>`;
               }).join("")}
             </div>
           </div>
@@ -3192,10 +3331,13 @@ function renderManagerPlanning(container, collaborators) {
             ${prestataires.map((p) => `<option value="${escHtml(p.id)}" ${planningFilterPrestataire === p.id ? "selected" : ""}>${escHtml(p.name)}${p.company ? ` — ${escHtml(p.company)}` : ""}</option>`).join("")}
           </select>
         </div>
-        ${monthExtTickets.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
+        ${monthExtTickets.length === 0 && monthExtTasks.length === 0 ? `<div class="empty-state">${t("plan.ext.empty")}</div>` : ""}
         <div class="cal-month">
           ${weekdays.map((d) => `<div class="cal-month-weekday">${d}</div>`).join("")}
-          ${buildMonthGridExt((dateStr) => extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr))}
+          ${buildMonthGridExt(
+            (dateStr) => extTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr),
+            (dateStr) => extPlanningTasks.filter((pt) => pt.date === dateStr)
+          )}
         </div>
         `}
       </section>
@@ -3223,10 +3365,25 @@ function renderManagerPlanning(container, collaborators) {
       });
     });
 
-    container.querySelectorAll(".cal-add-btn").forEach((btn) => {
+    container.querySelectorAll(".cal-add-btn[data-add-date]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         showPlanningTaskModal({ date: e.currentTarget.dataset.addDate, collaborators, onSave: renderMonth });
+      });
+    });
+
+    container.querySelectorAll(".cal-add-btn[data-ext-add-date]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showPlanningExtTaskModal({ date: e.currentTarget.dataset.extAddDate, prestataires, onSave: renderMonth });
+      });
+    });
+
+    container.querySelectorAll(".cal-month-item--ext-task[data-ext-task-id]").forEach((item) => {
+      item.addEventListener("click", () => {
+        const taskId = item.dataset.extTaskId;
+        const found = (state.planningTasks || []).find((pt) => pt.id === taskId);
+        if (found) showPlanningExtTaskModal({ date: found.date, prestataires, task: found, onSave: renderMonth });
       });
     });
   }
