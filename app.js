@@ -225,6 +225,9 @@ const state = {
 
 let managerSubPage = "dashboard";
 let planningWeekOffset = 0;
+let agendaWeekOffset = 0;
+let agendaMonthOffset = 0;
+let agendaViewMode = "week";
 let _stateLoaded = false;
 let planningFilterCollab = "";
 let planningFilterPrestataire = "";
@@ -1250,6 +1253,7 @@ function renderManagerPage() {
       <button class="manager-tab ${managerSubPage === "categories"   ? "active" : ""}" data-subpage="categories">${t("tab.categories")}</button>
       <button class="manager-tab ${managerSubPage === "planning"     ? "active" : ""}" data-subpage="planning">${t("tab.planning")}</button>
       <button class="manager-tab ${managerSubPage === "prestataires" ? "active" : ""}" data-subpage="prestataires">${t("tab.prestataires")}</button>
+      <button class="manager-tab ${managerSubPage === "agenda"       ? "active" : ""}" data-subpage="agenda">${t("tab.agenda")}</button>
     </nav>
     <div id="managerContent" class="manager-content"></div>
   `;
@@ -1270,6 +1274,7 @@ function renderManagerPage() {
     case "categories":   return renderTreeEditor(content);
     case "planning":     return renderManagerPlanning(content, collaborators);
     case "prestataires": return renderManagerPrestataires(content);
+    case "agenda":       return renderGlobalAgenda(content, collaborators);
   }
 }
 
@@ -3391,6 +3396,259 @@ function renderManagerPlanning(container, collaborators) {
   }
 
   if (planningViewMode === "month") renderMonth(); else renderWeek();
+}
+
+function renderGlobalAgenda(container, collaborators) {
+  const COLORS = [
+    "#4A90D9", "#E67E22", "#2ECC71", "#9B59B6", "#E74C3C",
+    "#1ABC9C", "#F39C12", "#27AE60", "#8E44AD", "#D35400",
+    "#16A085", "#C0392B", "#2980B9", "#F1C40F", "#95A5A6"
+  ];
+
+  const collabColor = {};
+  collaborators.forEach((c, i) => { collabColor[c.id] = COLORS[i % COLORS.length]; });
+
+  const prestataires = loadPrestataires();
+  const prestColor = {};
+  prestataires.forEach((p, i) => { prestColor[p.id] = COLORS[(collaborators.length + i) % COLORS.length]; });
+
+  function renderLegend() {
+    const all = [
+      ...collaborators.map((c) => ({ name: c.name, color: collabColor[c.id], icon: "" })),
+      ...prestataires.map((p) => ({ name: p.name, color: prestColor[p.id], icon: "🏢 " })),
+    ];
+    if (all.length === 0) return "";
+    return `<div class="agenda-legend">${all.map((item) =>
+      `<span class="agenda-legend-item">
+        <span class="agenda-legend-dot" style="background:${item.color}"></span>
+        <span>${item.icon}${escHtml(item.name)}</span>
+      </span>`
+    ).join("")}</div>`;
+  }
+
+  function taskCard(title, who, color, hours, actualHours, status, attrs) {
+    return `<button class="cal-task-item agenda-card" ${attrs} data-status="${status}"
+        style="border-left:3px solid ${color};background:${color}1a;">
+      <span class="cal-task-title">${escHtml(title)}</span>
+      ${who ? `<span class="cal-task-who" style="color:${color}">${who}</span>` : ""}
+      <span class="cal-task-hours">${formatHours(hours)}${actualHours != null ? ` / ${formatHours(actualHours)}` : ""}</span>
+      <span class="badge badge-status" data-status="${status}">${statusLabel(status)}</span>
+    </button>`;
+  }
+
+  function getWeekDays() {
+    const now = new Date();
+    const dow = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((dow === 0 ? 7 : dow) - 1) + agendaWeekOffset * 7);
+    monday.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
+  }
+
+  function bindWeekTasks(onSave) {
+    container.querySelectorAll(".cal-task-item[data-agenda-task-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const found = (state.planningTasks || []).find((pt) => pt.id === btn.dataset.agendaTaskId);
+        if (found) showPlanningTaskModal({ date: found.date, collaborators, task: found, onSave });
+      });
+    });
+    container.querySelectorAll(".cal-task-item[data-agenda-ext-task-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const found = (state.planningTasks || []).find((pt) => pt.id === btn.dataset.agendaExtTaskId);
+        if (found) showPlanningExtTaskModal({ date: found.date, prestataires, task: found, onSave });
+      });
+    });
+  }
+
+  function renderWeek() {
+    const days = getWeekDays();
+    const weekStart = localDateStr(days[0]);
+    const weekEnd   = localDateStr(days[6]);
+    const weekLabel = `${formatDate(weekStart)} – ${formatDate(weekEnd)}`;
+    const langCode  = getLang() === "nl" ? "nl-BE" : "fr-BE";
+
+    const allTasks   = (state.planningTasks || []).filter((pt) => pt.date >= weekStart && pt.date <= weekEnd);
+    const allTickets = state.tickets.filter((tk) => {
+      if (!["planifie", "en_cours", "termine"].includes(tk.status)) return false;
+      const d = tk.plannedDate || tk.desiredDate;
+      return d && d >= weekStart && d <= weekEnd;
+    });
+    const weekTotal = [...allTasks, ...allTickets].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>📅 ${t("tab.agenda")}</h2>
+            <p class="subtle">${weekLabel} · ${t("plan.week.total")} <strong>${formatHours(weekTotal)}</strong></p>
+          </div>
+          <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost active" id="agendaWeekBtn">${t("plan.view.week")}</button>
+              <button class="button ghost" id="agendaMonthBtn">${t("plan.view.month")}</button>
+            </div>
+            <button class="button ghost" id="prevAgendaBtn">${t("plan.prev")}</button>
+            <button class="button ghost" id="todayAgendaBtn">${t("plan.today")}</button>
+            <button class="button ghost" id="nextAgendaBtn">${t("plan.next")}</button>
+          </div>
+        </div>
+        ${renderLegend()}
+        <div class="cal-week">
+          ${days.map((day) => {
+            const dateStr    = localDateStr(day);
+            const isToday    = dateStr === today();
+            const dayName    = new Intl.DateTimeFormat(langCode, { weekday: "short" }).format(day);
+            const dayNum     = new Intl.DateTimeFormat(langCode, { day: "numeric", month: "short" }).format(day);
+            const dayTasks   = allTasks.filter((pt) => pt.date === dateStr);
+            const dayTickets = allTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
+            const dayTotal   = [...dayTasks, ...dayTickets].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+            const isEmpty    = dayTasks.length === 0 && dayTickets.length === 0;
+
+            return `
+              <div class="cal-day${isToday ? " cal-day--today" : ""}">
+                <div class="cal-day-head">
+                  <div class="cal-day-head-left">
+                    <span class="cal-weekday">${dayName}</span>
+                    <span class="cal-daynum">${dayNum}</span>
+                  </div>
+                </div>
+                ${dayTotal > 0 ? `<div class="cal-day-total">${formatHours(dayTotal)}</div>` : ""}
+                <div class="cal-day-body">
+                  ${isEmpty ? '<span class="cal-empty">—</span>' : ""}
+                  ${dayTickets.map((tk) => {
+                    const col  = collaborators.find((c) => c.id === tk.assignedTo);
+                    const pres = prestataires.find((p) => p.id === tk.assignedToExternal);
+                    const color = col ? collabColor[tk.assignedTo] : (pres ? prestColor[tk.assignedToExternal] : "#999");
+                    const who  = col ? escHtml(col.name) : (pres ? `🏢 ${escHtml(pres.name)}` : "");
+                    return taskCard(tk.title, who, color, tk.estimatedHours || 0, null, tk.status, `data-status="${tk.status}"`);
+                  }).join("")}
+                  ${dayTasks.filter((pt) => pt.collaboratorId).map((pt) => {
+                    const col   = collaborators.find((c) => c.id === pt.collaboratorId);
+                    const color = col ? collabColor[pt.collaboratorId] : "#999";
+                    const who   = col ? escHtml(col.name) : "";
+                    return taskCard(pt.title, who, color, pt.estimatedHours || 0, pt.actualHours, pt.status, `data-agenda-task-id="${escHtml(pt.id)}"`);
+                  }).join("")}
+                  ${dayTasks.filter((pt) => pt.prestataireId).map((pt) => {
+                    const pres  = prestataires.find((p) => p.id === pt.prestataireId);
+                    const color = pres ? prestColor[pt.prestataireId] : "#999";
+                    const who   = pres ? `🏢 ${escHtml(pres.name)}` : "";
+                    return taskCard(pt.title, who, color, pt.estimatedHours || 0, pt.actualHours, pt.status, `data-agenda-ext-task-id="${escHtml(pt.id)}"`);
+                  }).join("")}
+                </div>
+              </div>`;
+          }).join("")}
+        </div>
+      </section>`;
+
+    container.querySelector("#prevAgendaBtn").addEventListener("click", () => { agendaWeekOffset--; renderWeek(); });
+    container.querySelector("#todayAgendaBtn").addEventListener("click", () => { agendaWeekOffset = 0; renderWeek(); });
+    container.querySelector("#nextAgendaBtn").addEventListener("click", () => { agendaWeekOffset++; renderWeek(); });
+    container.querySelector("#agendaWeekBtn").addEventListener("click", () => { agendaViewMode = "week"; renderWeek(); });
+    container.querySelector("#agendaMonthBtn").addEventListener("click", () => { agendaViewMode = "month"; renderMonth(); });
+    bindWeekTasks(renderWeek);
+  }
+
+  function renderMonth() {
+    const now       = new Date();
+    const baseMonth = new Date(now.getFullYear(), now.getMonth() + agendaMonthOffset, 1);
+    const year      = baseMonth.getFullYear();
+    const month     = baseMonth.getMonth();
+    const firstDay  = new Date(year, month, 1);
+    const lastDay   = new Date(year, month + 1, 0);
+    const langCode  = getLang() === "nl" ? "nl-BE" : "fr-BE";
+    const monthLabel = new Intl.DateTimeFormat(langCode, { month: "long", year: "numeric" }).format(firstDay);
+    const monthStart = localDateStr(firstDay);
+    const monthEnd   = localDateStr(lastDay);
+
+    const startDow = firstDay.getDay();
+    const paddingDays = startDow === 0 ? 6 : startDow - 1;
+    const gridDays = [];
+    for (let i = paddingDays; i > 0; i--) gridDays.push({ date: new Date(year, month, 1 - i), isCurrentMonth: false });
+    for (let i = 1; i <= lastDay.getDate(); i++) gridDays.push({ date: new Date(year, month, i), isCurrentMonth: true });
+    const tail = gridDays.length % 7;
+    if (tail !== 0) for (let i = 1; i <= 7 - tail; i++) gridDays.push({ date: new Date(year, month + 1, i), isCurrentMonth: false });
+
+    const allTasks   = (state.planningTasks || []).filter((pt) => pt.date >= monthStart && pt.date <= monthEnd);
+    const allTickets = state.tickets.filter((tk) => {
+      if (!["planifie", "en_cours", "termine"].includes(tk.status)) return false;
+      const d = tk.plannedDate || tk.desiredDate;
+      return d && d >= monthStart && d <= monthEnd;
+    });
+    const monthTotal = [...allTasks, ...allTickets].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+
+    const weekdays = getLang() === "nl"
+      ? ["Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo"]
+      : ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+    container.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <h2>📅 ${t("tab.agenda")}</h2>
+            <p class="subtle">${monthLabel} · ${t("plan.month.total")} <strong>${formatHours(monthTotal)}</strong></p>
+          </div>
+          <div class="planning-controls">
+            <div class="plan-view-toggle">
+              <button class="button ghost" id="agendaWeekBtn">${t("plan.view.week")}</button>
+              <button class="button ghost active" id="agendaMonthBtn">${t("plan.view.month")}</button>
+            </div>
+            <button class="button ghost" id="prevAgendaMonthBtn">${t("plan.prev")}</button>
+            <button class="button ghost" id="todayAgendaMonthBtn">${t("plan.today")}</button>
+            <button class="button ghost" id="nextAgendaMonthBtn">${t("plan.next")}</button>
+          </div>
+        </div>
+        ${renderLegend()}
+        <div class="cal-month">
+          ${weekdays.map((d) => `<div class="cal-month-weekday">${d}</div>`).join("")}
+          ${gridDays.map(({ date, isCurrentMonth }) => {
+            const dateStr    = localDateStr(date);
+            const isToday    = dateStr === today();
+            const dayTasks   = allTasks.filter((pt) => pt.date === dateStr);
+            const dayTickets = allTickets.filter((tk) => (tk.plannedDate || tk.desiredDate) === dateStr);
+            const dayTotal   = [...dayTasks, ...dayTickets].reduce((s, x) => s + (x.estimatedHours || 0), 0);
+            return `
+              <div class="cal-month-day${isToday ? " cal-month-day--today" : ""}${!isCurrentMonth ? " cal-month-day--other" : ""}">
+                <div class="cal-month-day-head">
+                  <span class="cal-month-daynum">${date.getDate()}</span>
+                  ${dayTotal > 0 ? `<span class="cal-month-total">${formatHours(dayTotal)}</span>` : ""}
+                </div>
+                <div class="cal-month-body">
+                  ${dayTickets.map((tk) => {
+                    const col  = collaborators.find((c) => c.id === tk.assignedTo);
+                    const pres = prestataires.find((p) => p.id === tk.assignedToExternal);
+                    const color = col ? collabColor[tk.assignedTo] : (pres ? prestColor[tk.assignedToExternal] : "#999");
+                    const who  = col ? col.name : (pres ? `🏢 ${pres.name}` : "");
+                    return `<div class="cal-month-item" data-status="${tk.status}"
+                      style="border-left:2px solid ${color};background:${color}22;"
+                      title="${escHtml(tk.title)}${who ? ` — ${escHtml(who)}` : ""}">${escHtml(tk.title)}</div>`;
+                  }).join("")}
+                  ${dayTasks.map((pt) => {
+                    const col  = collaborators.find((c) => c.id === pt.collaboratorId);
+                    const pres = prestataires.find((p) => p.id === pt.prestataireId);
+                    const color = col ? collabColor[pt.collaboratorId] : (pres ? prestColor[pt.prestataireId] : "#999");
+                    const who  = col ? col.name : (pres ? `🏢 ${pres.name}` : "");
+                    return `<div class="cal-month-item cal-month-item--task" data-status="${pt.status}"
+                      style="border-left:2px solid ${color};background:${color}22;"
+                      title="${escHtml(pt.title)}${who ? ` — ${escHtml(who)}` : ""}">${escHtml(pt.title)}</div>`;
+                  }).join("")}
+                </div>
+              </div>`;
+          }).join("")}
+        </div>
+      </section>`;
+
+    container.querySelector("#agendaWeekBtn").addEventListener("click", () => { agendaViewMode = "week"; agendaWeekOffset = 0; renderWeek(); });
+    container.querySelector("#agendaMonthBtn").addEventListener("click", () => { agendaViewMode = "month"; renderMonth(); });
+    container.querySelector("#prevAgendaMonthBtn").addEventListener("click", () => { agendaMonthOffset--; renderMonth(); });
+    container.querySelector("#todayAgendaMonthBtn").addEventListener("click", () => { agendaMonthOffset = 0; renderMonth(); });
+    container.querySelector("#nextAgendaMonthBtn").addEventListener("click", () => { agendaMonthOffset++; renderMonth(); });
+  }
+
+  if (agendaViewMode === "month") renderMonth(); else renderWeek();
 }
 
 function renderTreeEditor(container) {

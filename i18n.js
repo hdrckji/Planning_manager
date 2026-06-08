@@ -62,6 +62,7 @@ const TRANSLATIONS = {
     "tab.categories":     "Catégories",
     "tab.planning":       "Planning",
   "tab.prestataires":   "Prestataires",
+    "tab.agenda":         "Agenda global",
 
     // ── Tableau de bord ────────────────────────────────────────────────────
     "dash.title":         "Tableau de bord",
@@ -438,6 +439,7 @@ const TRANSLATIONS = {
     "tab.categories":     "Categorieën",
       "tab.prestataires":   "Aannemers",
     "tab.planning":       "Planning",
+    "tab.agenda":         "Globale agenda",
 
     // ── Tableau de bord ────────────────────────────────────────────────────
     "dash.title":         "Dashboard",

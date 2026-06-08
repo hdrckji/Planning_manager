@@ -2008,6 +2008,32 @@ textarea {
   border-bottom: 1px solid var(--line);
 }
 
+.agenda-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  padding: 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 14px;
+}
+.agenda-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.agenda-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.agenda-card {
+  border-radius: 5px !important;
+  text-align: left;
+}
+
 .planning-filter-bar label {
   font-size: 0.88rem;
   font-weight: 700;
