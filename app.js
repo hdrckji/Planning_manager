@@ -1260,10 +1260,10 @@ function renderEmployeeTicketTable(container, tickets) {
 function renderManagerPage() {
   const currentUser = getCurrentUser();
   const teamTickets = state.tickets
-    .filter((t) => t.department === currentUser.team)
+    .slice()
     .sort(sortByPlannedDate);
   const collaborators = state.users.filter(
-    (u) => u.role === "collaborator" && u.team === currentUser.team,
+    (u) => u.role === "collaborator",
   );
   const alertCount = teamTickets.filter((t_) => t_.seenByManager === false).length;
 
@@ -1650,7 +1650,7 @@ function renderManagerDashboard(container, tickets) {
     <section class="card">
       <div class="section-head">
         <div>
-          <h2>${t("dash.title")} — ${teamLabel(currentUser.team)}</h2>
+          <h2>${t("dash.title")}</h2>
           <p class="subtle">${t("dash.subtitle")}</p>
         </div>
       </div>
