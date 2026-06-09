@@ -136,8 +136,8 @@ const TRANSLATIONS = {
     "emp.choose":         "-- Choisir --",
     "emp.comment":        "Commentaire (optionnel)",
     "emp.comment.ph":     "Décris l'emplacement, le contexte, l'urgence...",
-    "emp.photo":          "Photo (obligatoire)",
-    "emp.photo.required": "Une photo est obligatoire pour envoyer la demande.",
+    "emp.photo":          "Photos (obligatoire)",
+    "emp.photo.required": "Au moins une photo est obligatoire pour envoyer la demande.",
     "emp.submit":         "Envoyer la demande",
     "emp.sent":           "Demande envoyée.",
 
@@ -513,8 +513,8 @@ const TRANSLATIONS = {
     "emp.choose":         "-- Kies --",
     "emp.comment":        "Opmerking (optioneel)",
     "emp.comment.ph":     "Beschrijf de locatie, context, urgentie...",
-    "emp.photo":          "Foto (verplicht)",
-    "emp.photo.required": "Een foto is verplicht om de aanvraag te versturen.",
+    "emp.photo":          "Foto's (verplicht)",
+    "emp.photo.required": "Minstens één foto is verplicht om de aanvraag te versturen.",
     "emp.submit":         "Aanvraag versturen",
     "emp.sent":           "Aanvraag verzonden.",
 

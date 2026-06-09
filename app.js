@@ -424,6 +424,7 @@ function normalizeTicket(ticket) {
     infoThread: normalizeInfoThread(ticket.infoThread),
     categoryValue: String(ticket.categoryValue || ""),
     categoryPath: Array.isArray(ticket.categoryPath) ? ticket.categoryPath : [],
+    photos: Array.isArray(ticket.photos) ? ticket.photos : (ticket.photoDataUrl ? [ticket.photoDataUrl] : []),
   };
 }
 
@@ -890,12 +891,11 @@ function renderEmployeePage() {
         </div>
         <div class="field full hidden" id="photoField">
           <label>${t("emp.photo")}</label>
-          <input id="ticketPhoto" name="photo" type="file" accept="image/*" style="display:none" tabindex="-1" />
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button type="button" id="empPhotoCameraBtn" class="button button-outline" style="flex:1;min-width:130px">📷 Prendre une photo</button>
             <button type="button" id="empPhotoGalleryBtn" class="button button-outline" style="flex:1;min-width:130px">🖼 Galerie</button>
           </div>
-          <span id="empPhotoName" style="font-size:0.8rem;color:#4d6b55;display:block;margin-top:6px"></span>
+          <div id="empPhotoGrid" class="emp-photo-grid"></div>
         </div>
         <div class="field full hidden" id="submitField">
           <button class="button" type="submit">${t("emp.submit")}</button>
@@ -919,16 +919,35 @@ function renderEmployeePage() {
   const photoField = form.querySelector("#photoField");
   const submitField = form.querySelector("#submitField");
 
+  if (!form._capturedPhotos) form._capturedPhotos = [];
+
+  function renderPhotoGrid() {
+    const grid = form.querySelector("#empPhotoGrid");
+    if (!grid) return;
+    const photos = form._capturedPhotos;
+    if (photos.length === 0) { grid.innerHTML = ""; return; }
+    grid.innerHTML = photos.map((f, i) => `
+      <div class="emp-photo-thumb">
+        <img src="${URL.createObjectURL(f)}" alt="Photo ${i + 1}" />
+        <button type="button" class="emp-photo-remove" data-remove-idx="${i}" title="Supprimer">×</button>
+      </div>`).join("");
+    grid.querySelectorAll("[data-remove-idx]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        form._capturedPhotos.splice(Number(btn.dataset.removeIdx), 1);
+        renderPhotoGrid();
+      });
+    });
+  }
+
   function _empPickPhoto(withCapture) {
     const inp = document.createElement("input");
     inp.type = "file";
     inp.accept = "image/*";
+    if (!withCapture) inp.multiple = true;
     if (withCapture) inp.capture = "environment";
     inp.addEventListener("change", () => {
-      if (inp.files[0]) {
-        form._capturedPhoto = inp.files[0];
-        form.querySelector("#empPhotoName").textContent = "✓ " + inp.files[0].name;
-      }
+      Array.from(inp.files).forEach((f) => { if (f) form._capturedPhotos.push(f); });
+      renderPhotoGrid();
     });
     inp.click();
   }
@@ -1069,13 +1088,14 @@ function renderEmployeePage() {
       form.querySelector("#ticketSite")?.focus();
       return;
     }
-    const photo = form._capturedPhoto || formData.get("photo");
-    const photoDataUrl = photo instanceof File && photo.size > 0 ? await toDataUrl(photo) : "";
-    if (!photoDataUrl) {
+    const capturedPhotos = form._capturedPhotos || [];
+    if (capturedPhotos.length === 0) {
       toast(t("emp.photo.required"));
       form.querySelector("#empPhotoCameraBtn")?.focus();
       return;
     }
+    const allPhotoUrls = await Promise.all(capturedPhotos.map((f) => toDataUrl(f)));
+    const photoDataUrl = allPhotoUrls[0] || "";
     const comment = String(formData.get("comment") || "").trim();
     const interventionDelay = normalizeInterventionDelay(formData.get("interventionDelay"));
     const title = String(formData.get("ticketTitle") || "").trim();
@@ -1114,12 +1134,15 @@ function renderEmployeePage() {
       seenByManager: false,
       infoThread: [],
       photoDataUrl,
+      photos: allPhotoUrls,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
 
     selections = [];
     form.reset();
+    form._capturedPhotos = [];
+    renderPhotoGrid();
     rebuildSelects();
     render();
     toast(t("emp.sent"));
@@ -1826,7 +1849,9 @@ function renderManagerTicketTable(container, tickets, collaborators) {
                     <p><strong>${escHtml(ticket.title)}</strong></p>
                     <p>${escHtml(ticket.description || "-")}</p>
                     <dl class="ticket-details">${renderDetails(ticket)}</dl>
-                    ${ticket.photoDataUrl ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><img class="ticket-photo" src="${ticket.photoDataUrl}" alt="Photo de la demande" /></div>` : ""}
+                    ${(ticket.photos?.length > 0 ? ticket.photos : (ticket.photoDataUrl ? [ticket.photoDataUrl] : [])).map((url, i, arr) =>
+                      `<div class="ticket-photo-wrap"><p class="detail-label">Photo${arr.length > 1 ? ` ${i + 1}` : ""}</p><img class="ticket-photo" src="${url}" alt="Photo ${i + 1}" /></div>`
+                    ).join("")}
                     <div data-manager-form-host="${ticket.id}"></div>
                   </div>
                 </td>
@@ -2749,7 +2774,8 @@ function showTicketDetailModal(ticket) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
 
-  const hasPhoto = !!ticket.photoDataUrl;
+  const ticketPhotos = ticket.photos?.length > 0 ? ticket.photos : (ticket.photoDataUrl ? [ticket.photoDataUrl] : []);
+  const hasPhoto = ticketPhotos.length > 0;
   const thread   = ticketInfoThread(ticket);
   const site     = ticket.siteId ? findSite(ticket.siteId) : null;
   const zone     = ticket.zoneId ? findZone(ticket.siteId, ticket.zoneId) : null;
@@ -2791,7 +2817,7 @@ function showTicketDetailModal(ticket) {
         </div>
         ${ticket.description ? `<p style="margin:0">${escHtml(ticket.description)}</p>` : ""}
         ${detailsHtml ? `<dl class="ticket-details">${detailsHtml}</dl>` : ""}
-        ${hasPhoto ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo</p><div id="tdm-photo-host"></div></div>` : ""}
+        ${hasPhoto ? `<div class="ticket-photo-wrap"><p class="detail-label">Photo${ticketPhotos.length > 1 ? "s" : ""}</p><div id="tdm-photo-host" class="tdm-photo-host"></div></div>` : ""}
         ${chatHtml}
       </div>
     </div>
@@ -2801,11 +2827,14 @@ function showTicketDetailModal(ticket) {
   requestAnimationFrame(() => overlay.classList.add("visible"));
 
   if (hasPhoto) {
-    const img = document.createElement("img");
-    img.className = "ticket-photo";
-    img.alt = "Illustration de la demande";
-    img.src = ticket.photoDataUrl;
-    overlay.querySelector("#tdm-photo-host").appendChild(img);
+    const host = overlay.querySelector("#tdm-photo-host");
+    ticketPhotos.forEach((url, i) => {
+      const img = document.createElement("img");
+      img.className = "ticket-photo";
+      img.alt = `Photo ${i + 1}`;
+      img.src = url;
+      host.appendChild(img);
+    });
   }
 
   overlay.querySelector(".tdm-chat-toggle")?.addEventListener("click", () => {

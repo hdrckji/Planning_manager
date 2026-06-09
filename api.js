@@ -134,12 +134,10 @@
       const hadRemoteError = [stateRes, prestRes, specRes, treeRes, sitesRes, oncallRes, teamsRes].some((item) => item.status === "error");
       if (hadRemoteError && isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
-        const emptySnapshot = {
-          state: null, prestataires: [], specialties: [], tree: null,
-          sites: [], oncall: null, teams: [],
-        };
-        applySnapshot(emptySnapshot);
-        return emptySnapshot;
+        // Fall back to localStorage so cached data (sites, prestataires…) stays visible
+        const fallback = loadLocalSnapshot();
+        applySnapshot(fallback);
+        return fallback;
       }
 
       _readOnlyReason = "";
@@ -157,12 +155,9 @@
     }).catch(() => {
       if (isHttpProtocol) {
         _readOnlyReason = "remote_unavailable";
-        const emptySnapshot = {
-          state: null, prestataires: [], specialties: [], tree: null,
-          sites: [], oncall: null, teams: [],
-        };
-        applySnapshot(emptySnapshot);
-        return emptySnapshot;
+        const fallback = loadLocalSnapshot();
+        applySnapshot(fallback);
+        return fallback;
       }
       const localSnapshot = loadLocalSnapshot();
       applySnapshot(localSnapshot);
