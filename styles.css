@@ -487,6 +487,36 @@ textarea {
   color: var(--muted);
 }
 
+.dup-list {
+  display: grid;
+  gap: 8px;
+}
+.dup-ticket-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-subtle, #f8f9fa);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+.dup-ticket-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dup-ticket-info strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dup-ticket-info .subtle {
+  font-size: 11px;
+}
+
 .ticket-title {
   margin-top: 10px;
   font-size: 1.2rem;

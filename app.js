@@ -811,6 +811,58 @@ function saveTree(tree) {
   window.FlowDeskApi?.saveTree(normalizeTree(tree));
 }
 
+function showDuplicateWarning(duplicates) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    const items = duplicates.slice(0, 3).map((tk) => {
+      const by = findUser(tk.createdBy)?.name || "—";
+      const site = tk.siteId ? findSite(tk.siteId) : null;
+      const siteLabel = site ? escHtml(site.name) : "";
+      return `
+        <div class="dup-ticket-row">
+          <span class="ticket-code">${escHtml(tk.id)}</span>
+          <div class="dup-ticket-info">
+            <strong>${escHtml(tk.title)}</strong>
+            ${siteLabel ? `<span class="subtle">${siteLabel}</span>` : ""}
+            <span class="subtle">${t("ticket.by")} ${escHtml(by)}</span>
+          </div>
+          <span class="badge badge-status" data-status="${tk.status}">${statusLabel(tk.status)}</span>
+        </div>`;
+    }).join("");
+
+    overlay.innerHTML = `
+      <div class="modal-box card" role="dialog" aria-modal="true" style="max-width:480px">
+        <div class="modal-head">
+          <h3>⚠️ Demande déjà en cours</h3>
+          <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+        </div>
+        <div style="padding:0 20px 20px;display:grid;gap:14px">
+          <p>Une demande similaire est déjà ouverte pour ce site et cette catégorie :</p>
+          <div class="dup-list">${items}</div>
+          <p class="subtle">Veux-tu quand même envoyer une nouvelle demande ?</p>
+          <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+            <button class="button ghost" id="dupCancel">Annuler</button>
+            <button class="button" id="dupConfirm" style="background:var(--accent-strong)">Envoyer quand même</button>
+          </div>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add("visible"));
+
+    const close = (result) => {
+      overlay.classList.remove("visible");
+      setTimeout(() => overlay.remove(), 200);
+      resolve(result);
+    };
+    overlay.querySelector("#dupConfirm").addEventListener("click", () => close(true));
+    overlay.querySelector("#dupCancel").addEventListener("click", () => close(false));
+    overlay.querySelector(".modal-close").addEventListener("click", () => close(false));
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
+  });
+}
+
 function renderEmployeePage() {
   const currentUser = getCurrentUser();
   const tickets = currentUser
@@ -1108,6 +1160,19 @@ function renderEmployeePage() {
     const selectedNode = findSelectedNode();
     const suggestedSpecialty = selectedNode?.suggestedSpecialty || inferSpecialtyFromValue(title);
     const estimatedHours = normalizeHours(selectedNode?.estimatedHours, defaultHoursForSpecialty(suggestedSpecialty));
+
+    const catValue = selectedNode?.value || "";
+    if (catValue && siteId) {
+      const existingOpen = state.tickets.filter((tk) =>
+        tk.siteId === siteId &&
+        tk.categoryValue === catValue &&
+        tk.status !== "termine"
+      );
+      if (existingOpen.length > 0) {
+        const proceed = await showDuplicateWarning(existingOpen);
+        if (!proceed) return;
+      }
+    }
 
     state.tickets.unshift({
       id: nextTicketId(),
