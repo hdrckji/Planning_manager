@@ -3176,6 +3176,33 @@ textarea {
   }
 }
 
+/* ── Modal Sync Outlook ────────────────────────────────────────────────── */
+.ical-url-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ical-url-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ical-url-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ical-url-input {
+  flex: 1;
+  font-size: 12px;
+  font-family: monospace;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-strong);
+  color: var(--text);
+  min-width: 0;
+}
+
 /* ── Absences du jour (planning manager) ──────────────────────────────── */
 .cal-absent-bar {
   display: flex;

@@ -3122,6 +3122,74 @@ function exportPlanningExcel(collaborators, weekDays) {
   toast(`${t("plan.export.done")} ${filename}`);
 }
 
+async function showOutlookSyncModal() {
+  const BASE = (window.FLOW_DESK_API_BASE ?? "").replace(/\/$/, "");
+  const token = window.FlowDeskAuth?.getToken?.() || (() => {
+    try { return JSON.parse(localStorage.getItem("flowdesk-session"))?.token; } catch { return null; }
+  })();
+
+  let urls = null;
+  try {
+    const res = await fetch(`${BASE}/api/ical/manager/urls`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(res.status);
+    urls = await res.json();
+  } catch {
+    toast("Impossible de récupérer les URLs iCal. Vérifiez votre connexion.");
+    return;
+  }
+
+  const overlay = document.createElement("div");
+  overlay.className = "modal-overlay";
+  overlay.innerHTML = `
+    <div class="modal-box card" role="dialog" aria-modal="true" style="max-width:560px">
+      <div class="modal-head">
+        <h3>📅 Synchronisation Outlook / Google Calendar</h3>
+        <button class="modal-close" type="button" aria-label="Fermer">&#x2715;</button>
+      </div>
+      <div style="padding:0 4px">
+        <p style="margin:0 0 16px;font-size:14px;color:var(--muted)">
+          Abonnez-vous à ces deux calendriers dans Outlook (<em>Fichier → Ouvrir et exporter → Abonnement à un calendrier Internet</em>) ou Google Calendar (<em>Autres agendas → À partir de l'URL</em>).<br>
+          Les mises à jour sont automatiques toutes les ~15 min.
+        </p>
+        <div class="ical-url-block">
+          <label class="ical-url-label">👥 Calendrier Équipe (collaborateurs)</label>
+          <div class="ical-url-row">
+            <input class="ical-url-input" readonly value="${escHtml(urls.team)}" id="icalUrlTeam" />
+            <button class="button" type="button" data-copy="icalUrlTeam">Copier</button>
+          </div>
+        </div>
+        <div class="ical-url-block" style="margin-top:14px">
+          <label class="ical-url-label">🏢 Calendrier Prestataires</label>
+          <div class="ical-url-row">
+            <input class="ical-url-input" readonly value="${escHtml(urls.prestataires)}" id="icalUrlPrest" />
+            <button class="button" type="button" data-copy="icalUrlPrest">Copier</button>
+          </div>
+        </div>
+        <p style="margin:14px 0 0;font-size:12px;color:var(--muted)">
+          ⚠ Ces URLs donnent accès en lecture à votre planning. Ne les partagez pas publiquement.
+        </p>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add("visible"));
+  const close = () => { overlay.classList.remove("visible"); setTimeout(() => overlay.remove(), 210); };
+  overlay.querySelector(".modal-close").addEventListener("click", close);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+  overlay.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = overlay.querySelector(`#${btn.dataset.copy}`);
+      input.select();
+      navigator.clipboard?.writeText(input.value).then(() => toast("URL copiée !")).catch(() => {
+        document.execCommand("copy");
+        toast("URL copiée !");
+      });
+    });
+  });
+}
+
 function renderManagerPlanning(container, collaborators) {
   function getWeekDays() {
     const now = new Date();
@@ -3183,6 +3251,7 @@ function renderManagerPlanning(container, collaborators) {
             <button class="button ghost" id="todayBtn">${t("plan.today")}</button>
             <button class="button ghost" id="nextWeekBtn">${t("plan.next")}</button>
             <button class="button" id="exportExcelBtn" style="background:var(--accent-strong);">${t("plan.export")}</button>
+            <button class="button ghost" id="outlookSyncBtn" title="Obtenir les URLs d'abonnement Outlook / Google Calendar">📅 Sync Outlook</button>
           </div>
         </div>
         <div class="planning-filter-bar">
@@ -3328,6 +3397,7 @@ function renderManagerPlanning(container, collaborators) {
     container.querySelector("#nextWeekBtn").addEventListener("click", () => { planningWeekOffset++; renderWeek(); });
     container.querySelector("#planCollab").addEventListener("change", (e) => { planningFilterCollab = e.target.value; renderWeek(); });
     container.querySelector("#exportExcelBtn").addEventListener("click", () => exportPlanningExcel(collaborators, days));
+    container.querySelector("#outlookSyncBtn").addEventListener("click", () => showOutlookSyncModal());
     container.querySelector("#planPrestataire")?.addEventListener("change", (e) => { planningFilterPrestataire = e.target.value; renderWeek(); });
 
     container.querySelectorAll(".cal-ticket--ext[data-ext-ticket-id]").forEach((card) => {
@@ -3498,6 +3568,7 @@ function renderManagerPlanning(container, collaborators) {
             <button class="button ghost" id="todayMonthBtn">${t("plan.today")}</button>
             <button class="button ghost" id="nextMonthBtn">${t("plan.next")}</button>
             <button class="button" id="exportExcelBtn" style="background:var(--accent-strong);">${t("plan.export")}</button>
+            <button class="button ghost" id="outlookSyncBtn" title="Obtenir les URLs d'abonnement Outlook / Google Calendar">📅 Sync Outlook</button>
           </div>
         </div>
         <div class="planning-filter-bar">
@@ -3554,6 +3625,7 @@ function renderManagerPlanning(container, collaborators) {
       const exportDays = gridDays.filter((d) => d.isCurrentMonth).map((d) => d.date);
       exportPlanningExcel(collaborators, exportDays);
     });
+    container.querySelector("#outlookSyncBtn").addEventListener("click", () => showOutlookSyncModal());
     container.querySelector("#planPrestataire")?.addEventListener("change", (e) => { planningFilterPrestataire = e.target.value; renderMonth(); });
 
     container.querySelectorAll(".cal-month-item--ext[data-ext-ticket-id]").forEach((item) => {

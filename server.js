@@ -409,6 +409,255 @@ app.get("/api/ical/:collaboratorId", async (req, res) => {
   }
 });
 
+// ── iCal manager feeds ───────────────────────────────────────────────────────
+// Token stable dérivé du APP_SECRET — ne jamais exposer APP_SECRET lui-même
+const ICAL_MANAGER_SECRET = crypto
+  .createHmac("sha256", APP_SECRET)
+  .update("ical-manager-v1")
+  .digest("hex")
+  .slice(0, 24);
+
+function checkIcalToken(req, res) {
+  if (req.query.token !== ICAL_MANAGER_SECRET) {
+    res.status(401).send("Token iCal invalide.");
+    return false;
+  }
+  return true;
+}
+
+function icalCalHeader(calName) {
+  return [
+    "BEGIN:VCALENDAR", "VERSION:2.0",
+    "PRODID:-//FamiTask//Famiflora//FR",
+    `X-WR-CALNAME:${escIcal(calName)}`,
+    "X-WR-TIMEZONE:Europe/Brussels",
+    "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    "REFRESH-INTERVAL;VALUE=DURATION:PT15M",
+    "X-PUBLISHED-TTL:PT15M",
+    ...VTIMEZONE_BRUSSELS,
+  ];
+}
+
+/** GET /api/ical/manager/urls  →  { team, prestataires } — nécessite auth manager */
+app.get("/api/ical/manager/urls", (req, res) => {
+  const auth  = req.headers.authorization || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  const claims = verifyToken(token);
+  if (!claims || claims.role !== "manager") return res.status(403).json({ error: "Forbidden" });
+  const base = `${req.protocol}://${req.get("host")}`;
+  res.json({
+    team:         `${base}/api/ical/manager/team?token=${ICAL_MANAGER_SECRET}`,
+    prestataires: `${base}/api/ical/manager/prestataires?token=${ICAL_MANAGER_SECRET}`,
+  });
+});
+
+/** GET /api/ical/manager/team?token=xxx  →  text/calendar (tous les collaborateurs) */
+app.get("/api/ical/manager/team", async (req, res) => {
+  if (!checkIcalToken(req, res)) return;
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const [stateResult, sitesResult] = await Promise.all([
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'"),
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-sites'"),
+    ]);
+    const st = stateResult.rows[0]?.value || {};
+    const sitesData = Array.isArray(sitesResult.rows[0]?.value) ? sitesResult.rows[0].value : [];
+    const users = st.users || [];
+    const collabs = users.filter(u => u.role === "collaborator");
+    const appUrl  = `${baseUrl}/manager.html`;
+    const stamp   = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+    function siteName(siteId) {
+      if (!siteId) return null;
+      const s = sitesData.find(x => x.id === siteId);
+      return s ? s.name : null;
+    }
+
+    const lines = icalCalHeader("FamiTask – Équipe");
+
+    for (const task of (st.planningTasks || [])) {
+      if (!task.collaboratorId || !task.date) continue;
+      const collab = collabs.find(c => c.id === task.collaboratorId);
+      const collabName = collab?.name || "Collaborateur";
+      const eventTimes = buildEventTimes(task.date, collab?.schedule ?? null);
+      const statut   = STATUS_LABELS_ICAL[task.status] || task.status;
+      const hours    = task.estimatedHours || 1;
+      const photoUrl = task.photoDataUrl ? `${baseUrl}/api/photo/task/${encodeURIComponent(task.id)}` : null;
+      const location = siteName(task.siteId);
+      const plainDesc = [
+        task.description || "",
+        `Collaborateur : ${collabName}`,
+        `Statut : ${statut}`,
+        `Estimé : ${hours}h`,
+      ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: task.description, statut, hours, photoUrl, appUrl });
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:task-${task.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        ...eventTimes,
+        `SUMMARY:👤 ${escIcal(collabName)} – ${escIcal(task.title)}`,
+        `DESCRIPTION:${escIcal(plainDesc)}`,
+        `X-ALT-DESC;FMTTYPE=text/html:${html}`,
+        `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
+        `STATUS:${icalStatus(task.status)}`,
+        "END:VEVENT"
+      );
+    }
+
+    for (const ticket of (st.tickets || [])) {
+      if (!ticket.assignedTo) continue;
+      const dateRaw = ticket.plannedDate || ticket.desiredDate || "";
+      if (!dateRaw) continue;
+      const collab = collabs.find(c => c.id === ticket.assignedTo);
+      const collabName = collab?.name || "Collaborateur";
+      const eventTimes = buildEventTimes(dateRaw, collab?.schedule ?? null);
+      const statut   = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
+      const hours    = ticket.estimatedHours || 1;
+      const photoUrl = ticket.photoDataUrl ? `${baseUrl}/api/photo/${encodeURIComponent(ticket.id)}` : null;
+      const location = siteName(ticket.siteId);
+      const plainDesc = [
+        ticket.description || "",
+        `Collaborateur : ${collabName}`,
+        `Statut : ${statut}`,
+        `Estimé : ${hours}h`,
+      ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: ticket.description, statut, hours, photoUrl, appUrl });
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:ticket-${ticket.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        ...eventTimes,
+        `SUMMARY:🔧 ${escIcal(collabName)} – ${escIcal(ticket.title)}`,
+        `DESCRIPTION:${escIcal(plainDesc)}`,
+        `X-ALT-DESC;FMTTYPE=text/html:${html}`,
+        `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
+        `STATUS:${icalStatus(ticket.status)}`,
+        "END:VEVENT"
+      );
+    }
+
+    lines.push("END:VCALENDAR");
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="famitask-equipe.ics"');
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.send(lines.map(foldLine).join("\r\n"));
+  } catch (err) {
+    console.error("iCal team error:", err.message);
+    res.status(500).send("Error");
+  }
+});
+
+/** GET /api/ical/manager/prestataires?token=xxx  →  text/calendar (tous les prestataires) */
+app.get("/api/ical/manager/prestataires", async (req, res) => {
+  if (!checkIcalToken(req, res)) return;
+  try {
+    const baseUrl = `${req.protocol}://${req.get("host")}`;
+    const [stateResult, prestResult, sitesResult] = await Promise.all([
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-state'"),
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-prestataires'"),
+      pool.query("SELECT value FROM kv_store WHERE key = 'flowdesk-sites'"),
+    ]);
+    const st = stateResult.rows[0]?.value || {};
+    const prestataires = Array.isArray(prestResult.rows[0]?.value) ? prestResult.rows[0].value : [];
+    const sitesData    = Array.isArray(sitesResult.rows[0]?.value) ? sitesResult.rows[0].value : [];
+    const appUrl  = `${baseUrl}/manager.html`;
+    const stamp   = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+    function siteName(siteId) {
+      if (!siteId) return null;
+      const s = sitesData.find(x => x.id === siteId);
+      return s ? s.name : null;
+    }
+    function prestName(prestId) {
+      if (!prestId) return "Prestataire";
+      const p = prestataires.find(x => x.id === prestId);
+      return p?.name || prestId;
+    }
+
+    const lines = icalCalHeader("FamiTask – Prestataires");
+
+    for (const task of (st.planningTasks || [])) {
+      if (!task.prestataireId || !task.date) continue;
+      const name = prestName(task.prestataireId);
+      const dateCompact = task.date.replace(/-/g, "");
+      const statut  = STATUS_LABELS_ICAL[task.status] || task.status;
+      const hours   = task.estimatedHours || 1;
+      const photoUrl = task.photoDataUrl ? `${baseUrl}/api/photo/task/${encodeURIComponent(task.id)}` : null;
+      const location = siteName(task.siteId);
+      const plainDesc = [
+        task.description || "",
+        `Prestataire : ${name}`,
+        `Statut : ${statut}`,
+        `Estimé : ${hours}h`,
+      ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: task.description, statut, hours, photoUrl, appUrl });
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:extTask-${task.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dateCompact}`,
+        `DTEND;VALUE=DATE:${nextDay(task.date)}`,
+        `SUMMARY:🏢 ${escIcal(name)} – ${escIcal(task.title)}`,
+        `DESCRIPTION:${escIcal(plainDesc)}`,
+        `X-ALT-DESC;FMTTYPE=text/html:${html}`,
+        `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
+        `STATUS:${icalStatus(task.status)}`,
+        "END:VEVENT"
+      );
+    }
+
+    for (const ticket of (st.tickets || [])) {
+      if (!ticket.assignedToExternal) continue;
+      const dateRaw = ticket.plannedDate || ticket.desiredDate || "";
+      if (!dateRaw) continue;
+      const name = prestName(ticket.assignedToExternal);
+      const dateCompact = dateRaw.replace(/-/g, "");
+      const statut  = STATUS_LABELS_ICAL[ticket.status] || ticket.status;
+      const hours   = ticket.estimatedHours || 1;
+      const photoUrl = ticket.photoDataUrl ? `${baseUrl}/api/photo/${encodeURIComponent(ticket.id)}` : null;
+      const location = siteName(ticket.siteId);
+      const plainDesc = [
+        ticket.description || "",
+        `Prestataire : ${name}`,
+        `Statut : ${statut}`,
+        `Estimé : ${hours}h`,
+      ].filter(Boolean).join("\\n");
+      const html = buildHtmlDesc({ description: ticket.description, statut, hours, photoUrl, appUrl });
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:extTicket-${ticket.id}@famitask`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;VALUE=DATE:${dateCompact}`,
+        `DTEND;VALUE=DATE:${nextDay(dateRaw)}`,
+        `SUMMARY:🔧 ${escIcal(name)} – ${escIcal(ticket.title)}`,
+        `DESCRIPTION:${escIcal(plainDesc)}`,
+        `X-ALT-DESC;FMTTYPE=text/html:${html}`,
+        `URL:${appUrl}`,
+        ...(location ? [`LOCATION:${escIcal(location)}`] : []),
+        ...(photoUrl ? [`ATTACH;FMTTYPE=image/jpeg:${photoUrl}`] : []),
+        `STATUS:${icalStatus(ticket.status)}`,
+        "END:VEVENT"
+      );
+    }
+
+    lines.push("END:VCALENDAR");
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="famitask-prestataires.ics"');
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.send(lines.map(foldLine).join("\r\n"));
+  } catch (err) {
+    console.error("iCal prestataires error:", err.message);
+    res.status(500).send("Error");
+  }
+});
+
 // ── Authentification serveur ────────────────────────────────────────────────
 
 /** POST /api/login  body: { login, password, role? }  →  { userId, role, token } */
