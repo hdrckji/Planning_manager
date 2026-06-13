@@ -383,7 +383,17 @@ function normalizeUser(user) {
     specialties: role === "collaborator" ? normalizeSpecialties(user.specialties, team) : [],
     login: typeof user.login === "string" ? user.login.trim() : "",
     password: typeof user.password === "string" ? user.password : "",
+    vacationPeriods: Array.isArray(user.vacationPeriods) ? user.vacationPeriods : [],
   };
+}
+
+function isOnVacation(user, dateStr) {
+  if (!dateStr || !Array.isArray(user?.vacationPeriods)) return false;
+  return user.vacationPeriods.some((vp) => dateStr >= vp.startDate && dateStr <= vp.endDate);
+}
+
+function nextVacationId() {
+  return "vp-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 }
 
 function normalizePlanningTask(task) {
@@ -2071,7 +2081,40 @@ function renderManagerUtilisateurs(container) {
                     </tbody>
                   </table>
                   <button class="button" type="submit" style="margin-top:10px">Enregistrer l'horaire</button>
-                </form>` : ""}
+                </form>
+                <div class="vp-section" style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(0,0,0,.07)">
+                  <h4 style="margin:0 0 10px;font-size:14px;font-weight:600">Congés</h4>
+                  <div class="vp-list" id="vp-list-${escHtml(u.id)}">
+                    ${(u.vacationPeriods || []).length === 0
+                      ? `<p class="subtle" style="font-size:13px;margin:0 0 8px">Aucun congé enregistré.</p>`
+                      : (u.vacationPeriods || []).map((vp) => `
+                        <div class="vp-item">
+                          <span class="vp-dates">🌴 ${escHtml(formatDate(vp.startDate))} → ${escHtml(formatDate(vp.endDate))}</span>
+                          ${vp.label ? `<span class="badge badge-muted">${escHtml(vp.label)}</span>` : ""}
+                          <button class="button ghost tree-btn" type="button"
+                            data-del-vp="${escHtml(vp.id)}" data-uid="${escHtml(u.id)}"
+                            title="Supprimer ce congé">×</button>
+                        </div>`).join("")
+                    }
+                  </div>
+                  <form data-action="add-vacation" data-uid="${escHtml(u.id)}"
+                    style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:6px">
+                    <div>
+                      <label style="font-size:12px;display:block;margin-bottom:3px;color:var(--text-muted)">Du</label>
+                      <input type="date" name="vpStart" required style="${TIME_STYLE.replace('88px','120px')}" />
+                    </div>
+                    <div>
+                      <label style="font-size:12px;display:block;margin-bottom:3px;color:var(--text-muted)">Au</label>
+                      <input type="date" name="vpEnd" required style="${TIME_STYLE.replace('88px','120px')}" />
+                    </div>
+                    <div style="flex:1;min-width:140px">
+                      <label style="font-size:12px;display:block;margin-bottom:3px;color:var(--text-muted)">Motif (optionnel)</label>
+                      <input type="text" name="vpLabel" placeholder="Ex: Vacances été"
+                        style="${TIME_STYLE.replace('88px','100%').replace('width:','min-width:')}" />
+                    </div>
+                    <button class="button" type="submit" style="flex-shrink:0">Ajouter</button>
+                  </form>
+                </div>` : ""}
               </div>`;
             }).join("")}
           </div>`}
@@ -2111,6 +2154,39 @@ function renderManagerUtilisateurs(container) {
           toast("Horaire enregistré.");
         });
       });
+
+      container.querySelectorAll("form[data-action='add-vacation']").forEach((form) => {
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const user = state.users.find((u) => u.id === form.dataset.uid);
+          if (!user) return;
+          const fd = new FormData(form);
+          const startDate = String(fd.get("vpStart") || "").trim();
+          const endDate   = String(fd.get("vpEnd") || "").trim();
+          const label     = String(fd.get("vpLabel") || "").trim();
+          if (!startDate || !endDate || startDate > endDate) {
+            toast("La date de fin doit être postérieure à la date de début.");
+            return;
+          }
+          if (!Array.isArray(user.vacationPeriods)) user.vacationPeriods = [];
+          user.vacationPeriods.push({ id: nextVacationId(), startDate, endDate, label });
+          persistState();
+          renderContent();
+          toast("Congé ajouté.");
+        });
+      });
+
+      container.querySelectorAll("[data-del-vp]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const user = state.users.find((u) => u.id === btn.dataset.uid);
+          if (!user) return;
+          user.vacationPeriods = (user.vacationPeriods || []).filter((vp) => vp.id !== btn.dataset.delVp);
+          persistState();
+          renderContent();
+          toast("Congé supprimé.");
+        });
+      });
+
       return;
     }
 
@@ -2613,39 +2689,46 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   setTimeout(() => overlay.querySelector("#tm-title")?.focus(), 50);
 
   // ── Schedule-aware collaborator select ────────────────────────────────────
-  function restSetForDate(dateStr) {
-    if (!dateStr) return new Set();
+  function blockedSetsForDate(dateStr) {
+    if (!dateStr) return { restSet: new Set(), vacSet: new Set() };
     const d = new Date(dateStr + "T00:00:00");
     const wt = weekTypeForDate(d);
     const dk = schedKeyForDate(d);
-    return new Set(
-      collaborators
-        .filter((c) => c.schedule && !scheduleDay(c, wt, dk).active)
-        .map((c) => c.id)
-    );
+    const restSet = new Set();
+    const vacSet  = new Set();
+    collaborators.forEach((c) => {
+      if (isOnVacation(c, dateStr)) { vacSet.add(c.id); return; }
+      if (c.schedule && !scheduleDay(c, wt, dk).active) restSet.add(c.id);
+    });
+    return { restSet, vacSet };
   }
 
   function refreshCollabSelect() {
     const dateStr = overlay.querySelector("#tm-date").value;
-    const restSet = restSetForDate(dateStr);
+    const { restSet, vacSet } = blockedSetsForDate(dateStr);
     const sel = overlay.querySelector("#tm-collab");
     const currentVal = sel.value || (task?.collaboratorId ?? "");
 
     sel.innerHTML = `<option value="">${t("plan.task.none")}</option>` +
       collaborators.map((c) => {
+        const isVac  = vacSet.has(c.id);
         const isRest = restSet.has(c.id);
-        const label = isRest ? `${escHtml(c.name)} (Repos)` : escHtml(c.name);
-        return `<option value="${escHtml(c.id)}" ${currentVal === c.id ? "selected" : ""} data-rest="${isRest ? "1" : "0"}">${label}</option>`;
+        const suffix = isVac ? " (Congé)" : isRest ? " (Repos)" : "";
+        return `<option value="${escHtml(c.id)}" ${currentVal === c.id ? "selected" : ""} data-rest="${isRest || isVac ? "1" : "0"}">${escHtml(c.name)}${suffix}</option>`;
       }).join("");
 
-    refreshRestWarn(restSet);
+    refreshRestWarn(restSet, vacSet);
   }
 
-  function refreshRestWarn(restSet) {
+  function refreshRestWarn(restSet, vacSet) {
     const warn   = overlay.querySelector("#tm-rest-warn");
     const submit = overlay.querySelector("[type='submit']");
     const collabId = overlay.querySelector("#tm-collab").value;
-    if (collabId && restSet.has(collabId)) {
+    if (collabId && vacSet.has(collabId)) {
+      warn.textContent = "⚠ Ce collaborateur est en congé ce jour-là. Choisissez un autre collaborateur.";
+      warn.style.display = "block";
+      submit.disabled = true;
+    } else if (collabId && restSet.has(collabId)) {
       warn.textContent = "⚠ Ce collaborateur est en repos ce jour-là. Choisissez un autre collaborateur.";
       warn.style.display = "block";
       submit.disabled = true;
@@ -2658,7 +2741,8 @@ function showPlanningTaskModal({ date, collaborators, task = null, onSave }) {
   refreshCollabSelect();
   overlay.querySelector("#tm-date").addEventListener("change", refreshCollabSelect);
   overlay.querySelector("#tm-collab").addEventListener("change", () => {
-    refreshRestWarn(restSetForDate(overlay.querySelector("#tm-date").value));
+    const { restSet, vacSet } = blockedSetsForDate(overlay.querySelector("#tm-date").value);
+    refreshRestWarn(restSet, vacSet);
   });
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -4142,19 +4226,24 @@ function renderCollaboratorPage() {
             const dayKey  = schedKeyForDate(day);
             const daySched = currentUser.schedule?.[wType]?.[dayKey];
             const isWorking = daySched?.active === true;
-            const hasTasksOnRestDay = !isWorking && !isEmpty && hasSchedule;
+            const isVacation = isOnVacation(currentUser, dateStr);
+            const hasTasksOnRestDay = !isVacation && !isWorking && !isEmpty && hasSchedule;
+            const hasTasksOnVacDay  = isVacation && !isEmpty;
             return `
-              <div class="cal-day${isToday ? " cal-day--today" : ""}${hasTasksOnRestDay ? " cal-day--rest-warn" : ""}">
+              <div class="cal-day${isToday ? " cal-day--today" : ""}${hasTasksOnRestDay ? " cal-day--rest-warn" : ""}${isVacation ? " vac-day" : ""}">
                 <div class="cal-day-head">
                   <span class="cal-weekday">${dayName}</span>
                   <span class="cal-daynum">${dayNum}</span>
-                  ${hasSchedule
-                    ? (isWorking
-                        ? `<span class="cal-day-hours">${daySched.start}–${daySched.end}</span>`
-                        : `<span class="cal-day-rest">Repos</span>`)
-                    : ""}
+                  ${isVacation
+                    ? `<span class="cal-day-rest" title="Congé">🌴 Congé</span>`
+                    : hasSchedule
+                      ? (isWorking
+                          ? `<span class="cal-day-hours">${daySched.start}–${daySched.end}</span>`
+                          : `<span class="cal-day-rest">Repos</span>`)
+                      : ""}
                 </div>
                 <div class="cal-day-body">
+                  ${hasTasksOnVacDay ? `<span class="cal-rest-warning" title="Tâche planifiée pendant un congé">⚠ Congé</span>` : ""}
                   ${hasTasksOnRestDay ? `<span class="cal-rest-warning" title="Tâche planifiée un jour de repos">⚠ Jour de repos</span>` : ""}
                   ${isEmpty && !hasTasksOnRestDay ? `<span class="cal-empty">—</span>` : ""}
                   ${dayTickets.map((ticket) => {
