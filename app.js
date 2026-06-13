@@ -458,6 +458,10 @@ async function bootstrap() {
   if (window.FlowDeskApi?.isReadOnly?.()) {
     toast("Serveur indisponible: mode lecture seule actif.");
   }
+  window.FlowDeskApi?.onSaveFailure?.((key) => {
+    console.error("Échec de sauvegarde:", key);
+    toast("⚠️ Sauvegarde échouée — vérifie ta connexion. Tes modifications sont en attente localement.");
+  });
   loadState();
   enforcePageUserRole();
   bindGlobalEvents();

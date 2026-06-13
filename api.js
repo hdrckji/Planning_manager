@@ -94,18 +94,46 @@
       : { "Content-Type": "application/json" };
   }
 
+  let _onSaveFailure = null;
+
+  async function kvSetWithRetry(key, value, maxAttempts = 3) {
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(`${BASE}/api/kv/${encodeURIComponent(key)}`, {
+          method: "PUT",
+          headers: _authHeaders(),
+          body: JSON.stringify({ value }),
+        });
+        if (res.ok) return true;
+        if (res.status === 401) {
+          console.error(`kvSet ${key}: non autorisé (401)`);
+          return false;
+        }
+        // 5xx : réessayer sauf au dernier essai
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, attempt * 1200));
+          continue;
+        }
+        console.error(`kvSet ${key}: erreur serveur ${res.status}`);
+        return false;
+      } catch (err) {
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, attempt * 1200));
+          continue;
+        }
+        console.error(`kvSet ${key}: échec réseau`, err);
+        return false;
+      }
+    }
+    return false;
+  }
+
   function kvSet(key, value) {
-    if (isFileProtocol) {
-      return;
-    }
-    if (_readOnlyReason) {
-      return;
-    }
-    fetch(`${BASE}/api/kv/${encodeURIComponent(key)}`, {
-      method: "PUT",
-      headers: _authHeaders(),
-      body: JSON.stringify({ value }),
-    }).catch((err) => console.error("FlowDeskApi kvSet error:", err));
+    if (isFileProtocol) return;
+    if (_readOnlyReason) return;
+    kvSetWithRetry(key, value).then((ok) => {
+      if (!ok && typeof _onSaveFailure === "function") _onSaveFailure(key);
+    });
   }
 
   // ── Chargement initial (Promise partagée) ────────────────────────────────
@@ -231,5 +259,8 @@
       writeLocalJson(STORAGE_KEYS.teams, v);
       kvSet("flowdesk-teams", v);
     },
+
+    // ── Callback erreur de sauvegarde ─────────────────────────────────────
+    onSaveFailure: (fn) => { _onSaveFailure = fn; },
   };
 })();

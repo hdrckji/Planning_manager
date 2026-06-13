@@ -95,6 +95,40 @@ app.get("/api/kv/:key", async (req, res) => {
 app.put("/api/kv/:key", requireToken, async (req, res) => {
   const { value } = req.body;
   if (value === undefined) return res.status(400).json({ error: "missing_value" });
+
+  let finalValue = value;
+
+  // Réintègre les mots de passe hachés que le GET a masqués.
+  // Le client ne reçoit jamais les vrais hashes (sanitizeStateForClient),
+  // donc chaque PUT restaure les mots de passe depuis la valeur existante en base.
+  if (req.params.key === "flowdesk-state" && value && Array.isArray(value.users)) {
+    try {
+      const { rows } = await pool.query(
+        "SELECT value FROM kv_store WHERE key = 'flowdesk-state'"
+      );
+      const existing = rows[0]?.value;
+      if (existing && Array.isArray(existing.users)) {
+        const pwdMap = {};
+        existing.users.forEach((u) => {
+          if (u.id && typeof u.password === "string" && u.password) {
+            pwdMap[u.id] = u.password;
+          }
+        });
+        finalValue = {
+          ...value,
+          users: value.users.map((u) => ({
+            ...u,
+            password: (typeof u.password === "string" && u.password)
+              ? u.password          // le client a envoyé un vrai hash (création / changement)
+              : (pwdMap[u.id] || ""), // sinon, restaurer depuis la base
+          })),
+        };
+      }
+    } catch (mergeErr) {
+      console.warn("Merge mots de passe échoué, save sans restauration:", mergeErr.message);
+    }
+  }
+
   try {
     await pool.query(
       `INSERT INTO kv_store (key, value, updated_at)
@@ -102,7 +136,7 @@ app.put("/api/kv/:key", requireToken, async (req, res) => {
        ON CONFLICT (key) DO UPDATE
          SET value = EXCLUDED.value,
              updated_at = NOW()`,
-      [req.params.key, JSON.stringify(value)],
+      [req.params.key, JSON.stringify(finalValue)],
     );
     res.sendStatus(204);
   } catch (err) {
