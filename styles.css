@@ -3176,6 +3176,31 @@ textarea {
   }
 }
 
+/* ── Absences du jour (planning manager) ──────────────────────────────── */
+.cal-absent-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 6px 6px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.cal-absent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(71,85,105,.1);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.cal-absent-chip.is-vac {
+  background: rgba(217,119,6,.12);
+  color: #92400e;
+}
+
 /* ── Congés collaborateurs ─────────────────────────────────────────────── */
 .vp-section {
   margin-top: 16px;

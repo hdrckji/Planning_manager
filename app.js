@@ -3202,6 +3202,11 @@ function renderManagerPlanning(container, collaborators) {
             const dayNum     = new Intl.DateTimeFormat("fr-BE", { day: "numeric", month: "short" }).format(day);
             const dayTotal   = [...dayTickets, ...dayTasks].reduce((s, x) => s + (x.estimatedHours || 0), 0);
             const isEmpty    = dayTickets.length === 0 && dayTasks.length === 0;
+            const wt = weekTypeForDate(day);
+            const dk = schedKeyForDate(day);
+            const absentCollabs = collaborators.filter((c) =>
+              isOnVacation(c, dateStr) || (c.schedule && !scheduleDay(c, wt, dk).active)
+            );
             return `
               <div class="cal-day${isToday ? " cal-day--today" : ""}">
                 <div class="cal-day-head">
@@ -3211,6 +3216,13 @@ function renderManagerPlanning(container, collaborators) {
                   </div>
                   <button class="cal-add-btn" data-add-date="${escHtml(dateStr)}" title="${escHtml(t("plan.task.new"))}">+</button>
                 </div>
+                ${absentCollabs.length > 0 ? `
+                  <div class="cal-absent-bar">
+                    ${absentCollabs.map((c) => {
+                      const isVac = isOnVacation(c, dateStr);
+                      return `<span class="cal-absent-chip${isVac ? " is-vac" : ""}" title="${isVac ? "Congé" : "Repos"}">${isVac ? "🌴" : "😴"} ${escHtml(c.name)}</span>`;
+                    }).join("")}
+                  </div>` : ""}
                 ${dayTotal > 0 ? `<div class="cal-day-total">${formatHours(dayTotal)}</div>` : ""}
                 <div class="cal-day-body">
                   ${isEmpty ? '<span class="cal-empty">—</span>' : ""}
