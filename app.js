@@ -478,6 +478,61 @@ async function bootstrap() {
   configureProfileTeamField();
   renderUserSelector();
   render();
+  setupPushNotifications().catch(() => {});
+}
+
+// ── Push notifications ────────────────────────────────────────────────────────
+
+async function setupPushNotifications() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+  const reg = await navigator.serviceWorker.register("/sw.js");
+
+  const keyRes = await fetch("/api/push/vapid-public-key").catch(() => null);
+  if (!keyRes?.ok) return;
+  const { publicKey } = await keyRes.json();
+
+  const existingSub = await reg.pushManager.getSubscription();
+  if (existingSub) {
+    _pushRegistration = existingSub;
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission !== "granted") return;
+
+  const sub = await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: _urlBase64ToUint8Array(publicKey),
+  });
+
+  const userId = window.FlowDeskAuth?.getAuthenticatedUserId?.(pageConfig.role) || "";
+  if (!userId) return;
+
+  await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ subscription: sub.toJSON(), userId, role: pageConfig.role }),
+  });
+  _pushRegistration = sub;
+}
+
+let _pushRegistration = null;
+
+function _urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
+}
+
+async function sendPushNotification({ targetUserIds, title, body, url, tag }) {
+  if (!targetUserIds?.length) return;
+  fetch("/api/push/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetUserIds, title, body, url, tag }),
+  }).catch(() => {});
 }
 
 function showLoadingOverlay(visible) {
@@ -1225,6 +1280,17 @@ function renderEmployeePage() {
     rebuildSelects();
     render();
     toast(t("emp.sent"));
+
+    // Notifier tous les managers d'une nouvelle demande
+    const newTicket = state.tickets[0];
+    const managerIds = state.users.filter((u) => u.role === "manager").map((u) => u.id);
+    sendPushNotification({
+      targetUserIds: managerIds,
+      title: "Nouvelle demande",
+      body: `${newTicket.title} — ${newTicket.id}`,
+      url: "/manager.html",
+      tag: `new_ticket_${newTicket.id}`,
+    });
   });
 
   if (enAttenteTickets.length > 0) {
@@ -4942,6 +5008,17 @@ function renderManagerForm(ticket, collaborators) {
       returnNote: note,
     });
     toast(t("mgr.ask.info.sent"));
+
+    // Notifier l'employé créateur qu'une information lui est demandée
+    if (ticket.createdBy) {
+      sendPushNotification({
+        targetUserIds: [ticket.createdBy],
+        title: "Information demandée",
+        body: `${ticket.title} — ${ticket.id}`,
+        url: "/employee.html",
+        tag: `info_${ticket.id}`,
+      });
+    }
   });
 
   wrapper.querySelector("#mgrSaveBtn").addEventListener("click", () => {
@@ -4965,6 +5042,27 @@ function renderManagerForm(ticket, collaborators) {
       returnNote: String(wrapper.querySelector("[name='returnNote']")?.value || ""),
     });
     toast(t("mgr.saved"));
+
+    // Notifier le collaborateur si une affectation interne vient d'être faite
+    if (assignedTo && assignedTo !== ticket.assignedTo) {
+      sendPushNotification({
+        targetUserIds: [assignedTo],
+        title: "Nouvelle tâche assignée",
+        body: `${ticket.title} — ${ticket.id}`,
+        url: "/collaborator.html",
+        tag: `assigned_${ticket.id}`,
+      });
+    }
+    // Notifier l'employé créateur d'une modification
+    if (ticket.createdBy) {
+      sendPushNotification({
+        targetUserIds: [ticket.createdBy],
+        title: "Votre demande a été mise à jour",
+        body: `${ticket.title} — ${ticket.id}`,
+        url: "/employee.html",
+        tag: `modified_${ticket.id}`,
+      });
+    }
   });
 
   wrapper.querySelector("#mgrDeleteBtn").addEventListener("click", () => {

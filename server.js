@@ -8,6 +8,27 @@ const bcrypt  = require("bcryptjs");
 const crypto  = require("crypto");
 const { pool, initSchema } = require("./db");
 
+// ── Web Push (VAPID) ─────────────────────────────────────────────────────────
+let webpush        = null;
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || "";
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
+const VAPID_EMAIL   = process.env.VAPID_EMAIL       || "mailto:admin@famiflora.be";
+try {
+  webpush = require("web-push");
+  if (VAPID_PUBLIC && VAPID_PRIVATE) {
+    webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
+    console.log("Push notifications: VAPID configuré ✓");
+  } else {
+    const keys = webpush.generateVAPIDKeys();
+    console.log("Push: clés VAPID manquantes. Ajouter dans les variables Railway :");
+    console.log(`  VAPID_PUBLIC_KEY=${keys.publicKey}`);
+    console.log(`  VAPID_PRIVATE_KEY=${keys.privateKey}`);
+    webpush = null;
+  }
+} catch (e) {
+  console.warn("web-push non disponible:", e.message);
+}
+
 // ── Sécurité : secret d'application ────────────────────────────────────────
 // Si APP_SECRET est défini en variable d'env → les tokens sont stables entre redémarrages
 // et la protection en écriture est activée (REQUIRE_AUTH_WRITES implicite).
@@ -740,10 +761,72 @@ app.get("/api/debug/users", async (req, res) => {
   }
 });
 
-// ── Push stubs (no-op until web-push is configured) ────────────────────────
-app.get("/api/push/vapid-public-key", (_, res) => res.status(503).json({ error: "push_not_configured" }));
-app.post("/api/push/subscribe",       (_, res) => res.status(503).json({ error: "push_not_configured" }));
-app.post("/api/push/unsubscribe",     (_, res) => res.sendStatus(204));
+// ── Push notifications ───────────────────────────────────────────────────────
+app.get("/api/push/vapid-public-key", (_, res) => {
+  if (!webpush || !VAPID_PUBLIC) return res.status(503).json({ error: "push_not_configured" });
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+app.post("/api/push/subscribe", async (req, res) => {
+  if (!webpush) return res.status(503).json({ error: "push_not_configured" });
+  const { subscription, userId, role } = req.body || {};
+  if (!subscription?.endpoint || !userId) return res.status(400).json({ error: "invalid_payload" });
+  try {
+    await pool.query(
+      `INSERT INTO push_subscriptions (user_id, role, endpoint, subscription)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, endpoint) DO UPDATE SET subscription = $4, role = $2`,
+      [userId, role || "", subscription.endpoint, JSON.stringify(subscription)]
+    );
+    res.sendStatus(201);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/push/unsubscribe", async (req, res) => {
+  const { userId, endpoint } = req.body || {};
+  if (userId && endpoint) {
+    try {
+      await pool.query(
+        "DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2",
+        [userId, endpoint]
+      );
+    } catch { /* ignore */ }
+  }
+  res.sendStatus(204);
+});
+
+app.post("/api/push/notify", async (req, res) => {
+  if (!webpush) return res.status(503).json({ error: "push_not_configured" });
+  const { targetUserIds, title, body, url, tag } = req.body || {};
+  if (!Array.isArray(targetUserIds) || targetUserIds.length === 0) {
+    return res.status(400).json({ error: "targetUserIds requis" });
+  }
+  try {
+    const placeholders = targetUserIds.map((_, i) => `$${i + 1}`).join(",");
+    const { rows } = await pool.query(
+      `SELECT user_id, endpoint, subscription FROM push_subscriptions WHERE user_id IN (${placeholders})`,
+      targetUserIds
+    );
+    const payload = JSON.stringify({ title, body, url: url || "/", tag: tag || "famitask" });
+    const results = await Promise.allSettled(
+      rows.map((row) => webpush.sendNotification(row.subscription, payload))
+    );
+    // Supprimer les abonnements expirés (410 Gone)
+    const expiredEndpoints = results
+      .map((r, i) => ({ r, row: rows[i] }))
+      .filter(({ r }) => r.status === "rejected" && r.reason?.statusCode === 410)
+      .map(({ row }) => row.endpoint);
+    if (expiredEndpoints.length > 0) {
+      const ep = expiredEndpoints.map((_, i) => `$${i + 1}`).join(",");
+      await pool.query(`DELETE FROM push_subscriptions WHERE endpoint IN (${ep})`, expiredEndpoints);
+    }
+    res.json({ sent: results.filter((r) => r.status === "fulfilled").length, total: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ── SPA fallback ────────────────────────────────────────────────────────────
 app.get("*", (req, res) => {

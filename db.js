@@ -15,6 +15,17 @@ async function initSchema() {
       updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id           SERIAL PRIMARY KEY,
+      user_id      TEXT NOT NULL,
+      role         TEXT NOT NULL DEFAULT '',
+      endpoint     TEXT NOT NULL,
+      subscription JSONB NOT NULL,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (user_id, endpoint)
+    )
+  `);
 }
 
 module.exports = { pool, initSchema };
